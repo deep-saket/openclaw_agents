@@ -89,6 +89,10 @@ if not exist "%VENV_PY%" (
   exit /b 1
 )
 
+echo [setup] python inside .venv:
+"%VENV_PY%" --version
+if errorlevel 1 exit /b 1
+
 echo [setup] upgrading pip
 "%VENV_PY%" -m pip install --upgrade pip
 if errorlevel 1 exit /b 1

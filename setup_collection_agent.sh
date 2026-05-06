@@ -126,6 +126,9 @@ else
   exit 1
 fi
 
+echo "[setup] python inside .venv:"
+"${VENV_PY}" --version
+
 echo "[setup] upgrading pip"
 "${VENV_PY}" -m pip install --upgrade pip
 
