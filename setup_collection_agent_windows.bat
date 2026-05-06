@@ -7,34 +7,34 @@ cd /d "%ROOT_DIR%"
 
 echo [setup] repo root: %ROOT_DIR%
 
+set "PYTHON_CMD="
+set "PYTHON_LINE_FOUND="
+
 where py >nul 2>nul
 if %errorlevel%==0 (
-  py -3.11 -c "import sys" >nul 2>nul
-  if %errorlevel%==0 (
+  for /f %%v in ('py -3.11 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2^>nul') do set "PYTHON_LINE_FOUND=%%v"
+  if "%PYTHON_LINE_FOUND%"=="%REQUIRED_PYTHON_LINE%" (
     set "PYTHON_CMD=py -3.11"
-  ) else (
-    set "PYTHON_CMD="
   )
-) else (
-  set "PYTHON_CMD="
 )
 
 if not defined PYTHON_CMD (
   where python >nul 2>nul
   if %errorlevel%==0 (
-    python -c "import sys; raise SystemExit(0 if (sys.version_info.major==3 and sys.version_info.minor==11) else 1)" >nul 2>nul
-    if %errorlevel%==0 (
+    set "PYTHON_LINE_FOUND="
+    for /f %%v in ('python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2^>nul') do set "PYTHON_LINE_FOUND=%%v"
+    if "%PYTHON_LINE_FOUND%"=="%REQUIRED_PYTHON_LINE%" (
       set "PYTHON_CMD=python"
     )
   )
 )
 
 if not defined PYTHON_CMD (
-    echo [setup] Python not found. Attempting to install Python 3.11+ ...
+    echo [setup] Python %REQUIRED_PYTHON_LINE%.x not found. Attempting install ...
 
     where winget >nul 2>nul
     if %errorlevel%==0 (
-      winget install --id Python.Python.3.11 -e --accept-package-agreements --accept-source-agreements
+      winget install --id Python.Python.3.11 -e --silent --accept-package-agreements --accept-source-agreements
     ) else (
       where choco >nul 2>nul
       if %errorlevel%==0 (
@@ -48,14 +48,16 @@ if not defined PYTHON_CMD (
 
   where py >nul 2>nul
   if %errorlevel%==0 (
-    py -3.11 -c "import sys" >nul 2>nul
-    if %errorlevel%==0 set "PYTHON_CMD=py -3.11"
+    set "PYTHON_LINE_FOUND="
+    for /f %%v in ('py -3.11 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2^>nul') do set "PYTHON_LINE_FOUND=%%v"
+    if "%PYTHON_LINE_FOUND%"=="%REQUIRED_PYTHON_LINE%" set "PYTHON_CMD=py -3.11"
   )
   if not defined PYTHON_CMD (
     where python >nul 2>nul
     if %errorlevel%==0 (
-      python -c "import sys; raise SystemExit(0 if (sys.version_info.major==3 and sys.version_info.minor==11) else 1)" >nul 2>nul
-      if %errorlevel%==0 set "PYTHON_CMD=python"
+      set "PYTHON_LINE_FOUND="
+      for /f %%v in ('python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2^>nul') do set "PYTHON_LINE_FOUND=%%v"
+      if "%PYTHON_LINE_FOUND%"=="%REQUIRED_PYTHON_LINE%" set "PYTHON_CMD=python"
     )
   )
   if not defined PYTHON_CMD (
@@ -74,6 +76,10 @@ if exist ".venv" (
 
 echo [setup] creating fresh virtual environment at .venv
 %PYTHON_CMD% -m venv .venv
+if errorlevel 1 (
+  echo [error] Failed to create virtual environment with: %PYTHON_CMD%
+  exit /b 1
+)
 
 set "VENV_PY=%ROOT_DIR%.venv\Scripts\python.exe"
 if not exist "%VENV_PY%" (
