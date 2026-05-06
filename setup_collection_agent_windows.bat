@@ -67,12 +67,13 @@ if not defined PYTHON_CMD (
 
 echo [setup] using python launcher: %PYTHON_CMD%
 
-if not exist ".venv" (
-  echo [setup] creating virtual environment at .venv
-  %PYTHON_CMD% -m venv .venv
-) else (
-  echo [setup] virtual environment already exists at .venv
+if exist ".venv" (
+  echo [setup] deleting existing virtual environment at .venv
+  rmdir /s /q ".venv"
 )
+
+echo [setup] creating fresh virtual environment at .venv
+%PYTHON_CMD% -m venv .venv
 
 set "VENV_PY=%ROOT_DIR%.venv\Scripts\python.exe"
 if not exist "%VENV_PY%" (
