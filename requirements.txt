@@ -1,0 +1,13 @@
+# Base runtime dependencies for easy_agents / collection agent
+duckdb>=1.1,<2.0
+fastapi>=0.115,<1.0
+jinja2>=3.1,<4.0
+langgraph>=0.6.7,<1.0
+pydantic>=2.7,<3.0
+python-multipart>=0.0.9,<1.0
+pyyaml>=6.0,<7.0
+twilio>=9.0,<10.0
+uvicorn>=0.30,<1.0
+
+# Optional voice realtime support (uncomment if needed)
+# pipecat-ai[openai,runner,websocket]>=1.0.0,<2.0
