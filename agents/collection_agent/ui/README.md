@@ -2,6 +2,32 @@
 
 Purpose: local debug UI to test text turns and inspect graph execution/state updates.
 
+## First-time setup
+
+From repo root (`/Users/saketm10/Projects/openclaw_agents`):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -e .
+```
+
+Create/load env vars (minimum for current default config):
+
+```bash
+NVIDIA_API_KEY=nvapi-...
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com
+```
+
+Load `.env` values in shell:
+
+```bash
+set -a
+source .env
+set +a
+```
+
 ## Run
 
 From repo root:
@@ -13,6 +39,12 @@ python -m agents.collection_agent.ui.server
 Then open:
 
 - `http://127.0.0.1:8060/`
+
+If you use the repo helper script (conda + `.env` loading):
+
+```bash
+./ui-render.sh
+```
 
 ## What it shows
 

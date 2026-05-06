@@ -2,6 +2,88 @@
 
 Main customer-facing collections agent.
 
+## First-time setup (run-only)
+
+Use this section when someone is running Collection Agent for the first time.
+
+### 1) Python environment
+
+From repo root (`/Users/saketm10/Projects/openclaw_agents`):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -e .
+```
+
+Optional voice runtime dependencies:
+
+```bash
+pip install ".[voice-realtime]"
+```
+
+### 2) Environment variables
+
+Collection Agent reads API keys from environment variables.
+
+Create or update `.env` at repo root:
+
+```bash
+NVIDIA_API_KEY=nvapi-...
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com
+
+# Only needed if you switch config to llm.provider=openai
+OPENAI_API_KEY=sk-...
+```
+
+Load variables into the current shell:
+
+```bash
+set -a
+source .env
+set +a
+```
+
+Notes:
+
+- Current default config uses `llm.provider: nvidia` in `agents/collection_agent/config.yml`.
+- If `llm.provider=openai`, `OPENAI_API_KEY` becomes required.
+
+### 3) Run Collection Agent (interactive CLI)
+
+```bash
+python agents/collection_agent/main.py --interactive --session-id collection-demo
+```
+
+### 4) Run Collection Agent UI
+
+```bash
+python -m agents.collection_agent.ui.server
+```
+
+Open:
+
+- `http://127.0.0.1:8060/`
+
+Alternative launcher used in this repo:
+
+```bash
+./ui-render.sh
+```
+
+### 5) Quick health check
+
+```bash
+curl http://127.0.0.1:8060/health
+```
+
+Expected response:
+
+```json
+{"status":"ok"}
+```
+
 ## Core idea
 
 - Graph handles one internal reasoning pass and always ends at response.
