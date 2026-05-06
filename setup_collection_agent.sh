@@ -12,6 +12,10 @@ cd "${ROOT_DIR}"
 
 echo "[setup] repo root: ${ROOT_DIR}"
 
+REQUIRED_PYTHON_MAJOR=3
+REQUIRED_PYTHON_MINOR=11
+REQUIRED_PYTHON_LINE="${REQUIRED_PYTHON_MAJOR}.${REQUIRED_PYTHON_MINOR}"
+
 run_with_sudo() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
     "$@"
@@ -27,16 +31,16 @@ run_with_sudo() {
 }
 
 install_python_if_missing() {
-  if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
+  if command -v python3.11 >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
     return
   fi
 
-  echo "[setup] Python not found. Attempting to install Python 3.11+ ..."
+  echo "[setup] Python not found. Attempting to install Python ${REQUIRED_PYTHON_LINE}.x ..."
   OS_NAME="$(uname -s | tr '[:upper:]' '[:lower:]')"
 
   if [[ "${OS_NAME}" == "darwin" ]]; then
     if command -v brew >/dev/null 2>&1; then
-      brew install python@3.11 || brew install python
+      brew install python@3.11
       return
     fi
     echo "[error] Homebrew not found. Install Homebrew first: https://brew.sh/" >&2
@@ -46,15 +50,15 @@ install_python_if_missing() {
   if [[ "${OS_NAME}" == "linux" ]]; then
     if command -v apt-get >/dev/null 2>&1; then
       run_with_sudo apt-get update
-      run_with_sudo apt-get install -y python3 python3-venv python3-pip
+      run_with_sudo apt-get install -y python3.11 python3.11-venv python3-pip
       return
     fi
     if command -v dnf >/dev/null 2>&1; then
-      run_with_sudo dnf install -y python3 python3-pip
+      run_with_sudo dnf install -y python3.11 python3.11-pip
       return
     fi
     if command -v yum >/dev/null 2>&1; then
-      run_with_sudo yum install -y python3 python3-pip
+      run_with_sudo yum install -y python3.11 python3.11-pip
       return
     fi
     if command -v pacman >/dev/null 2>&1; then
@@ -63,31 +67,55 @@ install_python_if_missing() {
     fi
   fi
 
-  echo "[error] Could not auto-install Python on this platform." >&2
-  echo "[error] Please install Python 3.11+ manually, then re-run this script." >&2
+  echo "[error] Could not auto-install Python ${REQUIRED_PYTHON_LINE}.x on this platform." >&2
+  echo "[error] Please install Python ${REQUIRED_PYTHON_LINE}.x manually, then re-run this script." >&2
   exit 1
+}
+
+validate_python_line() {
+  local cmd="$1"
+  local ver
+  ver="$("${cmd}" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")' 2>/dev/null || true)"
+  [[ "${ver}" == "${REQUIRED_PYTHON_LINE}" ]]
 }
 
 install_python_if_missing
 
 PYTHON_CMD=""
-if command -v python3 >/dev/null 2>&1; then
+if command -v python3.11 >/dev/null 2>&1; then
+  PYTHON_CMD="python3.11"
+elif command -v python3 >/dev/null 2>&1; then
   PYTHON_CMD="python3"
 elif command -v python >/dev/null 2>&1; then
   PYTHON_CMD="python"
 else
-  echo "[error] Python not found. Install Python 3.11+ and retry." >&2
+  echo "[error] Python not found. Install Python ${REQUIRED_PYTHON_LINE}.x and retry." >&2
+  exit 1
+fi
+
+if ! validate_python_line "${PYTHON_CMD}"; then
+  echo "[setup] Found ${PYTHON_CMD}, but it is not Python ${REQUIRED_PYTHON_LINE}.x. Trying to install required line..."
+  install_python_if_missing
+  if command -v python3.11 >/dev/null 2>&1; then
+    PYTHON_CMD="python3.11"
+  fi
+fi
+
+if ! validate_python_line "${PYTHON_CMD}"; then
+  echo "[error] Required Python line is ${REQUIRED_PYTHON_LINE}.x, but current is incompatible." >&2
+  echo "[error] Install Python ${REQUIRED_PYTHON_LINE}.x and rerun this script." >&2
   exit 1
 fi
 
 echo "[setup] using python: ${PYTHON_CMD}"
 
-if [[ ! -d ".venv" ]]; then
-  echo "[setup] creating virtual environment at .venv"
-  "${PYTHON_CMD}" -m venv .venv
-else
-  echo "[setup] virtual environment already exists at .venv"
+if [[ -d ".venv" ]]; then
+  echo "[setup] deleting existing virtual environment at .venv"
+  rm -rf .venv
 fi
+
+echo "[setup] creating fresh virtual environment at .venv"
+"${PYTHON_CMD}" -m venv .venv
 
 if [[ -x ".venv/bin/python" ]]; then
   VENV_PY=".venv/bin/python"

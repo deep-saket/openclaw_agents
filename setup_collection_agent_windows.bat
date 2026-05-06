@@ -2,18 +2,34 @@
 setlocal enabledelayedexpansion
 
 set "ROOT_DIR=%~dp0"
+set "REQUIRED_PYTHON_LINE=3.11"
 cd /d "%ROOT_DIR%"
 
 echo [setup] repo root: %ROOT_DIR%
 
 where py >nul 2>nul
 if %errorlevel%==0 (
-  set "PYTHON_CMD=py -3"
+  py -3.11 -c "import sys" >nul 2>nul
+  if %errorlevel%==0 (
+    set "PYTHON_CMD=py -3.11"
+  ) else (
+    set "PYTHON_CMD="
+  )
 ) else (
+  set "PYTHON_CMD="
+)
+
+if not defined PYTHON_CMD (
   where python >nul 2>nul
   if %errorlevel%==0 (
-    set "PYTHON_CMD=python"
-  ) else (
+    python -c "import sys; raise SystemExit(0 if (sys.version_info.major==3 and sys.version_info.minor==11) else 1)" >nul 2>nul
+    if %errorlevel%==0 (
+      set "PYTHON_CMD=python"
+    )
+  )
+)
+
+if not defined PYTHON_CMD (
     echo [setup] Python not found. Attempting to install Python 3.11+ ...
 
     where winget >nul 2>nul
@@ -30,19 +46,22 @@ if %errorlevel%==0 (
       )
     )
 
-    where py >nul 2>nul
+  where py >nul 2>nul
+  if %errorlevel%==0 (
+    py -3.11 -c "import sys" >nul 2>nul
+    if %errorlevel%==0 set "PYTHON_CMD=py -3.11"
+  )
+  if not defined PYTHON_CMD (
+    where python >nul 2>nul
     if %errorlevel%==0 (
-      set "PYTHON_CMD=py -3"
-    ) else (
-      where python >nul 2>nul
-      if %errorlevel%==0 (
-        set "PYTHON_CMD=python"
-      ) else (
-        echo [error] Python install command completed but Python is still not on PATH.
-        echo [error] Open a new Command Prompt and run this script again.
-        exit /b 1
-      )
+      python -c "import sys; raise SystemExit(0 if (sys.version_info.major==3 and sys.version_info.minor==11) else 1)" >nul 2>nul
+      if %errorlevel%==0 set "PYTHON_CMD=python"
     )
+  )
+  if not defined PYTHON_CMD (
+    echo [error] Python install command completed but Python 3.11 is still unavailable on PATH.
+    echo [error] Open a new Command Prompt and run this script again.
+    exit /b 1
   )
 )
 
