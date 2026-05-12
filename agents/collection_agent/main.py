@@ -23,6 +23,18 @@ from src.platform_logging.tracing import JSONLTraceSink, StdoutJSONTraceSink, Tr
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("config.yml")
 
 
+def load_env_file(path: Path) -> None:
+    """Loads KEY=VALUE pairs from env file into process env if not set."""
+    if not path.exists():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
 class MultiTraceSink:
     """Fan-out sink that emits events to multiple sinks."""
 
@@ -52,6 +64,7 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--config", default=str(defaults.get("config_path", DEFAULT_CONFIG_PATH)), help="Path to collection config")
     parser.add_argument("--openai-api-key", default=None, help="Override OPENAI_API_KEY for this run")
     parser.add_argument("--nvidia-api-key", default=None, help="Override NVIDIA_API_KEY for this run")
+    parser.add_argument("--groq-api-key", default=None, help="Override GROQ_API_KEY for this run")
     parser.add_argument("--disable-llm", action="store_true", help="Disable LLM usage and run deterministic planner fallback")
     parser.add_argument("--trace-jsonl", default=None, help="Optional JSONL event trace output path")
     parser.add_argument("--trace-stdout-json", action="store_true", help="Emit real-time trace events to stdout as JSON lines")
@@ -81,6 +94,7 @@ def build_llm(
     config: dict[str, Any],
     cli_openai_api_key: str | None = None,
     cli_nvidia_api_key: str | None = None,
+    cli_groq_api_key: str | None = None,
     force_disable: bool = False,
 ) -> Any | None:
     llm_cfg = dict(config.get("llm", {})) if isinstance(config.get("llm"), dict) else {}
@@ -123,8 +137,21 @@ def build_llm(
             temperature=temperature,
         )
 
+    if provider == "groq":
+        api_key = cli_groq_api_key or os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "GROQ_API_KEY is required for llm.provider=groq. Pass --groq-api-key or export GROQ_API_KEY."
+            )
+        return LLMFactory.build_groq_llm(
+            model_name=model_name,
+            api_key=api_key,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+        )
+
     raise ValueError(
-        f"Collection Agent supports llm.provider values: openai, nvidia. Got: {provider}"
+        f"Collection Agent supports llm.provider values: openai, nvidia, groq. Got: {provider}"
     )
 
 
@@ -350,10 +377,12 @@ def main() -> None:
     args = parser.parse_args()
 
     base_dir = Path(args.base_dir)
+    load_env_file(base_dir / ".env")
     llm = build_llm(
         config,
         cli_openai_api_key=args.openai_api_key,
         cli_nvidia_api_key=args.nvidia_api_key,
+        cli_groq_api_key=args.groq_api_key,
         force_disable=args.disable_llm,
     )
     trace_sink = build_trace_sink(args, base_dir, config)

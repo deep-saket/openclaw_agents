@@ -61,23 +61,31 @@ class CollectionResponseNode(ResponseNode):
             else (state.get("conversation_plan") if isinstance(state.get("conversation_plan"), dict) else {})
         )
         facts = self._resolve_case_facts(state=state, proposal=proposal)
-        verification_guard = self._build_verification_guard_response(
+        verification_guard_context = self._build_verification_guard_context(
             state=state,
             memory_state=memory_state,
             response_target=response_target,
             conversation_plan=conversation_plan,
             customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
         )
-        if verification_guard:
-            return verification_guard
 
         if self.llm is not None:
-            llm_response = self._llm_render_from_proposal(state=state, proposal=proposal)
+            llm_response = self._llm_render_from_proposal(
+                state=state,
+                proposal=proposal,
+                verification_guard_context=verification_guard_context,
+            )
             if llm_response:
                 return llm_response
         return self._fallback_render_from_proposal(proposal=proposal)
 
-    def _llm_render_from_proposal(self, *, state: AgentState, proposal: dict[str, Any]) -> str | None:
+    def _llm_render_from_proposal(
+        self,
+        *,
+        state: AgentState,
+        proposal: dict[str, Any],
+        verification_guard_context: dict[str, Any] | None = None,
+    ) -> str | None:
         user_input = str(state.get("user_input", ""))
         observation = state.get("observation")
         memory = state.get("memory")
@@ -97,6 +105,7 @@ class CollectionResponseNode(ResponseNode):
         prior_agent_response = str(memory_state.get("last_agent_response", "")).strip()
         turn_index = int(memory_state.get("turn_index", state.get("turn_index", 0)) or 0)
         is_opening_turn = turn_index <= 0
+        verification_context = verification_guard_context if isinstance(verification_guard_context, dict) else {}
 
         system_prompt = (
             f"{self.system_prompt or ''}\n"
@@ -111,6 +120,8 @@ class CollectionResponseNode(ResponseNode):
             "When opening customer conversation, introduce yourself as Alex from collections.\n"
             "When response_target=customer: produce end-customer message only.\n"
             "When response_target=self: produce concise internal execution directive for next planner pass.\n"
+            "If verification context indicates verification is incomplete, do not disclose dues/policy-sensitive details.\n"
+            "If verification is incomplete, ask only for the missing fields listed in verification context.\n"
             "Return strict JSON only: {\"message\": \"...\", \"response_target\": \"customer|self\"}."
         ).strip()
         user_prompt = (
@@ -125,6 +136,7 @@ class CollectionResponseNode(ResponseNode):
             f"Current plan step label: {current_plan_node_label}\n"
             f"Plan proposal: {json.dumps(proposal, ensure_ascii=True)}\n"
             f"Conversation plan graph: {json.dumps(conversation_plan, ensure_ascii=True)}\n"
+            f"Verification context: {json.dumps(verification_context, ensure_ascii=True)}\n"
             f"Observation: {json.dumps(observation, ensure_ascii=True, default=str)}\n"
             "Generate only structured JSON output."
         )
@@ -150,7 +162,7 @@ class CollectionResponseNode(ResponseNode):
             ensure_intro=bool(is_opening_turn and response_target == "customer"),
         )
 
-    def _build_verification_guard_response(
+    def _build_verification_guard_context(
         self,
         *,
         state: AgentState,
@@ -158,7 +170,7 @@ class CollectionResponseNode(ResponseNode):
         response_target: str,
         conversation_plan: dict[str, Any],
         customer_name: str,
-    ) -> str | None:
+    ) -> dict[str, Any] | None:
         if response_target != "customer":
             return None
         current_node_id = str(conversation_plan.get("current_node_id", "")).strip()
@@ -182,24 +194,20 @@ class CollectionResponseNode(ResponseNode):
                 continue
             missing_labels.append(self._verification_field_label(field))
 
-        if not missing_labels:
-            # We have raw details but not a successful verification event yet.
-            return (
-                "Thank you. I still need one successful verification check before sharing dues details. "
-                "Please confirm your date of birth and registered ZIP/pincode."
-            )
-
-        if name_confirmed:
-            prefix_name = customer_name if customer_name else "there"
-            return (
-                f"Thank you, {prefix_name}. To complete verification, please also share "
-                f"{self._join_human_list(missing_labels)}."
-            )
-
-        return (
-            "To complete verification before I explain dues, please share "
-            f"{self._join_human_list(missing_labels)}."
-        )
+        return {
+            "verification_incomplete": True,
+            "name_confirmed": bool(name_confirmed),
+            "customer_name": customer_name,
+            "required_fields": required_fields,
+            "missing_field_labels": missing_labels,
+            "missing_fields_human": self._join_human_list(missing_labels) if missing_labels else "",
+            "guidance": (
+                "Ask only for missing verification fields in a natural conversational way. "
+                "Do not disclose dues or policy-sensitive details until verification completes."
+            ),
+            "current_plan_node_id": current_node_id,
+            "collected_fields": collected,
+        }
 
     def _fallback_render_from_proposal(self, *, proposal: dict[str, Any]) -> str:
         target = str(proposal.get("target", "customer")).strip().lower() or "customer"

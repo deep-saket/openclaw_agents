@@ -8,9 +8,8 @@ paths:
   runtime_dir: ./runtime
 llm:
   enabled: true
-  provider: nvidia
-  model_name: meta/llama-3.1-70b-instruct
-  base_url: https://integrate.api.nvidia.com
+  provider: groq
+  model_name: llama-3.1-8b-instant
   max_new_tokens: 500
   temperature: 0.1
 voice_runtime:

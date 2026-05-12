@@ -82,6 +82,12 @@ class CollectionRepository:
         self._states[session_id] = dict(state)
         self._flush_states()
 
+    def reset_conversation_session(self, session_id: str) -> None:
+        self._messages.pop(session_id, None)
+        self._states.pop(session_id, None)
+        self._flush_messages()
+        self._flush_states()
+
     def save_tool_log(self, log: ToolExecutionLog) -> None:
         logs = list(self._read_json(self.tool_logs_path, []))
         logs.append(log.model_dump(mode="json"))

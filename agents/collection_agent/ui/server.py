@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from agents.collection_agent.agent import CollectionAgent
-from agents.collection_agent.main import DEFAULT_CONFIG_PATH, build_llm, load_collection_config
+from agents.collection_agent.main import DEFAULT_CONFIG_PATH, build_llm, load_collection_config, load_env_file
 from agents.collection_agent.repository import CollectionRepository
 from agents.collection_agent.tools.data_store import CollectionDataStore
 from agents.collection_memory_helper_agent.agent import CollectionMemoryHelperAgent
@@ -89,6 +89,13 @@ class StartConversationRequest(BaseModel):
     session_id: str | None = Field(default=None)
     soft_cap: int = Field(default=10, ge=1)
     hard_cap: int = Field(default=50, ge=1)
+
+
+class ResetConversationRequest(BaseModel):
+    """Reset payload for demo-user conversation state/history."""
+
+    user_code: str = Field(min_length=1, description="One of: user_a, user_b, user_c")
+    session_id: str | None = Field(default=None)
 
 
 class StartVoiceCallRequest(BaseModel):
@@ -257,6 +264,7 @@ class CollectionDebugRuntime:
     @classmethod
     def create(cls, base_dir: Path) -> "CollectionDebugRuntime":
         config_path = base_dir / "config.yml"
+        load_env_file(base_dir / ".env")
         raw_config = load_collection_config(config_path if config_path.exists() else DEFAULT_CONFIG_PATH)
 
         llm_error: str | None = None
@@ -340,6 +348,21 @@ class CollectionDebugRuntime:
             "user": _json_safe(matched),
             "opener_input": opener_input,
             "turn": turn,
+        }
+
+    def reset_conversation(self, request: ResetConversationRequest) -> dict[str, Any]:
+        user_code = request.user_code.strip().lower()
+        matched = next((item for item in self.demo_users if item.get("user_code") == user_code), None)
+        if matched is None:
+            raise ValueError(f"Unknown user_code={user_code}. Use one of: user_a, user_b, user_c")
+
+        requested_session = request.session_id.strip() if isinstance(request.session_id, str) else ""
+        session_id = requested_session or f"collection-{user_code}"
+        self.collection_agent.repository.reset_conversation_session(session_id)
+        return {
+            "session_id": session_id,
+            "user_code": user_code,
+            "status": "reset",
         }
 
     def run_turn(
@@ -854,14 +877,21 @@ def create_router(runtime: CollectionDebugRuntime) -> APIRouter:
     async def start_conversation(body: StartConversationRequest) -> dict[str, Any]:
         try:
             return runtime.start_conversation(body)
-        except ValueError as exc:
+        except Exception as exc:
+            return {"error": str(exc), "users": runtime.list_demo_users()}
+
+    @router.post("/reset-conversation")
+    async def reset_conversation(body: ResetConversationRequest) -> dict[str, Any]:
+        try:
+            return runtime.reset_conversation(body)
+        except Exception as exc:
             return {"error": str(exc), "users": runtime.list_demo_users()}
 
     @router.post("/start-call")
     async def start_call(body: StartVoiceCallRequest) -> dict[str, Any]:
         try:
             return runtime.start_voice_call(body)
-        except ValueError as exc:
+        except Exception as exc:
             return {"error": str(exc), "users": runtime.list_demo_users()}
 
     @router.get("/voice/status")

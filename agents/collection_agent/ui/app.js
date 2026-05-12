@@ -13,6 +13,7 @@ const snapshotPicker = document.getElementById("snapshotPicker");
 const stateJson = document.getElementById("stateJson");
 const memoryJson = document.getElementById("memoryJson");
 const nodesExplored = document.getElementById("nodesExplored");
+const nodePromptJson = document.getElementById("nodePromptJson");
 const nodeOutputJson = document.getElementById("nodeOutputJson");
 const nodeDiffJson = document.getElementById("nodeDiffJson");
 const collapseButton = document.getElementById("collapseButton");
@@ -657,13 +658,75 @@ function extractNodeEntries(hops) {
   return entries;
 }
 
+function pickFirstNonEmptyString(values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return "";
+}
+
+function extractNodePromptResponse(entry) {
+  const raw = (entry && entry.output && typeof entry.output === "object") ? entry.output : {};
+  const before = (entry && entry.state_before && typeof entry.state_before === "object") ? entry.state_before : {};
+  const after = (entry && entry.state_after && typeof entry.state_after === "object") ? entry.state_after : {};
+  const update = (entry && entry.state_update && typeof entry.state_update === "object") ? entry.state_update : {};
+
+  const prompt = pickFirstNonEmptyString([
+    raw.prompt,
+    raw.user_prompt,
+    raw.input_prompt,
+    raw.state_before && raw.state_before.prompt,
+    before.prompt,
+    before.user_input,
+    before.last_user_input,
+  ]);
+
+  const systemPrompt = pickFirstNonEmptyString([
+    raw.system_prompt,
+    before.system_prompt,
+    after.system_prompt,
+  ]);
+
+  const response = pickFirstNonEmptyString([
+    raw.response,
+    raw.output_text,
+    raw.human_message,
+    update.response,
+    after.response,
+  ]);
+
+  const llmResponse = pickFirstNonEmptyString([
+    raw.raw_response,
+    raw.llm_response,
+    raw.generated_text,
+    update.generated_text,
+    after.generated_text,
+  ]);
+
+  const messages = Array.isArray(raw.messages) ? raw.messages : [];
+  const toolCalls = Array.isArray(raw.tool_calls) ? raw.tool_calls : [];
+
+  return {
+    node_name: String(entry.nodeName || "unknown"),
+    hop: Number(entry.hop || 0),
+    prompt: prompt || null,
+    system_prompt: systemPrompt || null,
+    response: response || null,
+    llm_response: llmResponse || null,
+    messages: messages.length ? messages : null,
+    tool_calls: toolCalls.length ? toolCalls : null,
+  };
+}
+
 function renderSelectedNodeEntry() {
   const selected = viewState.nodeEntries.find((entry) => entry.id === viewState.selectedNodeId);
   if (!selected) {
+    nodePromptJson.textContent = "{}";
     nodeOutputJson.textContent = "{}";
     nodeDiffJson.textContent = "{}";
     return;
   }
+  nodePromptJson.textContent = JSON.stringify(extractNodePromptResponse(selected), null, 2);
   nodeOutputJson.textContent = JSON.stringify(
     {
       human_message: selected.humanMessage || null,
@@ -683,6 +746,7 @@ function renderNodeExplorer(hops) {
 
   if (!entries.length) {
     nodesExplored.textContent = "No nodes explored yet.";
+    nodePromptJson.textContent = "{}";
     nodeOutputJson.textContent = "{}";
     nodeDiffJson.textContent = "{}";
     return;
@@ -1106,13 +1170,16 @@ function renderDemoUsers(users) {
       <p class="demo-user-meta"><strong>Overdue:</strong> ${caseInfo.overdue_amount} | <strong>EMI:</strong> ${caseInfo.emi_amount}</p>
       <div class="demo-user-actions">
         <button type="button" data-action="chat" data-user-code="${entry.user_code}">Start Chat</button>
+        <button type="button" data-action="reset" data-user-code="${entry.user_code}">Reset Chat</button>
         <button type="button" data-action="call" data-user-code="${entry.user_code}">Start Call</button>
       </div>
     `;
 
     const chatButton = card.querySelector("button[data-action='chat']");
+    const resetButton = card.querySelector("button[data-action='reset']");
     const callButton = card.querySelector("button[data-action='call']");
     chatButton.addEventListener("click", () => startDemoConversation(entry));
+    resetButton.addEventListener("click", () => resetDemoConversation(entry));
     callButton.addEventListener("click", () => startDemoCall(entry));
     demoUsersEl.appendChild(card);
   }
@@ -1168,6 +1235,56 @@ async function startDemoConversation(userEntry) {
     renderTurnPayload(turn);
   } catch (error) {
     addBubble("agent", `Error starting demo conversation: ${String(error)}`);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function resetDemoConversation(userEntry) {
+  const sessionId = `collection-${userEntry.user_code}`;
+  sessionIdInput.value = sessionId;
+  setBusy(true);
+
+  try {
+    const response = await fetch("/api/reset-conversation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_code: userEntry.user_code,
+        session_id: sessionId,
+      }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `HTTP ${response.status}`);
+    }
+
+    const payload = await response.json();
+    if (payload.error) {
+      throw new Error(payload.error);
+    }
+
+    if (String(viewState.sessionId || "") === sessionId) {
+      viewState.events = [];
+      viewState.snapshots = [];
+      viewState.snapshotMap = new Map();
+      viewState.planSnapshots = [];
+      viewState.planSnapshotIndex = 0;
+      messagesEl.innerHTML = "";
+      renderSnapshots([], {}, {});
+      renderPlanTree();
+      renderExecutionChart([]);
+      renderExecutionNarrative([]);
+      renderThinking([]);
+      renderNodeExplorer([]);
+    }
+
+    addBubble(
+      "system",
+      `Reset conversation for ${userEntry.display_name} | session=${sessionId}. Next Start Chat will begin from fresh verification flow.`,
+    );
+  } catch (error) {
+    addBubble("agent", `Error resetting demo conversation: ${String(error)}`);
   } finally {
     setBusy(false);
   }

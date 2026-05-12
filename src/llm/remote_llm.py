@@ -213,3 +213,44 @@ class GroqLLM(OpenAICompatibleLLM):
     """Calls the hosted Groq OpenAI-compatible Chat Completions API."""
 
     endpoint_url: str = "https://api.groq.com/openai"
+
+    def _post_json(self, payload: dict[str, Any]) -> Any:
+        # Use the official SDK path for Groq because some environments reject
+        # direct urllib calls with provider-edge 403 while SDK requests succeed.
+        from groq import Groq
+
+        if not self.api_key:
+            raise ValueError("GROQ_API_KEY is required for GroqLLM.")
+
+        client = Groq(api_key=self.api_key, timeout=self.timeout_seconds)
+
+        request_payload: dict[str, Any] = {
+            "model": str(payload.get("model", self.model_name)),
+            "messages": payload.get("messages", []),
+        }
+        if payload.get("max_tokens") is not None:
+            request_payload["max_completion_tokens"] = payload["max_tokens"]
+        if payload.get("temperature") is not None:
+            request_payload["temperature"] = payload["temperature"]
+
+        # Pass through any extra OpenAI-compatible fields configured via default_body.
+        for key, value in payload.items():
+            if key in {"model", "messages", "max_tokens", "temperature"}:
+                continue
+            request_payload[key] = value
+
+        completion = client.chat.completions.create(**request_payload)
+
+        content = ""
+        if completion.choices and completion.choices[0].message:
+            content = completion.choices[0].message.content or ""
+
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": content,
+                    }
+                }
+            ]
+        }
