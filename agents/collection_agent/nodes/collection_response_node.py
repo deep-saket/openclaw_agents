@@ -36,25 +36,24 @@ class CollectionResponseNode(ResponseNode):
             update = ResponseNode.execute(self, state)
 
         target = str(update.get("response_target", state.get("response_target", self.default_target))).strip().lower()
-        if target == "discount_planning_agent":
-            target = "self"
-        if target not in {"customer", "self"}:
+        if target not in {"customer", "self", "discount_planning_agent"}:
             target = self.default_target
         update["response_target"] = target
         return update
 
     def route(self, state: AgentState) -> str:
         target = str(state.get("response_target", self.default_target)).strip().lower()
-        if target == "discount_planning_agent":
-            return "self"
-        if target not in {"customer", "self"}:
+        if target not in {"customer", "self", "discount_planning_agent"}:
             return self.default_target
         return target
 
     def _render_from_proposal(self, *, state: AgentState, proposal: dict[str, Any]) -> str:
         memory = state.get("memory")
         memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
+        user_input = str(state.get("user_input", ""))
         response_target = str(proposal.get("target", state.get("response_target", "customer"))).strip().lower() or "customer"
+        if response_target == "discount_planning_agent":
+            return "Prepare specialist handoff payload and wait for discount recommendation."
         conversation_plan = (
             proposal.get("conversation_plan")
             if isinstance(proposal.get("conversation_plan"), dict)
@@ -67,7 +66,13 @@ class CollectionResponseNode(ResponseNode):
             response_target=response_target,
             conversation_plan=conversation_plan,
             customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
+            user_input=user_input,
         )
+        if isinstance(verification_guard_context, dict) and verification_guard_context.get("verification_incomplete"):
+            return self._render_verification_first_message(
+                customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
+                guard=verification_guard_context,
+            )
 
         if self.llm is not None:
             llm_response = self._llm_render_from_proposal(
@@ -170,11 +175,9 @@ class CollectionResponseNode(ResponseNode):
         response_target: str,
         conversation_plan: dict[str, Any],
         customer_name: str,
+        user_input: str,
     ) -> dict[str, Any] | None:
         if response_target != "customer":
-            return None
-        current_node_id = str(conversation_plan.get("current_node_id", "")).strip()
-        if current_node_id != "verify_identity":
             return None
         if bool(memory_state.get("identity_verified", False)):
             return None
@@ -185,14 +188,27 @@ class CollectionResponseNode(ResponseNode):
 
         missing_labels: list[str] = []
         name_confirmed = bool(collected.get("name_confirmed"))
-        if not name_confirmed:
-            missing_labels.append("your full name")
         for field in required_fields:
             if field in {"name", "name_confirmed"}:
                 continue
             if collected.get(field):
                 continue
             missing_labels.append(self._verification_field_label(field))
+
+        lowered_input = str(user_input or "").lower()
+        hardship_tokens = (
+            "job loss",
+            "lost my job",
+            "lost job",
+            "cannot pay",
+            "can't pay",
+            "hardship",
+            "vulnerable",
+            "medical",
+            "salary cut",
+            "income loss",
+        )
+        hardship_signal = any(token in lowered_input for token in hardship_tokens)
 
         return {
             "verification_incomplete": True,
@@ -201,13 +217,34 @@ class CollectionResponseNode(ResponseNode):
             "required_fields": required_fields,
             "missing_field_labels": missing_labels,
             "missing_fields_human": self._join_human_list(missing_labels) if missing_labels else "",
+            "hardship_signal": hardship_signal,
             "guidance": (
                 "Ask only for missing verification fields in a natural conversational way. "
                 "Do not disclose dues or policy-sensitive details until verification completes."
             ),
-            "current_plan_node_id": current_node_id,
+            "current_plan_node_id": str(conversation_plan.get("current_node_id", "")).strip(),
             "collected_fields": collected,
         }
+
+    def _render_verification_first_message(self, *, customer_name: str, guard: dict[str, Any]) -> str:
+        missing_labels = guard.get("missing_field_labels") if isinstance(guard.get("missing_field_labels"), list) else []
+        missing_human = str(guard.get("missing_fields_human", "")).strip()
+        hardship_signal = bool(guard.get("hardship_signal", False))
+        opener_parts: list[str] = [f"Hello, this is Alex from collections. Am I speaking with {customer_name}?"]
+        if hardship_signal:
+            opener_parts.append("I am really sorry to hear you're going through this, and I appreciate you sharing it.")
+        opener = " ".join(opener_parts).strip()
+        if missing_human:
+            ask = f"For verification, please confirm {missing_human}."
+        elif missing_labels:
+            ask = (
+                "For verification, please confirm "
+                + self._join_human_list([str(x) for x in missing_labels if str(x).strip()])
+                + "."
+            )
+        else:
+            ask = "For verification, please confirm your date of birth (YYYY-MM-DD) and registered phone number."
+        return f"{opener} {ask}"
 
     def _fallback_render_from_proposal(self, *, proposal: dict[str, Any]) -> str:
         target = str(proposal.get("target", "customer")).strip().lower() or "customer"
@@ -376,8 +413,7 @@ class CollectionResponseNode(ResponseNode):
         key = str(field_name).strip().lower()
         mapping = {
             "dob": "your date of birth (YYYY-MM-DD)",
-            "last4_pan": "the last 4 characters of your PAN",
-            "zip": "your registered ZIP/pincode",
+            "phone": "your registered phone number",
         }
         return mapping.get(key, key.replace("_", " "))
 

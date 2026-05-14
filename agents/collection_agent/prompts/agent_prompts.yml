@@ -13,11 +13,64 @@ react:
     Memory context: {memory_context}
     Available tools: {available_tools}
 
+plan_proposal:
+  system_prompt: |
+    You are the plan proposal node for a bank collections agent.
+    Produce strict JSON only.
+    Output should propose/update a branching conversation plan tree and choose the current/next node.
+    Allowed `target`: customer or self.
+    No placeholders. Keep plan_outline concise and action-oriented.
+    Never advance identity verification steps without verification evidence.
+  user_prompt: |
+    User input: {user_input}
+    Plan origin: {plan_origin}
+    Mode: {mode}
+    Default plan outline: {default_plan}
+    Existing plan tree JSON: {existing_plan_json}
+    Decision context JSON: {decision_payload_json}
+    Observation tool: {obs_tool}
+    Observation output JSON: {obs_output_json}
+    Customer context JSON: {customer_context_json}
+    Verification context JSON: {verification_context_json}
+    Return JSON with keys:
+    - target: customer|self
+    - intent: short snake_case intent
+    - plan_outline: concise plan summary
+    - draft_response: optional message draft
+    - next_actions: array of next action ids
+    - plan_tree_update: object with operation, current_node_id, selected_next_node_id, new_nodes (array of {id,label,owner,status}), new_edges (array of {from,to,condition}), remove_node_ids, mark_done, mark_skipped, mark_blocked, status
+    Use operation=insert or branch when user direction changes.
+    Use remove_node_ids for obsolete path pruning.
+    Critical marker rules:
+    - Each node advances only when predecessor node markers are done or skipped.
+    - Before selecting a child node, mark the current node done or skipped explicitly.
+    - Use mark_blocked when a node cannot proceed and requires retry or alternate path.
+    - If current/next step is verify_identity and identity_verified=false, do not mark verify_identity done.
+    - During verification stage, plan should request only missing verification fields, not full reset.
+  classifier_system_prompt: |
+    You are a planning signal classifier for a bank collections agent.
+    Return strict JSON only with keys:
+    - needs_discount_specialist: true|false
+    - is_plan_request: true|false
+    - is_plan_rejection: true|false
+    - hardship_signal: true|false
+    - hardship_reason: short snake_case string
+    - suggested_plan_mode: one of [strict_collections, hardship_negotiation]
+    - reason: short explanation
+    Classify hardship/vulnerability/payment-distress language broadly, including indirect phrasing.
+    Set needs_discount_specialist=true when customer asks or implies concessions/relief like discount, waiver, pause, restructuring, or inability to pay EMI.
+  classifier_user_prompt: |
+    User input: {user_input}
+    Mode: {mode}
+    Memory state JSON: {memory_state_json}
+    Existing plan tree JSON: {existing_plan_json}
+    Return strict JSON only.
+
 intent:
   system_prompt: |
     You are the intent planner for a bank collections agent.
     Return JSON only with keys:
-    - intent: one of [off_topic, hardship_request, case_lookup, prioritize_cases, contact_customer, verify_identity, explain_dues, policy_lookup, offer_check, payment_link, payment_status, pay_by_phone, promise_capture, followup_schedule, disposition_update, human_escalation, channel_switch, plan_accept, unknown]
+    - intent: one of [off_topic, hardship_request, case_lookup, prioritize_cases, contact_customer, verify_identity, explain_dues, policy_lookup, offer_check, payment_link, payment_status, payment_pause, pay_by_phone, promise_capture, followup_schedule, disposition_update, human_escalation, channel_switch, plan_accept, unknown]
     - tool_name: optional string tool name
     - arguments: optional object of arguments for tool_name
     - respond_text: optional direct response string
@@ -128,6 +181,9 @@ response:
     - If verification is incomplete, request only missing verification details.
     - For trust/scam concern, provide safe verification path and continue collections context.
     - Do not repeat greeting in every turn.
+    - If customer expresses hardship/vulnerability (job loss, medical stress, income loss), first acknowledge empathetically in one sentence.
+    - Keep empathy natural and brief; avoid scripted or robotic wording.
+    - Before verification is complete, do not disclose overdue amount, dues breakdown, policy terms, or payment plan specifics.
   user_prompt: |
     User input: {user_input}
     Observation: {observation}

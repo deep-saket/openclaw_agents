@@ -28,7 +28,7 @@ class CustomerVerifyTool(BaseTool[CustomerVerifyInput, CustomerVerifyOutput]):
             raise ValueError(f"Missing fixture customer: {customer_id}")
 
         challenge = dict(customer.get("challenge", {}))
-        required_fields = sorted(challenge.keys())
+        required_fields = ["dob", "phone"]
         verification_rows = self.store.load_runtime("verification_attempts.json")
         failed_attempts = sum(
             1
@@ -36,9 +36,13 @@ class CustomerVerifyTool(BaseTool[CustomerVerifyInput, CustomerVerifyOutput]):
             if row.get("customer_id") == customer_id and str(row.get("status")) == "failed"
         )
 
-        expected = {key: str(value).strip().lower() for key, value in challenge.items()}
+        expected_dob = str(challenge.get("dob", "")).strip().lower()
+        expected_phone = str(challenge.get("phone", customer.get("phone", ""))).strip().lower()
         provided = {key: str(value).strip().lower() for key, value in input.challenge_answers.items()}
-        matched = all(provided.get(key) == expected[key] for key in expected)
+        matched = (
+            provided.get("dob", "") == expected_dob
+            and provided.get("phone", "") == expected_phone
+        )
         if failed_attempts >= 3:
             status = "locked"
         elif matched:

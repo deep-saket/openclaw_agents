@@ -32,6 +32,7 @@ from agents.collection_agent.tools import (
     LoanPolicyLookupTool,
     OfferEligibilityTool,
     PayByPhoneCollectTool,
+    PaymentPauseTool,
     PaymentLinkCreateTool,
     PaymentStatusCheckTool,
     PlanProposeTool,
@@ -117,6 +118,7 @@ class CollectionAgent(BaseAgent):
         prompts = load_collection_agent_prompts()
         intent_prompts = prompts.get("intent", {})
         react_prompts = prompts.get("react", {})
+        plan_proposal_prompts = prompts.get("plan_proposal", {})
         reflect_prompts = prompts.get("reflect", {})
         response_prompts = prompts.get("response", {})
 
@@ -292,7 +294,13 @@ class CollectionAgent(BaseAgent):
             available_tools=render_collection_tool_catalog_yaml(),
             max_steps=8,
         )
-        self.plan_node = PlanProposalNode(llm=self.llm)
+        self.plan_node = PlanProposalNode(
+            llm=self.llm,
+            system_prompt=str(plan_proposal_prompts.get("system_prompt", "")),
+            user_prompt=str(plan_proposal_prompts.get("user_prompt", "")),
+            classifier_system_prompt=str(plan_proposal_prompts.get("classifier_system_prompt", "")),
+            classifier_user_prompt=str(plan_proposal_prompts.get("classifier_user_prompt", "")),
+        )
         self.tool_execution_node = ToolExecutionNode(executor=self.tool_executor)
         self.reflect_node = CollectionReflectNode(
             llm=self.llm,
@@ -329,6 +337,7 @@ class CollectionAgent(BaseAgent):
         registry.register(OfferEligibilityTool(store=self.data_store))
         registry.register(PaymentLinkCreateTool(store=self.data_store))
         registry.register(PaymentStatusCheckTool(store=self.data_store))
+        registry.register(PaymentPauseTool(store=self.data_store))
         registry.register(PromiseCaptureTool(store=self.data_store))
         registry.register(FollowupScheduleTool(store=self.data_store))
         registry.register(DispositionUpdateTool(store=self.data_store))
@@ -696,9 +705,7 @@ class CollectionAgent(BaseAgent):
         """Guarantees output contract keys for downstream orchestration."""
         output = dict(state)
         response_target = str(output.get("response_target", "customer")).strip().lower()
-        if response_target == "discount_planning_agent":
-            response_target = "self"
-        if response_target not in {"customer", "self"}:
+        if response_target not in {"customer", "self", "discount_planning_agent"}:
             response_target = "customer"
         output["response_target"] = response_target
 
@@ -846,13 +853,14 @@ class CollectionAgent(BaseAgent):
             customer_row = self.data_store.get_customer(customer_id)
             if isinstance(customer_row, dict):
                 challenge = customer_row.get("challenge") if isinstance(customer_row.get("challenge"), dict) else {}
+                required_fields = [field for field in ["dob", "phone"] if str(challenge.get(field, "")).strip()]
                 memory.set_state(
                     active_customer_name=str(customer_row.get("name", memory_state.get("active_customer_name", "Customer")))
                     .strip()
                     or "Customer",
                     active_customer_phone=str(customer_row.get("phone", "")).strip(),
                     active_customer_email=str(customer_row.get("email", "")).strip(),
-                    active_verification_required_fields=sorted(str(key).strip() for key in challenge.keys() if str(key).strip()),
+                    active_verification_required_fields=required_fields,
                 )
 
     def _resolve_user_id(self, *, memory_state: dict[str, Any], user_input: str) -> str | None:
@@ -895,6 +903,11 @@ class CollectionAgent(BaseAgent):
         dob_match = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", text)
         if dob_match:
             collected["dob"] = dob_match.group(1)
+
+        digits_only = re.sub(r"\D", "", text)
+        phone_match = re.search(r"(?:\+?91)?([6-9]\d{9})", digits_only)
+        if phone_match:
+            collected["phone"] = phone_match.group(1)
 
         zip_match = re.search(
             r"\b(?:zip(?:\s*code)?|pincode|pin(?:\s*code)?)\b[\s:,\-]*(?:is\s+)?(\d{6})\b",
@@ -941,7 +954,7 @@ class CollectionAgent(BaseAgent):
             if isinstance(memory_state.get("verification_collected"), dict)
             else {}
         )
-        required_fields = sorted(str(key).strip() for key in challenge.keys() if str(key).strip())
+        required_fields = [field for field in ["dob", "phone"] if str(challenge.get(field, "")).strip()]
         updates: dict[str, Any] = {"active_verification_required_fields": required_fields}
 
         expected_name = str(customer_row.get("name", "")).strip().lower()
@@ -958,7 +971,7 @@ class CollectionAgent(BaseAgent):
             memory.set_state(**updates)
             return
 
-        expected = {key: str(value).strip().lower() for key, value in challenge.items()}
+        expected = {key: str(challenge.get(key, "")).strip().lower() for key in required_fields}
         provided = {key: str(collected.get(key, "")).strip().lower() for key in expected}
         matched = all(provided.get(key) == expected.get(key) for key in expected)
         updates["identity_verified"] = bool(matched)

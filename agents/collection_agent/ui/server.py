@@ -332,7 +332,8 @@ class CollectionDebugRuntime:
             f"customer_id={matched['customer']['customer_id']} "
             f"case_id={matched['case']['case_id']} "
             f"overdue_amount={matched['case']['overdue_amount']} "
-            "Generate the first call pitch introducing dues and asking for payment intent."
+            "Generate the first call pitch by introducing yourself and requesting identity verification only. "
+            "Do not disclose overdue amount, dues details, or payment options before verification."
         )
 
         turn = self.run_turn(
@@ -491,6 +492,23 @@ class CollectionDebugRuntime:
                     "final_working_memory_state": self._memory_state(session_id=session_id),
                     "llm": self._llm_meta(),
                 }
+
+            if target == "discount_planning_agent":
+                handoff_payload = state.get("handoff_payload") if isinstance(state.get("handoff_payload"), dict) else {}
+                recommendation = self.discount_agent.run(handoff_payload)
+                self.collection_agent.session_store.load(session_id).set_state(
+                    discount_recommendation=recommendation,
+                    last_tool_used="discount_planning_handoff",
+                )
+                hop_payload["discount_handoff"] = _json_safe(
+                    {
+                        "handoff_payload": handoff_payload,
+                        "recommendation": recommendation,
+                    }
+                )
+                current_input = "Discount recommendation ready. Continue and respond to customer."
+                current_sender = "self"
+                continue
 
             if hop_index >= soft_cap:
                 self.collection_agent.session_store.load(session_id).set_state(

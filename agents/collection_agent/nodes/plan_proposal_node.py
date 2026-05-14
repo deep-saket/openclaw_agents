@@ -51,11 +51,25 @@ class _PlanProposalPayload(BaseModel):
     plan_tree_update: _PlanTreeUpdate | None = None
 
 
+class _PlanSignalPayload(BaseModel):
+    needs_discount_specialist: bool = False
+    is_plan_request: bool = False
+    is_plan_rejection: bool = False
+    hardship_signal: bool = False
+    hardship_reason: str = "income_reduction"
+    suggested_plan_mode: str = "strict_collections"
+    reason: str | None = None
+
+
 @dataclass(slots=True)
 class PlanProposalNode(BaseGraphNode):
     """Builds conversation plan proposals and updates a per-session plan tree."""
 
     llm: Any | None = None
+    system_prompt: str = ""
+    user_prompt: str = ""
+    classifier_system_prompt: str = ""
+    classifier_user_prompt: str = ""
 
     def execute(self, state: AgentState) -> NodeUpdate:
         self._record_llm_usage(state, node_name="plan_proposal")
@@ -73,6 +87,17 @@ class PlanProposalNode(BaseGraphNode):
         output = observation.get("output", {}) if isinstance(observation, dict) else {}
         decision = state.get("decision")
         existing_plan = self._get_existing_conversation_plan(state=state, memory_state=memory_state)
+        plan_signals = self._classify_plan_signals(
+            user_input=user_input,
+            mode=mode,
+            memory_state=memory_state,
+            existing_plan=existing_plan,
+        )
+        suggested_mode = str(plan_signals.get("suggested_plan_mode", mode)).strip().lower()
+        if suggested_mode in {"strict_collections", "hardship_negotiation"} and suggested_mode != mode:
+            mode = suggested_mode
+            if memory is not None:
+                memory.set_state(mode=mode)
 
         def with_plan(update: NodeUpdate) -> NodeUpdate:
             response_target = str(update.get("response_target", "customer")).strip().lower() or "customer"
@@ -88,6 +113,7 @@ class PlanProposalNode(BaseGraphNode):
                 route=route,
                 observed_tool=observed_tool,
                 proposal=proposal,
+                plan_signals=plan_signals,
             )
             update["conversation_plan"] = plan
             if proposal:
@@ -165,18 +191,30 @@ class PlanProposalNode(BaseGraphNode):
             )
 
         revision_index = int(memory_state.get("plan_revision_index", 0))
-        hardship_reason = str(memory_state.get("hardship_reason", "income_reduction"))
+        hardship_reason = str(plan_signals.get("hardship_reason") or memory_state.get("hardship_reason", "income_reduction"))
         case_id = str(memory_state.get("active_case_id", "COLL-1001"))
 
-        if self._needs_discount_specialist(user_input) and case_id:
+        if bool(plan_signals.get("needs_discount_specialist")) and case_id:
+            if memory is not None and hardship_reason:
+                memory.set_state(hardship_reason=hardship_reason)
             return with_plan(
                 {
                     "route": "continue",
-                    "response": (
-                        "Need internal assistance-path planning. "
-                        "Gather eligibility and revised repayment options before responding to customer."
-                    ),
-                    "response_target": "self",
+                    "response": "Trigger discount planning specialist for hardship assistance recommendation.",
+                    "response_target": "discount_planning_agent",
+                    "handoff_payload": {
+                        "case_id": case_id,
+                        "customer_id": str(memory_state.get("active_user_id", "")).strip(),
+                        "hardship_reason": hardship_reason,
+                        "user_message": user_input,
+                        "requested_by": "collection_agent",
+                    },
+                    "plan_proposal": {
+                        "target": "discount_planning_agent",
+                        "intent": "discount_specialist_handoff",
+                        "plan_outline": "Escalate to discount planning specialist and return with recommendation.",
+                        "next_actions": ["run_discount_specialist", "apply_recommendation", "respond_to_customer"],
+                    },
                 }
             )
 
@@ -186,7 +224,11 @@ class PlanProposalNode(BaseGraphNode):
                 memory_state=memory_state,
                 observation=(observation if isinstance(observation, dict) else None),
                 decision=decision,
-                default_plan=self._build_generic_plan_outline(user_input=user_input, memory_state=memory_state),
+                default_plan=self._build_generic_plan_outline(
+                    user_input=user_input,
+                    memory_state=memory_state,
+                    plan_signals=plan_signals,
+                ),
                 plan_origin=plan_origin,
                 mode=mode,
                 existing_plan=existing_plan,
@@ -207,7 +249,11 @@ class PlanProposalNode(BaseGraphNode):
                 memory_state=memory_state,
                 observation=(observation if isinstance(observation, dict) else None),
                 decision=decision,
-                default_plan=self._build_generic_plan_outline(user_input=user_input, memory_state=memory_state),
+                default_plan=self._build_generic_plan_outline(
+                    user_input=user_input,
+                    memory_state=memory_state,
+                    plan_signals=plan_signals,
+                ),
                 plan_origin=plan_origin,
                 mode=mode,
                 existing_plan=existing_plan,
@@ -225,10 +271,10 @@ class PlanProposalNode(BaseGraphNode):
             should_propose = True
         if observed_tool == "channel_switch" and not memory_state.get("current_plan"):
             should_propose = True
-        if self._is_plan_rejection(user_input) and memory_state.get("current_plan"):
+        if bool(plan_signals.get("is_plan_rejection")) and memory_state.get("current_plan"):
             should_propose = True
             revision_index += 1
-        if self._is_plan_request(user_input) and case_id:
+        if bool(plan_signals.get("is_plan_request")) and case_id:
             should_propose = True
 
         if not should_propose:
@@ -237,7 +283,11 @@ class PlanProposalNode(BaseGraphNode):
                 memory_state=memory_state,
                 observation=(observation if isinstance(observation, dict) else None),
                 decision=decision,
-                default_plan=self._build_generic_plan_outline(user_input=user_input, memory_state=memory_state),
+                default_plan=self._build_generic_plan_outline(
+                    user_input=user_input,
+                    memory_state=memory_state,
+                    plan_signals=plan_signals,
+                ),
                 plan_origin=plan_origin,
                 mode=mode,
                 existing_plan=existing_plan,
@@ -321,16 +371,23 @@ class PlanProposalNode(BaseGraphNode):
         ]
         return any(keyword in lowered for keyword in keywords)
 
-    @staticmethod
-    def _build_generic_plan_outline(*, user_input: str, memory_state: dict[str, Any]) -> str:
+    def _build_generic_plan_outline(
+        self,
+        *,
+        user_input: str,
+        memory_state: dict[str, Any],
+        plan_signals: dict[str, Any] | None = None,
+    ) -> str:
         case_id = str(memory_state.get("active_case_id", "COLL-1001"))
+        signals = plan_signals or {}
+        hardship_signal = bool(signals.get("hardship_signal", False))
         lowered = user_input.lower()
         if any(token in lowered for token in ["pay now", "payment link", "link", "proceed with payment"]):
             return (
                 f"Plan for {case_id}: confirm customer identity and dues context, complete immediate payment flow, "
                 "and confirm closure after payment acknowledgment."
             )
-        if any(token in lowered for token in ["cannot pay", "hardship", "discount", "settlement", "waiver", "emi"]):
+        if hardship_signal or any(token in lowered for token in ["cannot pay", "hardship", "discount", "settlement", "waiver", "emi"]):
             return (
                 f"Plan for {case_id}: validate hardship constraints, determine eligible assistance options, "
                 "propose revised repayment path, and capture next commitment with follow-up."
@@ -416,6 +473,10 @@ class PlanProposalNode(BaseGraphNode):
     ) -> dict[str, Any] | None:
         if self.llm is None:
             return None
+        if not self.system_prompt.strip():
+            raise ValueError("Missing required prompt: plan_proposal.system_prompt")
+        if not self.user_prompt.strip():
+            raise ValueError("Missing required prompt: plan_proposal.user_prompt")
 
         decision_payload = {
             "response_text": str(getattr(decision, "response_text", "") or "").strip(),
@@ -428,43 +489,37 @@ class PlanProposalNode(BaseGraphNode):
         obs_tool = str(observation.get("tool_name", "")) if isinstance(observation, dict) else ""
         obs_output = observation.get("output", {}) if isinstance(observation, dict) else {}
 
-        system_prompt = (
-            "You are the plan proposal node for a bank collections agent. "
-            "Produce strict JSON only. "
-            "Output should propose/update a branching conversation plan tree and choose the current/next node. "
-            "Allowed `target`: customer or self. "
-            "No placeholders. Keep plan_outline concise and action-oriented. "
-            "Never advance identity verification steps without verification evidence."
+        customer_context_json = json.dumps(
+            {
+                "case_id": str(memory_state.get("active_case_id", "COLL-1001")),
+                "customer_name": str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer",
+                "overdue_amount": float(memory_state.get("active_overdue_amount", 0.0) or 0.0),
+            },
+            ensure_ascii=True,
         )
-        user_prompt = (
-            f"User input: {user_input}\n"
-            f"Plan origin: {plan_origin}\n"
-            f"Mode: {mode}\n"
-            f"Default plan outline: {default_plan}\n"
-            f"Existing plan tree JSON: {json.dumps(existing_plan, ensure_ascii=True, default=str)}\n"
-            f"Decision context JSON: {json.dumps(decision_payload, ensure_ascii=True, default=str)}\n"
-            f"Observation tool: {obs_tool}\n"
-            f"Observation output JSON: {json.dumps(obs_output, ensure_ascii=True, default=str)}\n"
-            f"Customer context JSON: {json.dumps({'case_id': str(memory_state.get('active_case_id', 'COLL-1001')), 'customer_name': str(memory_state.get('active_customer_name', 'Customer')).strip() or 'Customer', 'overdue_amount': float(memory_state.get('active_overdue_amount', 0.0) or 0.0)}, ensure_ascii=True)}\n"
-            f"Verification context JSON: {json.dumps({'identity_verified': bool(memory_state.get('identity_verified', False)), 'verification_collected': memory_state.get('verification_collected', {}), 'required_fields': memory_state.get('active_verification_required_fields', [])}, ensure_ascii=True, default=str)}\n"
-            "Return JSON with keys:\n"
-            "- target: customer|self\n"
-            "- intent: short snake_case intent\n"
-            "- plan_outline: concise plan summary\n"
-            "- draft_response: optional message draft\n"
-            "- next_actions: array of next action ids\n"
-            "- plan_tree_update: object with operation, current_node_id, selected_next_node_id, "
-            "new_nodes (array of {id,label,owner,status}), new_edges (array of {from,to,condition}), "
-            "remove_node_ids, mark_done, mark_skipped, mark_blocked, status\n"
-            "Use operation=insert or branch when user direction changes. "
-            "Use remove_node_ids for obsolete path pruning.\n"
-            "Critical marker rules:\n"
-            "- Each node advances only when predecessor node markers are done or skipped.\n"
-            "- Before selecting a child node, mark the current node done or skipped explicitly.\n"
-            "- Use mark_blocked when a node cannot proceed and requires retry or alternate path.\n"
-            "- If current/next step is verify_identity and identity_verified=false, do not mark verify_identity done.\n"
-            "- During verification stage, plan should request only missing verification fields, not full reset."
+        verification_context_json = json.dumps(
+            {
+                "identity_verified": bool(memory_state.get("identity_verified", False)),
+                "verification_collected": memory_state.get("verification_collected", {}),
+                "required_fields": memory_state.get("active_verification_required_fields", []),
+            },
+            ensure_ascii=True,
+            default=str,
         )
+        template_vars = {
+            "user_input": user_input,
+            "plan_origin": plan_origin,
+            "mode": mode,
+            "default_plan": default_plan,
+            "existing_plan_json": json.dumps(existing_plan, ensure_ascii=True, default=str),
+            "decision_payload_json": json.dumps(decision_payload, ensure_ascii=True, default=str),
+            "obs_tool": obs_tool,
+            "obs_output_json": json.dumps(obs_output, ensure_ascii=True, default=str),
+            "customer_context_json": customer_context_json,
+            "verification_context_json": verification_context_json,
+        }
+        system_prompt = self._render_prompt_template(self.system_prompt, template_vars)
+        user_prompt = self._render_prompt_template(self.user_prompt, template_vars)
         try:
             payload = StructuredOutputRunner(self.llm, max_retries=2).run(
                 system_prompt=system_prompt,
@@ -493,6 +548,13 @@ class PlanProposalNode(BaseGraphNode):
                 user_input=user_input, mode=mode, observed_tool=obs_tool
             )
         return proposal
+
+    @staticmethod
+    def _render_prompt_template(template: str, values: dict[str, Any]) -> str:
+        rendered = template
+        for key, value in values.items():
+            rendered = rendered.replace(f"{{{key}}}", str(value))
+        return rendered
 
     @staticmethod
     def _derive_next_actions(*, user_input: str, mode: str, observed_tool: str) -> list[str]:
@@ -547,6 +609,7 @@ class PlanProposalNode(BaseGraphNode):
         route: str,
         observed_tool: str,
         proposal: dict[str, Any],
+        plan_signals: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         plan = self._create_initial_plan_graph(memory_state=memory_state, mode=mode) if not existing_plan else dict(existing_plan)
         plan.setdefault("nodes", [])
@@ -605,9 +668,11 @@ class PlanProposalNode(BaseGraphNode):
         markers = self._init_or_reconcile_step_markers(plan=plan)
 
         lowered = user_input.lower()
+        signals = plan_signals or {}
         should_revise = (
-            self._is_plan_rejection(user_input)
-            or self._needs_discount_specialist(user_input)
+            bool(signals.get("is_plan_rejection", False))
+            or bool(signals.get("needs_discount_specialist", False))
+            or bool(signals.get("hardship_signal", False))
             or "hardship" in lowered
             or "cannot pay" in lowered
             or response_target != "customer"
@@ -1181,3 +1246,73 @@ class PlanProposalNode(BaseGraphNode):
             }
         )
         plan["timeline"] = entries[-40:]
+
+    def _classify_plan_signals(
+        self,
+        *,
+        user_input: str,
+        mode: str,
+        memory_state: dict[str, Any],
+        existing_plan: dict[str, Any],
+    ) -> dict[str, Any]:
+        llm_payload = self._classify_plan_signals_with_llm(
+            user_input=user_input,
+            mode=mode,
+            memory_state=memory_state,
+            existing_plan=existing_plan,
+        )
+        if llm_payload is not None:
+            return llm_payload
+        return {
+            "needs_discount_specialist": self._needs_discount_specialist(user_input),
+            "is_plan_request": self._is_plan_request(user_input),
+            "is_plan_rejection": self._is_plan_rejection(user_input),
+            "hardship_signal": any(token in user_input.lower() for token in ["cannot pay", "hardship", "vulnerability", "emi"]),
+            "hardship_reason": str(memory_state.get("hardship_reason", "income_reduction")),
+            "suggested_plan_mode": mode,
+            "reason": "heuristic_fallback",
+        }
+
+    def _classify_plan_signals_with_llm(
+        self,
+        *,
+        user_input: str,
+        mode: str,
+        memory_state: dict[str, Any],
+        existing_plan: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if self.llm is None:
+            return None
+        if not self.classifier_system_prompt.strip():
+            raise ValueError("Missing required prompt: plan_proposal.classifier_system_prompt")
+        if not self.classifier_user_prompt.strip():
+            raise ValueError("Missing required prompt: plan_proposal.classifier_user_prompt")
+
+        vars_map = {
+            "user_input": user_input,
+            "mode": mode,
+            "memory_state_json": json.dumps(memory_state, ensure_ascii=True, default=str),
+            "existing_plan_json": json.dumps(existing_plan, ensure_ascii=True, default=str),
+        }
+        system_prompt = self._render_prompt_template(self.classifier_system_prompt, vars_map)
+        user_prompt = self._render_prompt_template(self.classifier_user_prompt, vars_map)
+        try:
+            payload = StructuredOutputRunner(self.llm, max_retries=2).run(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                schema=_PlanSignalPayload,
+            )
+        except Exception:
+            return None
+        normalized_mode = str(payload.suggested_plan_mode).strip().lower()
+        if normalized_mode not in {"strict_collections", "hardship_negotiation"}:
+            normalized_mode = mode
+        return {
+            "needs_discount_specialist": bool(payload.needs_discount_specialist),
+            "is_plan_request": bool(payload.is_plan_request),
+            "is_plan_rejection": bool(payload.is_plan_rejection),
+            "hardship_signal": bool(payload.hardship_signal),
+            "hardship_reason": str(payload.hardship_reason or memory_state.get("hardship_reason", "income_reduction")),
+            "suggested_plan_mode": normalized_mode,
+            "reason": str(payload.reason or ""),
+        }
