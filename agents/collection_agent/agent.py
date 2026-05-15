@@ -20,21 +20,12 @@ from agents.collection_agent.prompts import load_collection_agent_prompts, rende
 from agents.collection_agent.repository import CollectionRepository
 from agents.collection_agent.state import CollectionGraphState
 from agents.collection_agent.tools import (
-    CaseFetchTool,
-    CasePrioritizeTool,
-    ChannelSwitchTool,
-    ContactAttemptTool,
     CustomerVerifyTool,
-    DispositionUpdateTool,
-    DuesExplainBuildTool,
-    FollowupScheduleTool,
     HumanEscalationTool,
     LoanPolicyLookupTool,
     OfferEligibilityTool,
-    PayByPhoneCollectTool,
     PaymentPauseTool,
     PaymentLinkCreateTool,
-    PaymentStatusCheckTool,
     PlanProposeTool,
     PromiseCaptureTool,
 )
@@ -328,22 +319,13 @@ class CollectionAgent(BaseAgent):
 
     def _build_tool_registry(self) -> ToolRegistry:
         registry = ToolRegistry()
-        registry.register(CaseFetchTool(store=self.data_store))
-        registry.register(CasePrioritizeTool(store=self.data_store))
-        registry.register(ContactAttemptTool(store=self.data_store))
         registry.register(CustomerVerifyTool(store=self.data_store))
         registry.register(LoanPolicyLookupTool(store=self.data_store))
-        registry.register(DuesExplainBuildTool(store=self.data_store))
         registry.register(OfferEligibilityTool(store=self.data_store))
         registry.register(PaymentLinkCreateTool(store=self.data_store))
-        registry.register(PaymentStatusCheckTool(store=self.data_store))
         registry.register(PaymentPauseTool(store=self.data_store))
         registry.register(PromiseCaptureTool(store=self.data_store))
-        registry.register(FollowupScheduleTool(store=self.data_store))
-        registry.register(DispositionUpdateTool(store=self.data_store))
         registry.register(HumanEscalationTool(store=self.data_store))
-        registry.register(ChannelSwitchTool(store=self.data_store))
-        registry.register(PayByPhoneCollectTool(store=self.data_store))
         registry.register(PlanProposeTool(store=self.data_store))
         return registry
 

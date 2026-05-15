@@ -178,21 +178,13 @@ class CollectionPlanner(PlannerNode):
             args.setdefault("case_id", str(memory.state.get("active_case_id", "COLL-1001")))
 
         mapping = {
-            "case_lookup": "case_fetch",
-            "prioritize_cases": "case_prioritize",
-            "contact_customer": "contact_attempt",
             "verify_identity": "customer_verify",
-            "explain_dues": "dues_explain_build",
             "policy_lookup": "loan_policy_lookup",
             "offer_check": "offer_eligibility",
             "payment_link": "payment_link_create",
-            "payment_status": "payment_status_check",
-            "pay_by_phone": "pay_by_phone_collect",
+            "payment_pause": "payment_pause",
             "promise_capture": "promise_capture",
-            "followup_schedule": "followup_schedule",
-            "disposition_update": "disposition_update",
             "human_escalation": "human_escalation",
-            "channel_switch": "channel_switch",
         }
         tool_name = mapping.get(intent)
         if tool_name is None:
@@ -243,12 +235,6 @@ class CollectionPlanner(PlannerNode):
                 )
             return self._tool("offer_eligibility", self._norm("offer_eligibility", self._extract_args(user_input)))
 
-        if "switch to voice" in lowered or "talk to agent" in lowered:
-            args = self._extract_args(user_input)
-            if memory is not None:
-                args.setdefault("case_id", str(memory.state.get("active_case_id", "COLL-1001")))
-            return self._tool("channel_switch", self._norm("channel_switch", args))
-
         if mode == "hardship_negotiation" and self._is_plan_acceptance(lowered):
             current_plan = state.get("current_plan") or {}
             args = {
@@ -261,27 +247,18 @@ class CollectionPlanner(PlannerNode):
             }
             return self._tool("promise_capture", args)
 
-        if "pay now" in lowered or "make payment" in lowered or "willing to make a payment" in lowered:
+        if "pause" in lowered or "moratorium" in lowered or "defer emi" in lowered:
             args = self._extract_args(user_input)
-            return self._tool("pay_by_phone_collect", self._norm("pay_by_phone_collect", args))
+            return self._tool("payment_pause", self._norm("payment_pause", args))
 
         if "verify" in lowered or "zip" in lowered or "dob" in lowered:
             return self._tool("customer_verify", self._norm("customer_verify", self._extract_args(user_input)))
 
-        if "contact" in lowered or "reminder" in lowered or "sms" in lowered:
-            return self._tool("contact_attempt", self._norm("contact_attempt", self._extract_args(user_input)))
-
-        if "case" in lowered or "fetch" in lowered or "defaulter" in lowered:
-            return self._tool("case_fetch", self._norm("case_fetch", self._extract_args(user_input)))
-
         if "policy" in lowered:
             return self._tool("loan_policy_lookup", self._norm("loan_policy_lookup", self._extract_args(user_input)))
 
-        if "dues" in lowered or "emi" in lowered:
-            return self._tool("dues_explain_build", self._norm("dues_explain_build", self._extract_args(user_input)))
-
         return self._respond(
-            "Please choose one: fetch case, verify customer, pay now, request assistance, or switch to voice."
+            "Please choose one: verify customer, request assistance, create payment link, or request payment pause."
         )
 
     def _response_from_observation(self, observation: dict[str, Any], mode: str, memory: Any | None) -> Any:
@@ -427,6 +404,12 @@ class CollectionPlanner(PlannerNode):
             normalized.setdefault("amount", 6000.0)
             normalized.setdefault("consent_confirmed", True)
             normalized.setdefault("simulate_status", "success")
+        elif tool_name == "payment_pause":
+            normalized.setdefault("customer_id", "CUST-2001")
+            normalized.setdefault("reason", "temporary_financial_hardship")
+            normalized.setdefault("requested_by", "customer")
+            normalized.setdefault("duration", 3)
+            normalized.setdefault("start_date", datetime.now(UTC).date().isoformat())
         elif tool_name == "channel_switch":
             normalized.setdefault("from_channel", "sms")
             normalized.setdefault("to_channel", "voice")

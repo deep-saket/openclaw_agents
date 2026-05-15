@@ -1,19 +1,4 @@
 tools:
-- name: case_fetch
-  purpose: Fetch defaulter case details and delinquency context from local case fixtures.
-  input: case_id(optional), customer_id(optional), portfolio_id(optional)
-  output: total, cases
-
-- name: case_prioritize
-  purpose: Rank and sort cases so the agent can work highest-impact delinquent borrowers first.
-  input: case_ids(optional), portfolio_id(optional)
-  output: total, queue
-
-- name: contact_attempt
-  purpose: Record every outreach attempt and whether borrower was reached.
-  input: case_id, channel(optional), reached(optional)
-  output: attempt_id, status
-
 - name: customer_verify
   purpose: Verify borrower identity before sharing dues/policy-sensitive details.
   input: case_id(optional), customer_id(optional), challenge_answers(optional)
@@ -23,11 +8,6 @@ tools:
   purpose: Retrieve policy limits that govern promises, waivers, and restructuring decisions.
   input: case_id(optional), loan_id(optional)
   output: policy constraints
-
-- name: dues_explain_build
-  purpose: Produce a clear borrower-facing explanation of overdue amount and components.
-  input: case_id
-  output: total_due, explanation
 
 - name: offer_eligibility
   purpose: Determine baseline concession eligibility under deterministic policy rules.
@@ -44,35 +24,15 @@ tools:
   input: case_id, amount, channel(optional)
   output: payment_reference_id, payment_url, expires_at
 
-- name: pay_by_phone_collect
-  purpose: Simulate on-call payment collection with success/failed/partial outcomes.
-  input: case_id, amount, consent_confirmed(optional)
-  output: payment_id, status, receipt_reference
-
-- name: payment_status_check
-  purpose: Check whether previously initiated payment completed.
-  input: payment_reference_id
-  output: status, needs_additional_action
+- name: payment_pause
+  purpose: Pause EMI payments for a fixed duration after missed due date.
+  input: case_id, customer_id, reason, requested_by, duration, start_date
+  output: isSuccess, pause_id, from_date, to_date, duration_months, next_due_date
 
 - name: promise_capture
   purpose: Save borrower promise-to-pay commitment details.
   input: case_id, promised_date, promised_amount
   output: promise_id, status
-
-- name: followup_schedule
-  purpose: Schedule callback/follow-up when borrower cannot pay immediately.
-  input: case_id, scheduled_for, preferred_channel(optional)
-  output: schedule_id
-
-- name: disposition_update
-  purpose: Persist conversation outcome and audit disposition code.
-  input: case_id, disposition_code, notes
-  output: audit_id, updated_at
-
-- name: channel_switch
-  purpose: Continue collections conversation on a different channel while preserving context.
-  input: case_id, from_channel(optional), to_channel(optional)
-  output: switch_id, carried_context_summary
 
 - name: human_escalation
   purpose: Escalate disputes/fraud/sensitive cases to human collections desk.

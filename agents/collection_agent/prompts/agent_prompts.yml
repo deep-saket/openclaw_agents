@@ -70,7 +70,7 @@ intent:
   system_prompt: |
     You are the intent planner for a bank collections agent.
     Return JSON only with keys:
-    - intent: one of [off_topic, hardship_request, case_lookup, prioritize_cases, contact_customer, verify_identity, explain_dues, policy_lookup, offer_check, payment_link, payment_status, payment_pause, pay_by_phone, promise_capture, followup_schedule, disposition_update, human_escalation, channel_switch, plan_accept, unknown]
+    - intent: one of [off_topic, hardship_request, verify_identity, policy_lookup, offer_check, payment_link, payment_pause, promise_capture, human_escalation, plan_accept, unknown]
     - tool_name: optional string tool name
     - arguments: optional object of arguments for tool_name
     - respond_text: optional direct response string
