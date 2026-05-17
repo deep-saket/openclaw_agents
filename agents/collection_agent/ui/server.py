@@ -318,6 +318,9 @@ class CollectionDebugRuntime:
         requested_session = request.session_id.strip() if isinstance(request.session_id, str) else ""
         session_id = requested_session or f"collection-{user_code}"
 
+        # "Start user" is expected to begin a fresh demo run, not continue prior
+        # partially-verified state or stale plan markers from the same session id.
+        self.collection_agent.repository.reset_conversation_session(session_id)
         memory = self.collection_agent.session_store.load(session_id)
         memory.set_state(
             mode="strict_collections",

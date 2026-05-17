@@ -669,6 +669,12 @@ class PlanProposalNode(BaseGraphNode):
             observed_output=(observed_output if isinstance(observed_output, dict) else {}),
             memory_identity_verified=bool(memory_state.get("identity_verified", False)),
         )
+        self._enforce_verification_marker_consistency(
+            plan=plan,
+            memory_identity_verified=bool(memory_state.get("identity_verified", False)),
+            observed_tool=observed_tool,
+            observed_output=(observed_output if isinstance(observed_output, dict) else {}),
+        )
         self._remove_verify_identity_node_if_verified(
             plan=plan,
             identity_verified=bool(memory_state.get("identity_verified", False)),
@@ -1152,6 +1158,36 @@ class PlanProposalNode(BaseGraphNode):
             # Require explicit completion/skip marker before moving from previous step.
             set_state(previous_current, "pending", "awaiting_completion_or_skip_marker")
 
+        plan["step_markers"] = markers
+
+    def _enforce_verification_marker_consistency(
+        self,
+        *,
+        plan: dict[str, Any],
+        memory_identity_verified: bool,
+        observed_tool: str,
+        observed_output: dict[str, Any],
+    ) -> None:
+        markers = plan.get("step_markers") if isinstance(plan.get("step_markers"), dict) else {}
+        verify_raw = markers.get("verify_identity")
+        if not isinstance(verify_raw, dict):
+            return
+        verify_state = str(verify_raw.get("state", "pending")).strip().lower()
+        if verify_state != "done":
+            return
+
+        verified_now = (
+            str(observed_tool).strip().lower() == "customer_verify"
+            and str((observed_output or {}).get("status", "")).strip().lower() == "verified"
+        )
+        if memory_identity_verified or verified_now:
+            return
+
+        verify_raw["state"] = "pending"
+        verify_raw["source"] = "reconciler"
+        verify_raw["reason"] = "identity_not_verified_in_current_state"
+        verify_raw["updated_at"] = datetime.now(UTC).isoformat()
+        markers["verify_identity"] = verify_raw
         plan["step_markers"] = markers
 
     @staticmethod

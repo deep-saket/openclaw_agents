@@ -24,6 +24,13 @@ class CollectionResponseNode(ResponseNode):
     """Emits response text and a response target for next-hop routing."""
 
     default_target: str = "customer"
+    render_system_prompt: str = ""
+    render_user_prompt: str = ""
+    verification_opening_template: str = ""
+    verification_followup_template: str = ""
+    verification_default_missing_text: str = "your date of birth (YYYY-MM-DD) and your registered phone number"
+    verification_hardship_prefix: str = "I am sorry to hear this, and I appreciate you sharing it. "
+    verification_ack_template: str = "Thank you{customer_suffix}. "
 
     def execute(self, state: AgentState) -> NodeUpdate:
         plan = state.get("plan_proposal") if isinstance(state.get("plan_proposal"), dict) else {}
@@ -69,10 +76,13 @@ class CollectionResponseNode(ResponseNode):
             user_input=user_input,
         )
         if isinstance(verification_guard_context, dict) and verification_guard_context.get("verification_incomplete"):
-            return self._render_verification_first_message(
-                customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
-                guard=verification_guard_context,
-            )
+            # Keep deterministic opening for turn 1, then allow LLM to produce
+            # natural follow-up phrasing while still honoring missing-field guard.
+            if bool(verification_guard_context.get("is_opening_turn", False)):
+                return self._render_verification_first_message(
+                    customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
+                    guard=verification_guard_context,
+                )
 
         if self.llm is not None:
             llm_response = self._llm_render_from_proposal(
@@ -82,6 +92,11 @@ class CollectionResponseNode(ResponseNode):
             )
             if llm_response:
                 return llm_response
+        if isinstance(verification_guard_context, dict) and verification_guard_context.get("verification_incomplete"):
+            return self._render_verification_first_message(
+                customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
+                guard=verification_guard_context,
+            )
         return self._fallback_render_from_proposal(proposal=proposal)
 
     def _llm_render_from_proposal(
@@ -132,42 +147,28 @@ class CollectionResponseNode(ResponseNode):
                 if str(x).strip() and not str(verification_entities.get(str(x).strip(), "")).strip()
             ]
 
-        system_prompt = (
-            f"{self.system_prompt or ''}\n"
-            "Your agent name is Alex.\n"
-            "You are a bank collections assistant. Convert plan_proposal into the correct target-directed message.\n"
-            "Allowed response_target values: customer, self.\n"
-            "Never mention internal terms such as plan_proposal, plan, node, tool, or workflow.\n"
-            "Use clear, polite, concise language and ask one concrete next-step question when needed.\n"
-            "Never output placeholders such as [insert amount], [name], or [link].\n"
-            "If amount context is provided, always include that numeric amount.\n"
-            "Only use greeting/opening call introduction when is_opening_turn=true; avoid re-greeting on follow-up turns.\n"
-            "When opening customer conversation, introduce yourself as Alex from collections.\n"
-            "When response_target=customer: produce end-customer message only.\n"
-            "When response_target=self: produce concise internal execution directive for next planner pass.\n"
-            "If verification context indicates verification is incomplete, do not disclose dues/policy-sensitive details.\n"
-            "If verification is incomplete, ask only for the missing fields listed in verification context.\n"
-            "Return strict JSON only: {\"message\": \"...\", \"response_target\": \"customer|self\"}."
-        ).strip()
-        user_prompt = (
-            f"User input: {user_input}\n"
-            f"Customer name: {customer_name}\n"
-            f"Case id: {case_id}\n"
-            f"Overdue amount INR: {overdue_amount:.2f}\n"
-            f"Response target: {response_target}\n"
-            f"is_opening_turn: {json.dumps(is_opening_turn)}\n"
-            f"Previous agent response (if any): {prior_agent_response}\n"
-            f"Current plan step id: {current_plan_node_id}\n"
-            f"Current plan step label: {current_plan_node_label}\n"
-            f"Plan proposal: {json.dumps(proposal, ensure_ascii=True)}\n"
-            f"Conversation plan graph: {json.dumps(conversation_plan, ensure_ascii=True)}\n"
-            f"Verification context: {json.dumps(verification_context, ensure_ascii=True)}\n"
-            f"Extracted entities: {json.dumps(extracted_entities, ensure_ascii=True)}\n"
-            f"Extracted entity descriptions: {json.dumps(extracted_entity_descriptions, ensure_ascii=True)}\n"
-            f"Verification entities: {json.dumps(verification_entities, ensure_ascii=True)}\n"
-            f"Verification missing fields: {json.dumps(verification_missing_fields, ensure_ascii=True)}\n"
-            f"Observation: {json.dumps(observation, ensure_ascii=True, default=str)}\n"
-            "Generate only structured JSON output."
+        system_prompt = (f"{self.system_prompt or ''}\n{self.render_system_prompt or ''}").strip()
+        user_prompt = self._render_template(
+            self.render_user_prompt,
+            {
+                "user_input": user_input,
+                "customer_name": customer_name,
+                "case_id": case_id,
+                "overdue_amount": f"{overdue_amount:.2f}",
+                "response_target": response_target,
+                "is_opening_turn_json": json.dumps(is_opening_turn),
+                "prior_agent_response": prior_agent_response,
+                "current_plan_node_id": current_plan_node_id,
+                "current_plan_node_label": current_plan_node_label,
+                "plan_proposal_json": json.dumps(proposal, ensure_ascii=True),
+                "conversation_plan_json": json.dumps(conversation_plan, ensure_ascii=True),
+                "verification_context_json": json.dumps(verification_context, ensure_ascii=True),
+                "extracted_entities_json": json.dumps(extracted_entities, ensure_ascii=True),
+                "extracted_entity_descriptions_json": json.dumps(extracted_entity_descriptions, ensure_ascii=True),
+                "verification_entities_json": json.dumps(verification_entities, ensure_ascii=True),
+                "verification_missing_fields_json": json.dumps(verification_missing_fields, ensure_ascii=True),
+                "observation_json": json.dumps(observation, ensure_ascii=True, default=str),
+            },
         )
         try:
             payload = StructuredOutputRunner(self.llm, max_retries=2).run(
@@ -233,9 +234,12 @@ class CollectionResponseNode(ResponseNode):
             "income loss",
         )
         hardship_signal = any(token in lowered_input for token in hardship_tokens)
+        turn_index = int(memory_state.get("turn_index", state.get("turn_index", 0)) or 0)
+        is_opening_turn = turn_index <= 0
 
         return {
             "verification_incomplete": True,
+            "is_opening_turn": is_opening_turn,
             "name_confirmed": bool(name_confirmed),
             "customer_name": customer_name,
             "required_fields": required_fields,
@@ -254,21 +258,32 @@ class CollectionResponseNode(ResponseNode):
         missing_labels = guard.get("missing_field_labels") if isinstance(guard.get("missing_field_labels"), list) else []
         missing_human = str(guard.get("missing_fields_human", "")).strip()
         hardship_signal = bool(guard.get("hardship_signal", False))
-        opener_parts: list[str] = [f"Hello, this is Alex from collections. Am I speaking with {customer_name}?"]
-        if hardship_signal:
-            opener_parts.append("I am really sorry to hear you're going through this, and I appreciate you sharing it.")
-        opener = " ".join(opener_parts).strip()
+        is_opening_turn = bool(guard.get("is_opening_turn", False))
+        hardship_prefix = self.verification_hardship_prefix if hardship_signal else ""
+        customer_suffix = f", {customer_name}" if customer_name else ""
+        ack_prefix = self._render_template(
+            self.verification_ack_template,
+            {"customer_suffix": customer_suffix},
+        ).strip()
+        if ack_prefix:
+            ack_prefix = f"{ack_prefix} "
         if missing_human:
-            ask = f"For verification, please confirm {missing_human}."
+            ask_target = missing_human
         elif missing_labels:
-            ask = (
-                "For verification, please confirm "
-                + self._join_human_list([str(x) for x in missing_labels if str(x).strip()])
-                + "."
-            )
+            ask_target = self._join_human_list([str(x) for x in missing_labels if str(x).strip()])
         else:
-            ask = "For verification, please confirm your date of birth (YYYY-MM-DD) and registered phone number."
-        return f"{opener} {ask}"
+            ask_target = self.verification_default_missing_text
+
+        template = self.verification_opening_template if is_opening_turn else self.verification_followup_template
+        return self._render_template(
+            template,
+            {
+                "customer_name": customer_name,
+                "hardship_prefix": hardship_prefix,
+                "missing_human": ask_target,
+                "ack_prefix": ack_prefix,
+            },
+        ).strip()
 
     def _fallback_render_from_proposal(self, *, proposal: dict[str, Any]) -> str:
         target = str(proposal.get("target", "customer")).strip().lower() or "customer"
@@ -503,6 +518,13 @@ class CollectionResponseNode(ResponseNode):
             "case_id": case_id,
             "overdue_amount": overdue_amount,
         }
+
+    @staticmethod
+    def _render_template(template: str, values: dict[str, Any]) -> str:
+        rendered = template
+        for key, value in values.items():
+            rendered = rendered.replace(f"{{{key}}}", str(value))
+        return rendered
 
     @staticmethod
     def _post_process_rendered_response(
