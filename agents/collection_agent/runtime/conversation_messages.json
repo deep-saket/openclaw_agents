@@ -778,5 +778,141 @@
       "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
       "created_at": "2026-05-17T04:09:34.112760Z"
     }
+  ],
+  "timeline-test-a": [
+    {
+      "id": "0a7028b1-435e-40c9-ab34-fd13c1b353ca",
+      "session_id": "timeline-test-a",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:33:14.033813Z"
+    },
+    {
+      "id": "9b07e195-114c-4271-a65c-4d3ac666da47",
+      "session_id": "timeline-test-a",
+      "role": "customer",
+      "content": "My name is Aditi Sharma",
+      "created_at": "2026-05-17T04:33:14.037904Z"
+    },
+    {
+      "id": "aa11ddbb-4e4b-4c37-9e5c-8ed5a48ead10",
+      "session_id": "timeline-test-a",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:34:58.465434Z"
+    },
+    {
+      "id": "80d5e093-0828-4699-95aa-b0b7f8dd053d",
+      "session_id": "timeline-test-a",
+      "role": "customer",
+      "content": "DOB 1991-08-19 and phone 1234567890",
+      "created_at": "2026-05-17T04:34:58.473899Z"
+    },
+    {
+      "id": "6ef83d0b-f4eb-4020-b367-dc48154798c0",
+      "session_id": "timeline-test-a",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number\n.",
+      "created_at": "2026-05-17T04:35:49.990617Z"
+    }
+  ],
+  "timeline-debug-usera": [
+    {
+      "id": "78019ce7-a48a-4375-98d1-280704c2b7c7",
+      "session_id": "timeline-debug-usera",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:41:39.621011Z"
+    },
+    {
+      "id": "058067db-2d1e-45a3-ae48-7fb92e05e26d",
+      "session_id": "timeline-debug-usera",
+      "role": "customer",
+      "content": "I can pay next week. can you share options?",
+      "created_at": "2026-05-17T04:41:39.624117Z"
+    },
+    {
+      "id": "8422b92c-4f81-4b6e-b5eb-b4b5bbb62e8a",
+      "session_id": "timeline-debug-usera",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:42:43.770731Z"
+    }
+  ],
+  "timeline-verify-check": [
+    {
+      "id": "09bc640e-ae96-4ca5-8090-e19427843e75",
+      "session_id": "timeline-verify-check",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:45:47.455940Z"
+    },
+    {
+      "id": "c1d1a88e-d909-4f18-855a-b2327ef728c4",
+      "session_id": "timeline-verify-check",
+      "role": "customer",
+      "content": "Hi there, I am Aditi Sharma",
+      "created_at": "2026-05-17T04:45:47.469669Z"
+    },
+    {
+      "id": "177a0cad-f4b5-4483-8cd1-3379a4d12556",
+      "session_id": "timeline-verify-check",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:47:58.590166Z"
+    }
+  ],
+  "collection-user_a": [
+    {
+      "id": "c6e1e4db-5fd4-4454-91f2-317e70bb0ba0",
+      "session_id": "collection-user_a",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:58:39.870663Z"
+    },
+    {
+      "id": "5e41b195-c371-4387-a266-81469f4dcce9",
+      "session_id": "collection-user_a",
+      "role": "customer",
+      "content": "Hii Alex!! This is Aditi",
+      "created_at": "2026-05-17T04:58:46.568912Z"
+    },
+    {
+      "id": "622bdcc0-1054-41d0-9f03-a7f4bae0c16c",
+      "session_id": "collection-user_a",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T05:02:56.536229Z"
+    },
+    {
+      "id": "5dbea830-87dc-4474-9f31-9d6cf87df8d3",
+      "session_id": "collection-user_a",
+      "role": "customer",
+      "content": "My DoB ius 1991-08-19",
+      "created_at": "2026-05-17T05:15:18.755393Z"
+    }
+  ],
+  "json-verify-a": [
+    {
+      "id": "46c78b18-ac1c-4f51-8a6c-6244b7870a86",
+      "session_id": "json-verify-a",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:59:16.291067Z"
+    },
+    {
+      "id": "7a6714a8-491a-40ba-8fb1-273e9db0fdf7",
+      "session_id": "json-verify-a",
+      "role": "customer",
+      "content": "Hii Alex!! This is Aditi",
+      "created_at": "2026-05-17T04:59:16.294734Z"
+    },
+    {
+      "id": "7c6c3faf-2ed1-4da5-bc5f-1bba2125c430",
+      "session_id": "json-verify-a",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T05:00:28.770655Z"
+    }
   ]
 }

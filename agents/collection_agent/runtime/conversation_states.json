@@ -15545,14 +15545,751 @@
     "last_tool_used": "discount_planning_handoff",
     "agent_timeout_triggered": true
   },
-  "collection-user_a": {
+  "timeline-test-a": {
     "mode": "strict_collections",
     "active_channel": "voice",
     "active_case_id": "COLL-1001",
     "active_user_id": "CUST-2001",
     "active_customer_name": "Aditi Sharma",
-    "agent_loop_blocked": true,
-    "agent_loop_count": 2,
+    "agent_loop_blocked": false,
+    "agent_loop_count": 0,
+    "active_overdue_amount": 12500.0,
+    "active_emi_amount": 12500.0,
+    "active_late_fee": 850.0,
+    "active_dpd": 47,
+    "active_loan_id": "LOAN-3001",
+    "active_customer_phone": "+919900001001",
+    "active_customer_email": "aditi.sharma@example.com",
+    "active_verification_required_fields": [
+      "dob",
+      "phone"
+    ],
+    "active_verification_challenge": {
+      "dob": "1991-08-19",
+      "phone": "9900001001"
+    },
+    "global_key_event_memory": {
+      "updated_at": "2026-05-01T11:50:52.746207+00:00",
+      "event_counters": {
+        "conversation_outcome::successful": 3,
+        "conversation_outcome::unsuccessful": 3
+      },
+      "successful_cues": [
+        {
+          "cue_id": "collect-payment-link-after-dues-clarity",
+          "cue": "When user asks to pay now, send payment link right after dues explanation.",
+          "count": 3,
+          "last_seen": "2026-05-01T00:00:00+00:00",
+          "sample_signals": [
+            "payment_intent: customer asked for immediate payment link"
+          ],
+          "sample_user_ids": [
+            "CUST-2001",
+            "CUST-2005"
+          ]
+        }
+      ],
+      "unsuccessful_cues": [
+        {
+          "cue_id": "avoid-hard-push-before-hardship-ack",
+          "cue": "Hard push fails when hardship is not acknowledged before options are discussed.",
+          "count": 2,
+          "last_seen": "2026-05-01T00:00:00+00:00",
+          "sample_signals": [
+            "hardship_signal: cannot pay this month due to job loss"
+          ],
+          "sample_user_ids": [
+            "CUST-2002"
+          ]
+        },
+        {
+          "cue_id": "user-asked-for-discount/waiver-style-assistance.",
+          "cue": "User asked for discount/waiver style assistance.",
+          "count": 1,
+          "last_seen": "2026-05-01T11:50:52.746202+00:00",
+          "sample_signals": [
+            "user: I need lower EMI | agent: I can propose discount plan | user: Bye"
+          ],
+          "sample_user_ids": [
+            "CUST-2001"
+          ]
+        }
+      ]
+    },
+    "user_key_event_memory": {
+      "user_id": "CUST-2001",
+      "profile": {
+        "case_ids": [
+          "COLL-1001"
+        ],
+        "preferred_channel": "sms",
+        "risk_band": "unknown"
+      },
+      "latest_summary": "user: I need lower EMI | agent: I can propose discount plan | user: Bye",
+      "procedural_key_points": [
+        "Start with identity verification before discussing account specifics.",
+        "After dues explanation, provide one-click payment option.",
+        "User asked for discount/waiver style assistance."
+      ],
+      "follow_up_considerations": [
+        "Start next follow-up with discount and EMI options first."
+      ],
+      "last_outcome": "neutral",
+      "last_case_id": "COLL-1001"
+    },
+    "node_llms": {
+      "intent": "llama-3.1-8b-instant",
+      "plan_proposal": "llama-3.1-8b-instant",
+      "reflect": "llama-3.1-8b-instant"
+    },
+    "extracted_entities": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "name": "Aditi Sharma",
+      "dob": "1991-08-19",
+      "phone": "1234567890"
+    },
+    "extracted_entity_descriptions": {
+      "case_id": "Unique identifier for the collection case",
+      "customer_id": "Unique identifier for the customer",
+      "name": "Customer's full name",
+      "dob": "Date of Birth",
+      "phone": "Customer Phone Number"
+    },
+    "verification_entities": {
+      "name": "Aditi Sharma",
+      "name_confirmed": true,
+      "dob": "1991-08-19",
+      "phone": "1234567890"
+    },
+    "verification_collected": {
+      "name": "Aditi Sharma",
+      "name_confirmed": true,
+      "dob": "1991-08-19",
+      "phone": "1234567890"
+    },
+    "identity_verified": false,
+    "verification_last_status": "locked",
+    "active_conversation_plan": {
+      "plan_id": "plan-COLL-1001",
+      "version": 3,
+      "status": "active",
+      "mode": "strict_collections",
+      "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+      "root_node_id": "open_and_context",
+      "current_node_id": "verify_identity",
+      "previous_node_id": "verify_identity",
+      "next_node_ids": [
+        "explain_dues"
+      ],
+      "nodes": [
+        {
+          "id": "open_and_context",
+          "label": "Open call and establish case context",
+          "owner": "collection_agent",
+          "status": "done"
+        },
+        {
+          "id": "verify_identity",
+          "label": "Request Identity Verification",
+          "owner": "collections_agent",
+          "status": "in_progress"
+        },
+        {
+          "id": "explain_dues",
+          "label": "Explain dues and policy options",
+          "owner": "customer",
+          "status": "pending"
+        },
+        {
+          "id": "collect_payment_intent",
+          "label": "Collect payment intent",
+          "owner": "customer",
+          "status": "pending"
+        },
+        {
+          "id": "evaluate_assistance",
+          "label": "Evaluate discount/restructure assistance",
+          "owner": "collection_agent",
+          "status": "pending"
+        },
+        {
+          "id": "resolve_outcome",
+          "label": "Finalize payment, promise, or follow-up",
+          "owner": "customer",
+          "status": "pending"
+        }
+      ],
+      "edges": [
+        {
+          "from": "collect_payment_intent",
+          "to": "evaluate_assistance",
+          "condition": "cannot_pay_full"
+        },
+        {
+          "from": "collect_payment_intent",
+          "to": "resolve_outcome",
+          "condition": "pay_now"
+        },
+        {
+          "from": "evaluate_assistance",
+          "to": "resolve_outcome",
+          "condition": "assistance_ready"
+        },
+        {
+          "from": "explain_dues",
+          "to": "collect_payment_intent",
+          "condition": "dues_explained"
+        },
+        {
+          "from": "open_and_context",
+          "to": "verify_identity",
+          "condition": "case_context_ready"
+        },
+        {
+          "from": "verify_identity",
+          "to": "explain_dues",
+          "condition": "identity_verified"
+        }
+      ],
+      "timeline": [
+        {
+          "at_utc": "2026-05-17T04:33:14.006864+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Verify customer identity before proceeding with collections",
+            "operation": "branch"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T04:34:57.874805+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T04:35:49.288751+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Verify customer identity before proceeding with collections",
+            "operation": "branch"
+          }
+        }
+      ],
+      "revision_log": [
+        {
+          "revision": 2,
+          "reason": "context shift: target=customer, route=continue, origin=pre_plan_intent",
+          "at_utc": "2026-05-17T04:33:14.006842+00:00"
+        },
+        {
+          "revision": 3,
+          "reason": "context shift: target=customer, route=continue, origin=pre_plan_intent",
+          "at_utc": "2026-05-17T04:34:57.874793+00:00"
+        }
+      ],
+      "updated_from": "pre_plan_intent",
+      "last_response_target": "customer",
+      "step_markers": {
+        "open_and_context": {
+          "state": "done",
+          "updated_at": "2026-05-17T04:35:49.288606+00:00",
+          "source": "plan_tree_update",
+          "reason": "mark_done"
+        },
+        "verify_identity": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:35:49.288606+00:00",
+          "source": "plan_tree_update",
+          "reason": "awaiting_completion_or_skip_marker"
+        },
+        "explain_dues": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:33:14.006650+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "collect_payment_intent": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:33:14.006650+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "evaluate_assistance": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:33:14.006650+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "resolve_outcome": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:33:14.006650+00:00",
+          "source": "reconciler",
+          "reason": ""
+        }
+      },
+      "timeline_snapshots": [
+        {
+          "at_utc": "2026-05-17T04:33:14.006864+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Verify customer identity before proceeding with collections",
+            "operation": "branch"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 2,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "open_and_context",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Request Identity Verification",
+                "owner": "collections_agent",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T04:34:57.874805+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 3,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "verify_identity",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Request Identity Verification",
+                "owner": "collections_agent",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:34:57.874680+00:00",
+                "source": "plan_tree_update",
+                "reason": "awaiting_completion_or_skip_marker"
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T04:35:49.288751+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Verify customer identity before proceeding with collections",
+            "operation": "branch"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 3,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "verify_identity",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Request Identity Verification",
+                "owner": "collections_agent",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:35:49.288606+00:00",
+                "source": "plan_tree_update",
+                "reason": "mark_done"
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:35:49.288606+00:00",
+                "source": "plan_tree_update",
+                "reason": "awaiting_completion_or_skip_marker"
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:33:14.006650+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        }
+      ]
+    },
+    "turn_index": 3,
+    "last_user_input": "DOB 1991-08-19 and phone 1234567890",
+    "last_agent_response": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number\n.",
+    "last_response_target": "customer"
+  },
+  "timeline-debug-usera": {
+    "mode": "strict_collections",
+    "active_channel": "voice",
+    "active_case_id": "COLL-1001",
+    "active_user_id": "CUST-2001",
+    "active_customer_name": "Aditi Sharma",
+    "agent_loop_blocked": false,
+    "agent_loop_count": 0,
     "active_overdue_amount": 12500.0,
     "active_emi_amount": 12500.0,
     "active_late_fee": 850.0,
@@ -15662,7 +16399,6 @@
     },
     "identity_verified": false,
     "verification_last_status": "insufficient",
-    "hardship_reason": "income_reduction",
     "active_conversation_plan": {
       "plan_id": "plan-COLL-1001",
       "version": 2,
@@ -15671,7 +16407,575 @@
       "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
       "root_node_id": "open_and_context",
       "current_node_id": "verify_identity",
-      "previous_node_id": "open_and_context",
+      "previous_node_id": "verify_identity",
+      "next_node_ids": [
+        "explain_dues"
+      ],
+      "nodes": [
+        {
+          "id": "open_and_context",
+          "label": "Open call and establish case context",
+          "owner": "collection_agent",
+          "status": "done"
+        },
+        {
+          "id": "verify_identity",
+          "label": "Verify customer identity",
+          "owner": "customer",
+          "status": "in_progress"
+        },
+        {
+          "id": "explain_dues",
+          "label": "Explain dues and policy options",
+          "owner": "customer",
+          "status": "pending"
+        },
+        {
+          "id": "collect_payment_intent",
+          "label": "Collect payment intent",
+          "owner": "customer",
+          "status": "pending"
+        },
+        {
+          "id": "evaluate_assistance",
+          "label": "Evaluate discount/restructure assistance",
+          "owner": "collection_agent",
+          "status": "pending"
+        },
+        {
+          "id": "resolve_outcome",
+          "label": "Finalize payment, promise, or follow-up",
+          "owner": "customer",
+          "status": "pending"
+        }
+      ],
+      "edges": [
+        {
+          "from": "collect_payment_intent",
+          "to": "evaluate_assistance",
+          "condition": "cannot_pay_full"
+        },
+        {
+          "from": "collect_payment_intent",
+          "to": "resolve_outcome",
+          "condition": "pay_now"
+        },
+        {
+          "from": "evaluate_assistance",
+          "to": "resolve_outcome",
+          "condition": "assistance_ready"
+        },
+        {
+          "from": "explain_dues",
+          "to": "collect_payment_intent",
+          "condition": "dues_explained"
+        },
+        {
+          "from": "open_and_context",
+          "to": "verify_identity",
+          "condition": "case_context_ready"
+        },
+        {
+          "from": "verify_identity",
+          "to": "explain_dues",
+          "condition": "identity_verified"
+        }
+      ],
+      "timeline": [
+        {
+          "at_utc": "2026-05-17T04:41:39.594651+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T04:42:43.187113+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Explain dues and policy options, collect payment intent, and evaluate assistance.",
+            "operation": "branch"
+          }
+        }
+      ],
+      "revision_log": [
+        {
+          "revision": 2,
+          "reason": "context shift: target=customer, route=continue, origin=pre_plan_intent",
+          "at_utc": "2026-05-17T04:41:39.594644+00:00"
+        }
+      ],
+      "updated_from": "pre_plan_intent",
+      "last_response_target": "customer",
+      "step_markers": {
+        "open_and_context": {
+          "state": "done",
+          "updated_at": "2026-05-17T04:42:43.187005+00:00",
+          "source": "plan_tree_update",
+          "reason": "mark_done"
+        },
+        "verify_identity": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:42:43.187005+00:00",
+          "source": "plan_tree_update",
+          "reason": "awaiting_completion_or_skip_marker"
+        },
+        "explain_dues": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:41:39.594590+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "collect_payment_intent": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:41:39.594590+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "evaluate_assistance": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:41:39.594590+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "resolve_outcome": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:41:39.594590+00:00",
+          "source": "reconciler",
+          "reason": ""
+        }
+      },
+      "timeline_snapshots": [
+        {
+          "at_utc": "2026-05-17T04:41:39.594651+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 2,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "open_and_context",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Verify customer identity",
+                "owner": "customer",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T04:42:43.187113+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Explain dues and policy options, collect payment intent, and evaluate assistance.",
+            "operation": "branch"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 2,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "verify_identity",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Verify customer identity",
+                "owner": "customer",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:42:43.187005+00:00",
+                "source": "plan_tree_update",
+                "reason": "mark_done"
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:42:43.187005+00:00",
+                "source": "plan_tree_update",
+                "reason": "awaiting_completion_or_skip_marker"
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:41:39.594590+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        }
+      ]
+    },
+    "turn_index": 2,
+    "last_user_input": "I can pay next week. can you share options?",
+    "last_agent_response": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+    "last_response_target": "customer"
+  },
+  "timeline-verify-check": {
+    "mode": "strict_collections",
+    "active_channel": "voice",
+    "active_case_id": "COLL-1001",
+    "active_user_id": "CUST-2001",
+    "active_customer_name": "Aditi Sharma",
+    "agent_loop_blocked": false,
+    "agent_loop_count": 0,
+    "active_overdue_amount": 12500.0,
+    "active_emi_amount": 12500.0,
+    "active_late_fee": 850.0,
+    "active_dpd": 47,
+    "active_loan_id": "LOAN-3001",
+    "active_customer_phone": "+919900001001",
+    "active_customer_email": "aditi.sharma@example.com",
+    "active_verification_required_fields": [
+      "dob",
+      "phone"
+    ],
+    "active_verification_challenge": {
+      "dob": "1991-08-19",
+      "phone": "9900001001"
+    },
+    "global_key_event_memory": {
+      "updated_at": "2026-05-01T11:50:52.746207+00:00",
+      "event_counters": {
+        "conversation_outcome::successful": 3,
+        "conversation_outcome::unsuccessful": 3
+      },
+      "successful_cues": [
+        {
+          "cue_id": "collect-payment-link-after-dues-clarity",
+          "cue": "When user asks to pay now, send payment link right after dues explanation.",
+          "count": 3,
+          "last_seen": "2026-05-01T00:00:00+00:00",
+          "sample_signals": [
+            "payment_intent: customer asked for immediate payment link"
+          ],
+          "sample_user_ids": [
+            "CUST-2001",
+            "CUST-2005"
+          ]
+        }
+      ],
+      "unsuccessful_cues": [
+        {
+          "cue_id": "avoid-hard-push-before-hardship-ack",
+          "cue": "Hard push fails when hardship is not acknowledged before options are discussed.",
+          "count": 2,
+          "last_seen": "2026-05-01T00:00:00+00:00",
+          "sample_signals": [
+            "hardship_signal: cannot pay this month due to job loss"
+          ],
+          "sample_user_ids": [
+            "CUST-2002"
+          ]
+        },
+        {
+          "cue_id": "user-asked-for-discount/waiver-style-assistance.",
+          "cue": "User asked for discount/waiver style assistance.",
+          "count": 1,
+          "last_seen": "2026-05-01T11:50:52.746202+00:00",
+          "sample_signals": [
+            "user: I need lower EMI | agent: I can propose discount plan | user: Bye"
+          ],
+          "sample_user_ids": [
+            "CUST-2001"
+          ]
+        }
+      ]
+    },
+    "user_key_event_memory": {
+      "user_id": "CUST-2001",
+      "profile": {
+        "case_ids": [
+          "COLL-1001"
+        ],
+        "preferred_channel": "sms",
+        "risk_band": "unknown"
+      },
+      "latest_summary": "user: I need lower EMI | agent: I can propose discount plan | user: Bye",
+      "procedural_key_points": [
+        "Start with identity verification before discussing account specifics.",
+        "After dues explanation, provide one-click payment option.",
+        "User asked for discount/waiver style assistance."
+      ],
+      "follow_up_considerations": [
+        "Start next follow-up with discount and EMI options first."
+      ],
+      "last_outcome": "neutral",
+      "last_case_id": "COLL-1001"
+    },
+    "node_llms": {
+      "intent": "llama-3.1-8b-instant",
+      "plan_proposal": "llama-3.1-8b-instant",
+      "reflect": "llama-3.1-8b-instant"
+    },
+    "extracted_entities": {
+      "customer_id": "CUST-2001",
+      "case_id": "COLL-1001",
+      "name": "Aditi Sharma"
+    },
+    "extracted_entity_descriptions": {
+      "customer_id": "Unique identifier for the customer",
+      "case_id": "Unique identifier for the collection case",
+      "name": "Customer's full name"
+    },
+    "verification_entities": {
+      "name": "Aditi Sharma",
+      "name_confirmed": true
+    },
+    "verification_collected": {
+      "name": "Aditi Sharma",
+      "name_confirmed": true
+    },
+    "identity_verified": false,
+    "verification_last_status": "insufficient",
+    "active_conversation_plan": {
+      "plan_id": "plan-COLL-1001",
+      "version": 3,
+      "status": "active",
+      "mode": "strict_collections",
+      "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+      "root_node_id": "open_and_context",
+      "current_node_id": "verify_identity",
+      "previous_node_id": "verify_identity",
       "next_node_ids": [
         "explain_dues"
       ],
@@ -15747,7 +17051,7 @@
       ],
       "timeline": [
         {
-          "at_utc": "2026-05-17T04:19:32.713702+00:00",
+          "at_utc": "2026-05-17T04:45:47.414895+00:00",
           "version": 2,
           "status": "active",
           "current_node_id": "verify_identity",
@@ -15757,10 +17061,28 @@
           "update": {
             "origin": "pre_plan_intent",
             "route": "continue",
-            "response_target": "discount_planning_agent",
+            "response_target": "customer",
             "previous_node_id": "open_and_context",
             "current_node_id": "verify_identity",
-            "plan_outline": "Escalate to discount planning specialist and return with recommendation.",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T04:47:57.979533+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
             "operation": "advance"
           }
         }
@@ -15768,90 +17090,1487 @@
       "revision_log": [
         {
           "revision": 2,
-          "reason": "context shift: target=discount_planning_agent, route=continue, origin=pre_plan_intent",
-          "at_utc": "2026-05-17T04:19:32.713692+00:00"
+          "reason": "context shift: target=customer, route=continue, origin=pre_plan_intent",
+          "at_utc": "2026-05-17T04:45:47.414866+00:00"
+        },
+        {
+          "revision": 3,
+          "reason": "context shift: target=customer, route=continue, origin=pre_plan_intent",
+          "at_utc": "2026-05-17T04:47:57.979521+00:00"
         }
       ],
       "updated_from": "pre_plan_intent",
-      "last_response_target": "discount_planning_agent",
+      "last_response_target": "customer",
       "step_markers": {
         "open_and_context": {
           "state": "done",
-          "updated_at": "2026-05-17T04:19:32.713594+00:00",
+          "updated_at": "2026-05-17T04:45:47.414774+00:00",
           "source": "reconciler",
           "reason": ""
         },
         "verify_identity": {
           "state": "pending",
-          "updated_at": "2026-05-17T04:19:32.713594+00:00",
-          "source": "reconciler",
-          "reason": ""
+          "updated_at": "2026-05-17T04:47:57.979423+00:00",
+          "source": "plan_tree_update",
+          "reason": "awaiting_completion_or_skip_marker"
         },
         "explain_dues": {
           "state": "pending",
-          "updated_at": "2026-05-17T04:19:32.713594+00:00",
+          "updated_at": "2026-05-17T04:45:47.414774+00:00",
           "source": "reconciler",
           "reason": ""
         },
         "collect_payment_intent": {
           "state": "pending",
-          "updated_at": "2026-05-17T04:19:32.713594+00:00",
+          "updated_at": "2026-05-17T04:45:47.414774+00:00",
           "source": "reconciler",
           "reason": ""
         },
         "evaluate_assistance": {
           "state": "pending",
-          "updated_at": "2026-05-17T04:19:32.713594+00:00",
+          "updated_at": "2026-05-17T04:45:47.414774+00:00",
           "source": "reconciler",
           "reason": ""
         },
         "resolve_outcome": {
           "state": "pending",
-          "updated_at": "2026-05-17T04:19:32.713594+00:00",
+          "updated_at": "2026-05-17T04:45:47.414774+00:00",
           "source": "reconciler",
           "reason": ""
         }
-      }
-    },
-    "turn_index": 1,
-    "last_user_input": "Start outbound collections call now. Customer=Aditi Sharma customer_id=CUST-2001 case_id=COLL-1001 overdue_amount=12500 Generate the first call pitch by introducing yourself and requesting identity verification only. Do not disclose overdue amount, dues details, or payment options before verification.",
-    "last_agent_response": "Prepare specialist handoff payload and wait for discount recommendation.",
-    "last_response_target": "discount_planning_agent",
-    "discount_recommendation": {
-      "recommended_offer": {
-        "case_id": "COLL-1001",
-        "offer_type": "restructure",
-        "waiver_pct": 0.0,
-        "tenure_months": 18,
-        "monthly_emi": 1500.0,
-        "hardship_reason": "income_reduction"
       },
-      "offer_variants": [
+      "timeline_snapshots": [
         {
-          "case_id": "COLL-1001",
-          "offer_type": "restructure",
-          "waiver_pct": 0.0,
-          "tenure_months": 24,
-          "monthly_emi": 1275.0,
-          "hardship_reason": "income_reduction"
+          "at_utc": "2026-05-17T04:45:47.414895+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 2,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "open_and_context",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Verify customer identity",
+                "owner": "customer",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
         },
         {
-          "case_id": "COLL-1001",
-          "offer_type": "restructure",
-          "waiver_pct": 0.0,
-          "tenure_months": 12,
-          "monthly_emi": 1800.0,
-          "hardship_reason": "income_reduction"
+          "at_utc": "2026-05-17T04:47:57.979533+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 3,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "verify_identity",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Verify customer identity",
+                "owner": "customer",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:47:57.979423+00:00",
+                "source": "plan_tree_update",
+                "reason": "awaiting_completion_or_skip_marker"
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:45:47.414774+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        }
+      ]
+    },
+    "turn_index": 2,
+    "last_user_input": "Hi there, I am Aditi Sharma",
+    "last_agent_response": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+    "last_response_target": "customer"
+  },
+  "collection-user_a": {
+    "mode": "strict_collections",
+    "active_channel": "voice",
+    "active_case_id": "COLL-1001",
+    "active_user_id": "CUST-2001",
+    "active_customer_name": "Aditi Sharma",
+    "agent_loop_blocked": false,
+    "agent_loop_count": 0,
+    "active_overdue_amount": 12500.0,
+    "active_emi_amount": 12500.0,
+    "active_late_fee": 850.0,
+    "active_dpd": 47,
+    "active_loan_id": "LOAN-3001",
+    "active_customer_phone": "+919900001001",
+    "active_customer_email": "aditi.sharma@example.com",
+    "active_verification_required_fields": [
+      "dob",
+      "phone"
+    ],
+    "active_verification_challenge": {
+      "dob": "1991-08-19",
+      "phone": "9900001001"
+    },
+    "global_key_event_memory": {
+      "updated_at": "2026-05-01T11:50:52.746207+00:00",
+      "event_counters": {
+        "conversation_outcome::successful": 3,
+        "conversation_outcome::unsuccessful": 3
+      },
+      "successful_cues": [
+        {
+          "cue_id": "collect-payment-link-after-dues-clarity",
+          "cue": "When user asks to pay now, send payment link right after dues explanation.",
+          "count": 3,
+          "last_seen": "2026-05-01T00:00:00+00:00",
+          "sample_signals": [
+            "payment_intent: customer asked for immediate payment link"
+          ],
+          "sample_user_ids": [
+            "CUST-2001",
+            "CUST-2005"
+          ]
         }
       ],
-      "rationale": "Selected baseline restructure from hardship reason and requested EMI target.",
-      "compliance_flags": [
-        "demo_policy_check_pending"
-      ],
-      "confidence": 0.62,
-      "next_action_hint": "Present recommended_offer first, then use offer_variants if rejected."
+      "unsuccessful_cues": [
+        {
+          "cue_id": "avoid-hard-push-before-hardship-ack",
+          "cue": "Hard push fails when hardship is not acknowledged before options are discussed.",
+          "count": 2,
+          "last_seen": "2026-05-01T00:00:00+00:00",
+          "sample_signals": [
+            "hardship_signal: cannot pay this month due to job loss"
+          ],
+          "sample_user_ids": [
+            "CUST-2002"
+          ]
+        },
+        {
+          "cue_id": "user-asked-for-discount/waiver-style-assistance.",
+          "cue": "User asked for discount/waiver style assistance.",
+          "count": 1,
+          "last_seen": "2026-05-01T11:50:52.746202+00:00",
+          "sample_signals": [
+            "user: I need lower EMI | agent: I can propose discount plan | user: Bye"
+          ],
+          "sample_user_ids": [
+            "CUST-2001"
+          ]
+        }
+      ]
     },
-    "last_tool_used": "discount_planning_handoff",
-    "agent_timeout_triggered": true
+    "user_key_event_memory": {
+      "user_id": "CUST-2001",
+      "profile": {
+        "case_ids": [
+          "COLL-1001"
+        ],
+        "preferred_channel": "sms",
+        "risk_band": "unknown"
+      },
+      "latest_summary": "user: I need lower EMI | agent: I can propose discount plan | user: Bye",
+      "procedural_key_points": [
+        "Start with identity verification before discussing account specifics.",
+        "After dues explanation, provide one-click payment option.",
+        "User asked for discount/waiver style assistance."
+      ],
+      "follow_up_considerations": [
+        "Start next follow-up with discount and EMI options first."
+      ],
+      "last_outcome": "neutral",
+      "last_case_id": "COLL-1001"
+    },
+    "node_llms": {
+      "intent": "llama-3.1-8b-instant",
+      "plan_proposal": "llama-3.1-8b-instant",
+      "reflect": "llama-3.1-8b-instant"
+    },
+    "extracted_entities": {
+      "customer_id": "CUST-2001",
+      "case_id": "COLL-1001",
+      "name": "Aditi Sharma",
+      "dob": "1991-08-19"
+    },
+    "extracted_entity_descriptions": {
+      "customer_id": "Unique identifier for the customer",
+      "case_id": "Unique identifier for the case",
+      "name": "Customer Name",
+      "dob": "Date of Birth"
+    },
+    "verification_entities": {
+      "name": "Aditi Sharma",
+      "name_confirmed": true,
+      "dob": "1991-08-19"
+    },
+    "verification_collected": {
+      "name": "Aditi Sharma",
+      "name_confirmed": true,
+      "dob": "1991-08-19"
+    },
+    "identity_verified": false,
+    "verification_last_status": "insufficient",
+    "active_conversation_plan": {
+      "plan_id": "plan-COLL-1001",
+      "version": 3,
+      "status": "active",
+      "mode": "strict_collections",
+      "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+      "root_node_id": "open_and_context",
+      "current_node_id": "verify_identity",
+      "previous_node_id": "verify_identity",
+      "next_node_ids": [
+        "explain_dues"
+      ],
+      "nodes": [
+        {
+          "id": "open_and_context",
+          "label": "Open call and establish case context",
+          "owner": "collection_agent",
+          "status": "done"
+        },
+        {
+          "id": "verify_identity",
+          "label": "Verify customer identity",
+          "owner": "customer",
+          "status": "in_progress"
+        },
+        {
+          "id": "explain_dues",
+          "label": "Explain dues and policy options",
+          "owner": "customer",
+          "status": "pending"
+        },
+        {
+          "id": "collect_payment_intent",
+          "label": "Collect payment intent",
+          "owner": "customer",
+          "status": "pending"
+        },
+        {
+          "id": "evaluate_assistance",
+          "label": "Evaluate discount/restructure assistance",
+          "owner": "collection_agent",
+          "status": "pending"
+        },
+        {
+          "id": "resolve_outcome",
+          "label": "Finalize payment, promise, or follow-up",
+          "owner": "customer",
+          "status": "pending"
+        }
+      ],
+      "edges": [
+        {
+          "from": "collect_payment_intent",
+          "to": "evaluate_assistance",
+          "condition": "cannot_pay_full"
+        },
+        {
+          "from": "collect_payment_intent",
+          "to": "resolve_outcome",
+          "condition": "pay_now"
+        },
+        {
+          "from": "evaluate_assistance",
+          "to": "resolve_outcome",
+          "condition": "assistance_ready"
+        },
+        {
+          "from": "explain_dues",
+          "to": "collect_payment_intent",
+          "condition": "dues_explained"
+        },
+        {
+          "from": "open_and_context",
+          "to": "verify_identity",
+          "condition": "case_context_ready"
+        },
+        {
+          "from": "verify_identity",
+          "to": "explain_dues",
+          "condition": "identity_verified"
+        }
+      ],
+      "timeline": [
+        {
+          "at_utc": "2026-05-17T04:58:39.830601+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T05:02:55.931132+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Verify customer identity, explain dues, collect payment intent, and resolve outcome.",
+            "operation": "branch"
+          }
+        }
+      ],
+      "revision_log": [
+        {
+          "revision": 2,
+          "reason": "context shift: target=customer, route=continue, origin=pre_plan_intent",
+          "at_utc": "2026-05-17T04:58:39.830578+00:00"
+        },
+        {
+          "revision": 3,
+          "reason": "context shift: target=customer, route=continue, origin=pre_plan_intent",
+          "at_utc": "2026-05-17T05:02:55.931113+00:00"
+        }
+      ],
+      "updated_from": "pre_plan_intent",
+      "last_response_target": "customer",
+      "step_markers": {
+        "open_and_context": {
+          "state": "done",
+          "updated_at": "2026-05-17T05:02:55.930867+00:00",
+          "source": "plan_tree_update",
+          "reason": "mark_done"
+        },
+        "verify_identity": {
+          "state": "pending",
+          "updated_at": "2026-05-17T05:02:55.930867+00:00",
+          "source": "plan_tree_update",
+          "reason": "awaiting_completion_or_skip_marker"
+        },
+        "explain_dues": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:58:39.830438+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "collect_payment_intent": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:58:39.830438+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "evaluate_assistance": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:58:39.830438+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "resolve_outcome": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:58:39.830438+00:00",
+          "source": "reconciler",
+          "reason": ""
+        }
+      },
+      "timeline_snapshots": [
+        {
+          "at_utc": "2026-05-17T04:58:39.830601+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 2,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "open_and_context",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Verify customer identity",
+                "owner": "customer",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T05:02:55.931132+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Verify customer identity, explain dues, collect payment intent, and resolve outcome.",
+            "operation": "branch"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 3,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "verify_identity",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Verify customer identity",
+                "owner": "customer",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T05:02:55.930867+00:00",
+                "source": "plan_tree_update",
+                "reason": "mark_done"
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T05:02:55.930867+00:00",
+                "source": "plan_tree_update",
+                "reason": "awaiting_completion_or_skip_marker"
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:58:39.830438+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        }
+      ]
+    },
+    "turn_index": 2,
+    "last_user_input": "Hii Alex!! This is Aditi",
+    "last_agent_response": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+    "last_response_target": "customer"
+  },
+  "json-verify-a": {
+    "mode": "strict_collections",
+    "active_channel": "voice",
+    "active_case_id": "COLL-1001",
+    "active_user_id": "CUST-2001",
+    "active_customer_name": "Aditi Sharma",
+    "agent_loop_blocked": false,
+    "agent_loop_count": 0,
+    "active_overdue_amount": 12500.0,
+    "active_emi_amount": 12500.0,
+    "active_late_fee": 850.0,
+    "active_dpd": 47,
+    "active_loan_id": "LOAN-3001",
+    "active_customer_phone": "+919900001001",
+    "active_customer_email": "aditi.sharma@example.com",
+    "active_verification_required_fields": [
+      "dob",
+      "phone"
+    ],
+    "active_verification_challenge": {
+      "dob": "1991-08-19",
+      "phone": "9900001001"
+    },
+    "global_key_event_memory": {
+      "updated_at": "2026-05-01T11:50:52.746207+00:00",
+      "event_counters": {
+        "conversation_outcome::successful": 3,
+        "conversation_outcome::unsuccessful": 3
+      },
+      "successful_cues": [
+        {
+          "cue_id": "collect-payment-link-after-dues-clarity",
+          "cue": "When user asks to pay now, send payment link right after dues explanation.",
+          "count": 3,
+          "last_seen": "2026-05-01T00:00:00+00:00",
+          "sample_signals": [
+            "payment_intent: customer asked for immediate payment link"
+          ],
+          "sample_user_ids": [
+            "CUST-2001",
+            "CUST-2005"
+          ]
+        }
+      ],
+      "unsuccessful_cues": [
+        {
+          "cue_id": "avoid-hard-push-before-hardship-ack",
+          "cue": "Hard push fails when hardship is not acknowledged before options are discussed.",
+          "count": 2,
+          "last_seen": "2026-05-01T00:00:00+00:00",
+          "sample_signals": [
+            "hardship_signal: cannot pay this month due to job loss"
+          ],
+          "sample_user_ids": [
+            "CUST-2002"
+          ]
+        },
+        {
+          "cue_id": "user-asked-for-discount/waiver-style-assistance.",
+          "cue": "User asked for discount/waiver style assistance.",
+          "count": 1,
+          "last_seen": "2026-05-01T11:50:52.746202+00:00",
+          "sample_signals": [
+            "user: I need lower EMI | agent: I can propose discount plan | user: Bye"
+          ],
+          "sample_user_ids": [
+            "CUST-2001"
+          ]
+        }
+      ]
+    },
+    "user_key_event_memory": {
+      "user_id": "CUST-2001",
+      "profile": {
+        "case_ids": [
+          "COLL-1001"
+        ],
+        "preferred_channel": "sms",
+        "risk_band": "unknown"
+      },
+      "latest_summary": "user: I need lower EMI | agent: I can propose discount plan | user: Bye",
+      "procedural_key_points": [
+        "Start with identity verification before discussing account specifics.",
+        "After dues explanation, provide one-click payment option.",
+        "User asked for discount/waiver style assistance."
+      ],
+      "follow_up_considerations": [
+        "Start next follow-up with discount and EMI options first."
+      ],
+      "last_outcome": "neutral",
+      "last_case_id": "COLL-1001"
+    },
+    "node_llms": {
+      "intent": "llama-3.1-8b-instant",
+      "plan_proposal": "llama-3.1-8b-instant",
+      "reflect": "llama-3.1-8b-instant"
+    },
+    "extracted_entities": {
+      "customer_id": "CUST-2001",
+      "case_id": "COLL-1001",
+      "name": "Aditi Sharma"
+    },
+    "extracted_entity_descriptions": {
+      "customer_id": "Unique identifier for the customer",
+      "case_id": "Unique identifier for the collection case",
+      "name": "Customer's full name"
+    },
+    "verification_entities": {
+      "name": "Aditi Sharma",
+      "name_confirmed": true
+    },
+    "verification_collected": {
+      "name": "Aditi Sharma",
+      "name_confirmed": true
+    },
+    "identity_verified": false,
+    "verification_last_status": "insufficient",
+    "active_conversation_plan": {
+      "plan_id": "plan-COLL-1001",
+      "version": 3,
+      "status": "active",
+      "mode": "strict_collections",
+      "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+      "root_node_id": "open_and_context",
+      "current_node_id": "verify_identity",
+      "previous_node_id": "verify_identity",
+      "next_node_ids": [
+        "explain_dues"
+      ],
+      "nodes": [
+        {
+          "id": "open_and_context",
+          "label": "Open call and establish case context",
+          "owner": "collection_agent",
+          "status": "done"
+        },
+        {
+          "id": "verify_identity",
+          "label": "Verify customer identity",
+          "owner": "customer",
+          "status": "in_progress"
+        },
+        {
+          "id": "explain_dues",
+          "label": "Explain dues and policy options",
+          "owner": "customer",
+          "status": "pending"
+        },
+        {
+          "id": "collect_payment_intent",
+          "label": "Collect payment intent",
+          "owner": "customer",
+          "status": "pending"
+        },
+        {
+          "id": "evaluate_assistance",
+          "label": "Evaluate discount/restructure assistance",
+          "owner": "collection_agent",
+          "status": "pending"
+        },
+        {
+          "id": "resolve_outcome",
+          "label": "Finalize payment, promise, or follow-up",
+          "owner": "customer",
+          "status": "pending"
+        }
+      ],
+      "edges": [
+        {
+          "from": "open_and_context",
+          "to": "verify_identity",
+          "condition": "case_context_ready"
+        },
+        {
+          "from": "verify_identity",
+          "to": "explain_dues",
+          "condition": "identity_verified"
+        },
+        {
+          "from": "explain_dues",
+          "to": "collect_payment_intent",
+          "condition": "dues_explained"
+        },
+        {
+          "from": "collect_payment_intent",
+          "to": "resolve_outcome",
+          "condition": "pay_now"
+        },
+        {
+          "from": "collect_payment_intent",
+          "to": "evaluate_assistance",
+          "condition": "cannot_pay_full"
+        },
+        {
+          "from": "evaluate_assistance",
+          "to": "resolve_outcome",
+          "condition": "assistance_ready"
+        }
+      ],
+      "timeline": [
+        {
+          "at_utc": "2026-05-17T04:59:16.253908+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T05:00:28.172827+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "next_node_ids": [
+            "explain_dues"
+          ],
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          }
+        }
+      ],
+      "revision_log": [
+        {
+          "revision": 2,
+          "reason": "context shift: target=customer, route=continue, origin=pre_plan_intent",
+          "at_utc": "2026-05-17T04:59:16.253887+00:00"
+        },
+        {
+          "revision": 3,
+          "reason": "context shift: target=customer, route=continue, origin=pre_plan_intent",
+          "at_utc": "2026-05-17T05:00:28.172652+00:00"
+        }
+      ],
+      "updated_from": "pre_plan_intent",
+      "last_response_target": "customer",
+      "step_markers": {
+        "open_and_context": {
+          "state": "done",
+          "updated_at": "2026-05-17T04:59:16.253692+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "verify_identity": {
+          "state": "pending",
+          "updated_at": "2026-05-17T05:00:28.172513+00:00",
+          "source": "plan_tree_update",
+          "reason": "awaiting_completion_or_skip_marker"
+        },
+        "explain_dues": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:59:16.253692+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "collect_payment_intent": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:59:16.253692+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "evaluate_assistance": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:59:16.253692+00:00",
+          "source": "reconciler",
+          "reason": ""
+        },
+        "resolve_outcome": {
+          "state": "pending",
+          "updated_at": "2026-05-17T04:59:16.253692+00:00",
+          "source": "reconciler",
+          "reason": ""
+        }
+      },
+      "timeline_snapshots": [
+        {
+          "at_utc": "2026-05-17T04:59:16.253908+00:00",
+          "version": 2,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 2,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "open_and_context",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Verify customer identity",
+                "owner": "customer",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        },
+        {
+          "at_utc": "2026-05-17T05:00:28.172827+00:00",
+          "version": 3,
+          "status": "active",
+          "current_node_id": "verify_identity",
+          "update": {
+            "origin": "pre_plan_intent",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "verify_identity",
+            "current_node_id": "verify_identity",
+            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+            "operation": "advance"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 3,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "verify_identity",
+            "previous_node_id": "verify_identity",
+            "next_node_ids": [
+              "explain_dues"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Open call and establish case context",
+                "owner": "collection_agent",
+                "status": "done"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Verify customer identity",
+                "owner": "customer",
+                "status": "in_progress"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "done",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-17T05:00:28.172513+00:00",
+                "source": "plan_tree_update",
+                "reason": "awaiting_completion_or_skip_marker"
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-17T04:59:16.253692+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "pre_plan_intent",
+            "last_response_target": "customer"
+          }
+        }
+      ]
+    },
+    "turn_index": 2,
+    "last_user_input": "Hii Alex!! This is Aditi",
+    "last_agent_response": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+    "last_response_target": "customer"
   }
 }

@@ -93,6 +93,7 @@ class PlanProposalNode(BaseGraphNode):
             memory_state=memory_state,
             existing_plan=existing_plan,
         )
+        identity_verified = bool(memory_state.get("identity_verified", False))
         suggested_mode = str(plan_signals.get("suggested_plan_mode", mode)).strip().lower()
         if suggested_mode in {"strict_collections", "hardship_negotiation"} and suggested_mode != mode:
             mode = suggested_mode
@@ -195,6 +196,19 @@ class PlanProposalNode(BaseGraphNode):
         case_id = str(memory_state.get("active_case_id", "COLL-1001"))
 
         if bool(plan_signals.get("needs_discount_specialist")) and case_id:
+            if not identity_verified:
+                return with_plan(
+                    {
+                        "route": "continue",
+                        "response_target": "customer",
+                        "plan_proposal": {
+                            "target": "customer",
+                            "intent": "verification_required_before_discount",
+                            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+                            "next_actions": ["complete_identity_verification", "then_evaluate_assistance"],
+                        },
+                    }
+                )
             if memory is not None and hardship_reason:
                 memory.set_state(hardship_reason=hardship_reason)
             return with_plan(
@@ -1140,7 +1154,15 @@ class PlanProposalNode(BaseGraphNode):
             ):
                 set_state(node_id, "done", "mark_done")
         for node_id in sorted(mark_skipped):
-            set_state(node_id, "skipped", "mark_skipped")
+            if self._can_accept_skip_marker(
+                plan=plan,
+                node_id=node_id,
+                previous_current=previous_current,
+                user_input=user_input,
+                memory_identity_verified=memory_identity_verified,
+                markers=markers,
+            ):
+                set_state(node_id, "skipped", "mark_skipped")
         for node_id in sorted(mark_blocked):
             set_state(node_id, "blocked", "mark_blocked")
 
@@ -1283,6 +1305,50 @@ class PlanProposalNode(BaseGraphNode):
             return False
         return True
 
+    def _can_accept_skip_marker(
+        self,
+        *,
+        plan: dict[str, Any],
+        node_id: str,
+        previous_current: str,
+        user_input: str,
+        memory_identity_verified: bool,
+        markers: dict[str, Any],
+    ) -> bool:
+        root_id = str(plan.get("root_node_id", "open_and_context")).strip() or "open_and_context"
+        if node_id == root_id:
+            return False
+        if node_id == "verify_identity" and not memory_identity_verified:
+            return False
+
+        lowered = str(user_input).lower()
+        explicit_skip = any(
+            token in lowered
+            for token in [
+                "skip",
+                "skipped",
+                "defer",
+                "later",
+                "not now",
+                "can't talk",
+                "cannot talk",
+                "call me later",
+            ]
+        )
+        if not explicit_skip:
+            return False
+
+        current = str(previous_current or "").strip()
+        if not current:
+            return False
+        if node_id == current:
+            return True
+
+        allowed_next = self._next_nodes_from_edges(nodes=plan.get("edges", []), current_node_id=current)
+        if node_id not in allowed_next:
+            return False
+        return self._is_node_unlocked(plan=plan, node_id=node_id, markers=markers)
+
     def _is_node_unlocked(self, *, plan: dict[str, Any], node_id: str, markers: dict[str, Any]) -> bool:
         parents: list[str] = []
         for edge in plan.get("edges", []):
@@ -1401,9 +1467,10 @@ class PlanProposalNode(BaseGraphNode):
     def _append_timeline_snapshot(*, plan: dict[str, Any], update: dict[str, Any]) -> None:
         timeline = plan.get("timeline")
         entries = list(timeline) if isinstance(timeline, list) else []
+        timestamp = datetime.now(UTC).isoformat()
         entries.append(
             {
-                "at_utc": datetime.now(UTC).isoformat(),
+                "at_utc": timestamp,
                 "version": int(plan.get("version", 1)),
                 "status": str(plan.get("status", "active")),
                 "current_node_id": str(plan.get("current_node_id", "")),
@@ -1412,6 +1479,38 @@ class PlanProposalNode(BaseGraphNode):
             }
         )
         plan["timeline"] = entries[-40:]
+
+        # Persist full plan snapshots across turns so the UI can render a
+        # conversation-level plan timeline (prev/next over historical plan states).
+        snapshot_plan = {
+            "plan_id": str(plan.get("plan_id", "")),
+            "version": int(plan.get("version", 1)),
+            "status": str(plan.get("status", "active")),
+            "mode": str(plan.get("mode", "strict_collections")),
+            "objective": str(plan.get("objective", "")),
+            "root_node_id": str(plan.get("root_node_id", "")),
+            "current_node_id": str(plan.get("current_node_id", "")),
+            "previous_node_id": plan.get("previous_node_id"),
+            "next_node_ids": list(plan.get("next_node_ids", [])) if isinstance(plan.get("next_node_ids"), list) else [],
+            "nodes": [dict(node) for node in plan.get("nodes", []) if isinstance(node, dict)],
+            "edges": [dict(edge) for edge in plan.get("edges", []) if isinstance(edge, dict)],
+            "step_markers": dict(plan.get("step_markers", {})) if isinstance(plan.get("step_markers"), dict) else {},
+            "updated_from": str(plan.get("updated_from", "")),
+            "last_response_target": str(plan.get("last_response_target", "")),
+        }
+        snapshots_raw = plan.get("timeline_snapshots")
+        snapshots = list(snapshots_raw) if isinstance(snapshots_raw, list) else []
+        snapshots.append(
+            {
+                "at_utc": timestamp,
+                "version": int(plan.get("version", 1)),
+                "status": str(plan.get("status", "active")),
+                "current_node_id": str(plan.get("current_node_id", "")),
+                "update": dict(update) if isinstance(update, dict) else {},
+                "plan": snapshot_plan,
+            }
+        )
+        plan["timeline_snapshots"] = snapshots[-80:]
 
     def _classify_plan_signals(
         self,
