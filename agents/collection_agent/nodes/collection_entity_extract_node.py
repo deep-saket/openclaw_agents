@@ -26,12 +26,8 @@ class CollectionEntityExtractNode(BaseGraphNode):
     extract_callback: Callable[[Any, str], None] | None = None
     reconcile_callback: Callable[[Any], None] | None = None
     allow_callback_fallback: bool = False
-    system_prompt: str = (
-        "You extract entities from bank collections conversation text. "
-        "Return strict JSON only with keys: entities, entity_descriptions. "
-        "Use canonical keys where possible: case_id, customer_id, loan_id, name, dob, phone, zip, last4_pan, amount, promised_date. "
-        "Populate entity_descriptions with concise semantic meaning for each extracted key."
-    )
+    system_prompt: str = ""
+    user_prompt: str = ""
 
     def execute(self, state: AgentState) -> NodeUpdate:
         memory = state.get("memory")
@@ -106,6 +102,10 @@ class CollectionEntityExtractNode(BaseGraphNode):
                 verification_entities[field] = val
         if str(merged_entities.get("name", "")).strip():
             verification_entities["name"] = str(merged_entities["name"]).strip()
+            active_name = str(memory_state.get("active_customer_name", "")).strip().lower()
+            provided_name = str(merged_entities.get("name", "")).strip().lower()
+            if active_name and provided_name:
+                verification_entities["name_confirmed"] = active_name == provided_name
 
         if memory is not None and (merged_entities or merged_descriptions):
             memory.set_state(
@@ -164,20 +164,18 @@ class CollectionEntityExtractNode(BaseGraphNode):
         active_customer_name: str,
     ) -> _EntityPayload | None:
         try:
+            user_prompt = self._render_prompt_template(
+                self.user_prompt,
+                {
+                    "user_input": user_input,
+                    "required_fields_json": json.dumps(required_fields, ensure_ascii=True),
+                    "active_customer_name": active_customer_name,
+                    "existing_entities_json": json.dumps(existing_entities, ensure_ascii=True),
+                },
+            )
             payload = StructuredOutputRunner(self.llm, max_retries=2).run(
                 system_prompt=self.system_prompt,
-                user_prompt=(
-                    f"User input: {user_input}\n"
-                    f"Required verification fields: {json.dumps(required_fields, ensure_ascii=True)}\n"
-                    f"Active customer name: {active_customer_name}\n"
-                    f"Existing extracted entities JSON: {json.dumps(existing_entities, ensure_ascii=True)}\n"
-                    "Instructions:\n"
-                    "- Extract only explicitly provided values.\n"
-                    "- Normalize phone to digits only when possible.\n"
-                    "- Keep DOB in YYYY-MM-DD if present.\n"
-                    "- Extract verification-relevant keys when present.\n"
-                    "- Output strict JSON only."
-                ),
+                user_prompt=user_prompt,
                 schema=_EntityPayload,
             )
         except Exception:
@@ -196,3 +194,10 @@ class CollectionEntityExtractNode(BaseGraphNode):
             if key_norm and val_norm:
                 descriptions[key_norm] = val_norm
         return _EntityPayload(entities=entities, entity_descriptions=descriptions)
+
+    @staticmethod
+    def _render_prompt_template(template: str, values: dict[str, Any]) -> str:
+        rendered = template
+        for key, value in values.items():
+            rendered = rendered.replace(f"{{{key}}}", str(value))
+        return rendered

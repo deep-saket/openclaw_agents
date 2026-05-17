@@ -1,39 +1,147 @@
 {
-  "trace_id": "5811e4af-67e0-438d-b8a1-1e75ba5cff79",
+  "trace_id": "b7363a1d-c719-4f40-9002-1f7aae03e41e",
   "agent_name": "collection_agent",
-  "session_id": "S2_scam-83ba",
-  "user_input": "last 4 pan QP9T and zip 400067",
-  "status": "failed",
-  "started_at": "2026-05-04T05:09:36.306342+00:00",
-  "finished_at": "2026-05-04T05:09:37.535479+00:00",
-  "error": "CollectionIntentNode failed to produce structured LLM intent output. Fallback disabled. Error: Structured output failed after retries: HTTP Error 429: Too Many Requests",
+  "session_id": "collection-user_a",
+  "user_input": "Start outbound collections call now. Customer=Aditi Sharma customer_id=CUST-2001 case_id=COLL-1001 overdue_amount=12500 Generate the first call pitch by introducing yourself and requesting identity verification only. Do not disclose overdue amount, dues details, or payment options before verification.",
+  "status": "completed",
+  "started_at": "2026-05-17T04:19:05.601654+00:00",
+  "finished_at": "2026-05-17T04:19:32.740520+00:00",
+  "error": null,
   "summary": {
-    "trace_id": "5811e4af-67e0-438d-b8a1-1e75ba5cff79",
+    "trace_id": "b7363a1d-c719-4f40-9002-1f7aae03e41e",
     "agent_name": "collection_agent",
-    "session_id": "S2_scam-83ba",
-    "status": "failed",
+    "session_id": "collection-user_a",
+    "status": "completed",
     "node_hits": [
-      "relevance_intent"
+      "relevance_intent",
+      "entity_extract",
+      "pre_plan_intent",
+      "plan_proposal",
+      "reflect",
+      "relevant_response"
     ],
-    "node_count": 1,
-    "llm_call_count": 0,
+    "node_count": 6,
+    "llm_call_count": 5,
     "tool_call_count": 0,
-    "models": [],
+    "models": [
+      "llama-3.1-8b-instant"
+    ],
     "prompt_tokens": 0,
     "completion_tokens": 0,
     "total_tokens": 0,
-    "error": "CollectionIntentNode failed to produce structured LLM intent output. Fallback disabled. Error: Structured output failed after retries: HTTP Error 429: Too Many Requests"
+    "error": null
   },
   "nodes": [
     {
       "node_name": "relevance_intent",
-      "status": "failed",
-      "started_at": "2026-05-04T05:09:36.308600+00:00",
-      "finished_at": "2026-05-04T05:09:37.535366+00:00",
-      "duration_ms": 1226.766,
-      "error": "CollectionIntentNode failed to produce structured LLM intent output. Fallback disabled. Error: Structured output failed after retries: HTTP Error 429: Too Many Requests"
+      "status": "completed",
+      "started_at": "2026-05-17T04:19:05.602073+00:00",
+      "finished_at": "2026-05-17T04:19:09.937439+00:00",
+      "duration_ms": 4335.366,
+      "error": null
+    },
+    {
+      "node_name": "entity_extract",
+      "status": "completed",
+      "started_at": "2026-05-17T04:19:09.938039+00:00",
+      "finished_at": "2026-05-17T04:19:16.667849+00:00",
+      "duration_ms": 6729.81,
+      "error": null
+    },
+    {
+      "node_name": "pre_plan_intent",
+      "status": "completed",
+      "started_at": "2026-05-17T04:19:16.668185+00:00",
+      "finished_at": "2026-05-17T04:19:21.054478+00:00",
+      "duration_ms": 4386.293,
+      "error": null
+    },
+    {
+      "node_name": "plan_proposal",
+      "status": "completed",
+      "started_at": "2026-05-17T04:19:21.055922+00:00",
+      "finished_at": "2026-05-17T04:19:32.723432+00:00",
+      "duration_ms": 11667.51,
+      "error": null
+    },
+    {
+      "node_name": "reflect",
+      "status": "completed",
+      "started_at": "2026-05-17T04:19:32.723859+00:00",
+      "finished_at": "2026-05-17T04:19:32.732361+00:00",
+      "duration_ms": 8.502,
+      "error": null
+    },
+    {
+      "node_name": "relevant_response",
+      "status": "completed",
+      "started_at": "2026-05-17T04:19:32.732663+00:00",
+      "finished_at": "2026-05-17T04:19:32.732758+00:00",
+      "duration_ms": 0.095,
+      "error": null
     }
   ],
-  "llm_calls": [],
+  "llm_calls": [
+    {
+      "call_id": "4f87940f-f3a6-41a0-95e5-2ef25f31dad6",
+      "node_name": "relevance_intent",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-17T04:19:09.937315+00:00",
+      "finished_at": "2026-05-17T04:19:09.937315+00:00",
+      "duration_ms": 4327.563
+    },
+    {
+      "call_id": "8d522d05-9d5f-4935-ae57-88ca67fdc3d0",
+      "node_name": "entity_extract",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-17T04:19:12.335061+00:00",
+      "finished_at": "2026-05-17T04:19:12.335061+00:00",
+      "duration_ms": 2396.957
+    },
+    {
+      "call_id": "f946ef61-42a7-4e4e-811f-76d389130389",
+      "node_name": "entity_extract",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-17T04:19:16.644051+00:00",
+      "finished_at": "2026-05-17T04:19:16.644051+00:00",
+      "duration_ms": 4308.78
+    },
+    {
+      "call_id": "233a65e6-6ef9-4739-b0a2-829b96d5737a",
+      "node_name": "pre_plan_intent",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-17T04:19:21.053973+00:00",
+      "finished_at": "2026-05-17T04:19:21.053973+00:00",
+      "duration_ms": 4377.225
+    },
+    {
+      "call_id": "949d4c73-3ffd-4006-acc9-7f3004ee8875",
+      "node_name": "plan_proposal",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-17T04:19:32.700725+00:00",
+      "finished_at": "2026-05-17T04:19:32.700725+00:00",
+      "duration_ms": 11630.298
+    }
+  ],
   "tool_calls": []
 }

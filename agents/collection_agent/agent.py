@@ -131,6 +131,7 @@ class CollectionAgent(BaseAgent):
         plan_proposal_prompts = prompts.get("plan_proposal", {})
         reflect_prompts = prompts.get("reflect", {})
         response_prompts = prompts.get("response", {})
+        entity_extract_prompts = prompts.get("entity_extract", {})
 
         BaseAgent.__init__(
             self,
@@ -327,6 +328,17 @@ class CollectionAgent(BaseAgent):
             llm=self.llm,
             system_prompt=str(response_prompts.get("system_prompt", "")),
             user_prompt=str(response_prompts.get("user_prompt", "{observation}")),
+            render_system_prompt=str(response_prompts.get("render_system_prompt", "")),
+            render_user_prompt=str(response_prompts.get("render_user_prompt", "")),
+            verification_opening_template=str(response_prompts.get("verification_opening_template", "")),
+            verification_followup_template=str(response_prompts.get("verification_followup_template", "")),
+            verification_default_missing_text=str(
+                response_prompts.get("verification_default_missing_text", "your date of birth (YYYY-MM-DD) and your registered phone number")
+            ),
+            verification_hardship_prefix=str(
+                response_prompts.get("verification_hardship_prefix", "I am sorry to hear this, and I appreciate you sharing it. ")
+            ),
+            verification_ack_template=str(response_prompts.get("verification_ack_template", "Thank you{customer_suffix}. ")),
             default_response="No action selected.",
             default_target="customer",
         )
@@ -342,6 +354,8 @@ class CollectionAgent(BaseAgent):
             extract_callback=self._capture_verification_evidence,
             reconcile_callback=self._reconcile_verification_from_collected,
             allow_callback_fallback=self.allow_deterministic_fallback,
+            system_prompt=str(entity_extract_prompts.get("system_prompt", "")),
+            user_prompt=str(entity_extract_prompts.get("user_prompt", "")),
         )
         self.graph = self._build_graph()
 

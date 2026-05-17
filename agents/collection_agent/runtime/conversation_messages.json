@@ -1,300 +1,4 @@
 {
-  "collection-user_a": [
-    {
-      "id": "eeec3e5e-9eba-48a6-89ca-5f59aba810d1",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "your loan account has 47 days past due. Overdue EMI amount is INR 12500.00, late fee is INR 850.00. Total amount due now is INR 13350.00. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T16:57:10.145180Z"
-    },
-    {
-      "id": "01eff054-b58d-4cb5-b58c-400738473559",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is a call from the collections department regarding your loan account COLL-1001. Your loan account has 47 days past due. Overdue EMI amount is INR 12500.00, late fee is INR 850.00. Total amount due now is INR 13350.00. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T16:59:54.432161Z"
-    },
-    {
-      "id": "e0c88d1c-1933-4c33-abbd-eec21662754b",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is a call from the collections department regarding your overdue amount of 12500. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T17:01:58.525347Z"
-    },
-    {
-      "id": "f601ec39-67f1-46c5-a26f-99adb8591b38",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is a call from the collections department regarding your overdue amount of 12500. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T17:03:07.845010Z"
-    },
-    {
-      "id": "90b7a495-3d7d-4978-b71a-a76aac214cef",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is a call from the collections department regarding your overdue amount of 12500. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T20:24:15.010489Z"
-    },
-    {
-      "id": "cfc2626e-9b62-4718-b814-031673279461",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "your loan account has 47 days past due. Overdue EMI amount is INR 12500.00, late fee is INR 850.00. Total amount due now is INR 13350.00. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T20:24:59.606283Z"
-    },
-    {
-      "id": "a4875f15-c3f8-4950-827c-521166069934",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "your loan account has 47 days past due. Overdue EMI amount is INR 12500.00, late fee is INR 850.00. Total amount due now is INR 13350.00. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T20:25:47.568435Z"
-    },
-    {
-      "id": "eb81d082-e32b-4d89-83d0-0b7acfc29373",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is a call from the collections department regarding your loan account COLL-1001. Your loan account has 47 days past due. Overdue EMI amount is INR 12500.00, late fee is INR 850.00. Total amount due now is INR 13350.00. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T20:27:10.396766Z"
-    },
-    {
-      "id": "5ecf04bc-60dc-4cfb-9c01-7fa05b1315de",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "your loan account has 47 days past due. Overdue EMI amount is INR 12500.00, late fee is INR 850.00. Total amount due now is INR 13350.00. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T20:30:49.847125Z"
-    },
-    {
-      "id": "3be06274-365a-4f5d-b229-7eacd82ed287",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "hi",
-      "created_at": "2026-05-02T20:31:25.888110Z"
-    },
-    {
-      "id": "0447f91b-2c5c-4c03-98cf-3b39e89f4033",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "This request is outside collections scope. I can only help with loan dues, EMI, payments, verification, hardship plans, and follow-ups.",
-      "created_at": "2026-05-02T20:31:32.677039Z"
-    },
-    {
-      "id": "975a2ec7-23ed-4a72-8b85-935803edd1b6",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is a call from the bank's collections department regarding your overdue amount of 12500. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-02T20:33:02.078913Z"
-    },
-    {
-      "id": "33f45cf1-9195-4fc3-9c49-abdb7ca32b59",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is a call from the collections department regarding your overdue amount of 12500. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-03T08:50:50.874330Z"
-    },
-    {
-      "id": "fe2def36-02a1-43a1-bda4-9d4cf4240c9e",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "your loan account has 47 days past due. Overdue EMI amount is INR 12500.00, late fee is INR 850.00. Total amount due now is INR 13350.00. Can you please let me know how you plan to settle this amount?",
-      "created_at": "2026-05-03T16:16:45.496754Z"
-    },
-    {
-      "id": "b8429308-0fd3-49a8-ac38-8feaac326fb0",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is a call from the bank's collections department regarding your overdue amount of 12500. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-03T16:28:51.578628Z"
-    },
-    {
-      "id": "db9fa32a-da71-4a7b-a82d-f4e1e1d77d04",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "Hi !! Sorry for the delay how can you helpp me?",
-      "created_at": "2026-05-03T18:14:46.272244Z"
-    },
-    {
-      "id": "f12cb4cf-b7de-4712-a7da-cc209b6a4a31",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you for apologizing for the delay. To proceed, can you please confirm your identity by providing your full name and the last 4 digits of your account number?",
-      "created_at": "2026-05-03T18:15:35.641925Z"
-    },
-    {
-      "id": "784ead7b-cc41-4f70-b83b-0e0b7da35ef1",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "My name is Aditi Sharma",
-      "created_at": "2026-05-03T18:16:36.484350Z"
-    },
-    {
-      "id": "db68cddc-d763-462e-92d3-c76ff90ce823",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "This request is outside collections scope. I can only help with loan dues, EMI, payments, verification, hardship plans, and follow-ups.",
-      "created_at": "2026-05-03T18:16:37.996277Z"
-    },
-    {
-      "id": "a0aa6020-0374-4d31-bbd3-f72855e5cc79",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is a call from the bank's collections department regarding your overdue amount of 12500. Can you please let me know when you plan to make the payment?",
-      "created_at": "2026-05-03T18:34:48.041292Z"
-    },
-    {
-      "id": "4b7bda09-58be-424e-aa8e-3cb4c33fa5e3",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "Sorry for the delay how can you help me?",
-      "created_at": "2026-05-03T18:35:52.756014Z"
-    },
-    {
-      "id": "33cf4279-6a38-45aa-ae43-2a494e9093d1",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you for apologizing for the delay. To assist you with your account, could you please confirm your identity by providing your full name and the last 4 digits of your account number?",
-      "created_at": "2026-05-03T18:36:57.420444Z"
-    },
-    {
-      "id": "42a894e5-e92b-4e93-b073-96402e9134e6",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "My name is Aditi Sharma",
-      "created_at": "2026-05-03T18:37:29.727796Z"
-    },
-    {
-      "id": "19248eb9-c68c-4566-9bc1-6fb205f0af7f",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you for confirming your identity, Aditi Sharma. I will now explain your dues.",
-      "created_at": "2026-05-03T18:38:07.154270Z"
-    },
-    {
-      "id": "609484ea-b2a2-4831-8558-39f7b514056b",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "plese do",
-      "created_at": "2026-05-03T18:42:05.372796Z"
-    },
-    {
-      "id": "80c1dbb1-064a-4810-a20b-6f0f80d51af2",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "To complete verification before I explain dues, please share your full name, your date of birth (YYYY-MM-DD), the last 4 characters of your PAN, and your registered ZIP/pincode.",
-      "created_at": "2026-05-03T20:39:10.245864Z"
-    },
-    {
-      "id": "09591c37-f2a4-4d96-98cf-b1243ad5d3ac",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "My name is Aditi Sharma",
-      "created_at": "2026-05-03T20:39:10.248684Z"
-    },
-    {
-      "id": "be433601-6cb1-4a15-bd6c-0801c60571e6",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you, Aditi Sharma. To complete verification, please also share your date of birth (YYYY-MM-DD), the last 4 characters of your PAN, and your registered ZIP/pincode.",
-      "created_at": "2026-05-03T20:39:24.079611Z"
-    },
-    {
-      "id": "5608d7a6-d0b2-45b4-8f77-cf240647d789",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you, Aditi Sharma. To complete verification, please also share your date of birth (YYYY-MM-DD), the last 4 characters of your PAN, and your registered ZIP/pincode.",
-      "created_at": "2026-05-04T04:34:40.814819Z"
-    },
-    {
-      "id": "6fda57b4-4841-43ba-b922-1dc9b45db3e6",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "My DoB ius 1991-08-19",
-      "created_at": "2026-05-04T04:39:21.141497Z"
-    },
-    {
-      "id": "795bf6aa-56d3-4a85-b1b3-7afc0e1f9833",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you, Aditi Sharma. To complete verification, please also share the last 4 characters of your PAN and your registered ZIP/pincode.",
-      "created_at": "2026-05-04T04:39:34.154030Z"
-    },
-    {
-      "id": "8e923d36-cb61-400d-b31e-fbd327febeac",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "My Pans last 4 digit is AF4K and my zip code is 560102",
-      "created_at": "2026-05-04T04:42:13.985185Z"
-    },
-    {
-      "id": "102f4f4e-748d-4e00-94fe-367c505f171f",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "I want to pay now",
-      "created_at": "2026-05-04T04:42:54.101057Z"
-    },
-    {
-      "id": "a32c98d4-f6ed-4bb8-8bf5-86dca871c091",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you, Aditi Sharma. To complete verification, please also share the last 4 characters of your PAN and your registered ZIP/pincode.",
-      "created_at": "2026-05-04T04:42:58.070897Z"
-    },
-    {
-      "id": "5665d2db-9327-48f1-9b4d-ae8456e1ccdf",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you, Aditi Sharma. To complete verification, please also share the last 4 characters of your PAN and your registered ZIP/pincode.",
-      "created_at": "2026-05-04T04:43:36.031298Z"
-    },
-    {
-      "id": "1d415f33-38a8-4abd-ab16-71200912b632",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you, Aditi Sharma. To complete verification, please also share the last 4 characters of your PAN and your registered ZIP/pincode.",
-      "created_at": "2026-05-04T04:43:55.419738Z"
-    },
-    {
-      "id": "2616f08d-3ba6-4717-9d23-3de13e71a538",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you, Aditi Sharma. To complete verification, please also share the last 4 characters of your PAN and your registered ZIP/pincode.",
-      "created_at": "2026-05-04T04:49:22.327657Z"
-    },
-    {
-      "id": "927359b0-4e13-4f58-88ad-53f7320c9210",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "My DoB is 1991-08-19",
-      "created_at": "2026-05-04T04:49:22.338960Z"
-    },
-    {
-      "id": "73295431-68ee-4891-830b-0a3687922d02",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "My Pans last 4 digit is AF4K and my zip code is 560102",
-      "created_at": "2026-05-04T04:50:29.628248Z"
-    },
-    {
-      "id": "f4c13647-ced4-4bb5-81f1-540523ed36f1",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "this is Alex from collections. Your case number is COLL-1001 and you have an overdue amount of INR 12500.00. Can you please let me know how you plan to settle this amount?",
-      "created_at": "2026-05-04T04:50:47.994082Z"
-    },
-    {
-      "id": "7adc7431-b034-4a11-b87a-9ce6b13aa809",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "I want to pay now",
-      "created_at": "2026-05-04T04:50:48.007934Z"
-    },
-    {
-      "id": "c56c4225-d2a9-465c-afb3-9d5a24ee7bf7",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "We can proceed with the payment. Please confirm your payment method.",
-      "created_at": "2026-05-04T04:51:22.579379Z"
-    }
-  ],
   "collection-user_b": [
     {
       "id": "4b6ec763-c8f0-45e0-889f-23548eb55c81",
@@ -1016,6 +720,63 @@
       "role": "customer",
       "content": "DOB is 1988-04-22",
       "created_at": "2026-05-04T05:09:14.895345Z"
+    }
+  ],
+  "entity-node-smoke": [
+    {
+      "id": "e2e036a3-401e-4898-835d-5c2a8e910fb2",
+      "session_id": "entity-node-smoke",
+      "role": "customer",
+      "content": "My name is Aditi Sharma",
+      "created_at": "2026-05-16T10:49:01.671079Z"
+    }
+  ],
+  "groq-verify": [
+    {
+      "id": "09dcdfc7-d213-428f-9b0b-9a598c86492d",
+      "session_id": "groq-verify",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-16T11:16:07.132137Z"
+    }
+  ],
+  "demo-fresh-001": [
+    {
+      "id": "e83abc90-5e57-4b0e-afe2-a4eea154d559",
+      "session_id": "demo-fresh-001",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:07:01.924143Z"
+    },
+    {
+      "id": "91d14c8a-ed6b-4cc8-aa71-6c84d18b7f85",
+      "session_id": "demo-fresh-001",
+      "role": "customer",
+      "content": "Hii Alex!! This is Aditi",
+      "created_at": "2026-05-17T04:07:01.925627Z"
+    },
+    {
+      "id": "8c4b14fd-21a4-49a3-8dd2-24f19831dee2",
+      "session_id": "demo-fresh-001",
+      "role": "customer",
+      "content": "DOB is 1991-08-19",
+      "created_at": "2026-05-17T04:07:56.986178Z"
+    }
+  ],
+  "natural-test-002": [
+    {
+      "id": "d740c60f-3131-495b-8e49-c44ad3c495e1",
+      "session_id": "natural-test-002",
+      "role": "customer",
+      "content": "Hii Alex!! This is Aditi",
+      "created_at": "2026-05-17T04:08:40.656108Z"
+    },
+    {
+      "id": "6654a054-2b0c-41ca-b7ea-e6dedaaedad9",
+      "session_id": "natural-test-002",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T04:09:34.112760Z"
     }
   ]
 }
