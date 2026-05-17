@@ -1,14 +1,14 @@
 {
-  "trace_id": "2f853c23-d163-4951-be98-9da9131b756e",
+  "trace_id": "f6143bb4-741d-408a-8680-4ad42ce0a88d",
   "agent_name": "collection_agent",
   "session_id": "collection-user_a",
-  "user_input": "Start outbound collections call now. Customer=Aditi Sharma customer_id=CUST-2001 case_id=COLL-1001 overdue_amount=12500 Generate the first call pitch by introducing yourself and requesting identity verification only. Do not disclose overdue amount, dues details, or payment options before verification.",
+  "user_input": "My DoB ius 1991-08-19",
   "status": "completed",
-  "started_at": "2026-05-17T21:15:16.480907+00:00",
-  "finished_at": "2026-05-17T21:15:47.466331+00:00",
+  "started_at": "2026-05-17T21:19:22.481277+00:00",
+  "finished_at": "2026-05-17T21:19:29.986959+00:00",
   "error": null,
   "summary": {
-    "trace_id": "2f853c23-d163-4951-be98-9da9131b756e",
+    "trace_id": "f6143bb4-741d-408a-8680-4ad42ce0a88d",
     "agent_name": "collection_agent",
     "session_id": "collection-user_a",
     "status": "completed",
@@ -21,7 +21,7 @@
       "relevant_response"
     ],
     "node_count": 6,
-    "llm_call_count": 8,
+    "llm_call_count": 5,
     "tool_call_count": 0,
     "models": [
       "llama-3.1-8b-instant"
@@ -35,148 +35,112 @@
     {
       "node_name": "relevance_intent",
       "status": "completed",
-      "started_at": "2026-05-17T21:15:16.481265+00:00",
-      "finished_at": "2026-05-17T21:15:16.712887+00:00",
-      "duration_ms": 231.622,
+      "started_at": "2026-05-17T21:19:22.481664+00:00",
+      "finished_at": "2026-05-17T21:19:22.705824+00:00",
+      "duration_ms": 224.16,
       "error": null
     },
     {
       "node_name": "entity_extract",
       "status": "completed",
-      "started_at": "2026-05-17T21:15:16.714299+00:00",
-      "finished_at": "2026-05-17T21:15:18.297544+00:00",
-      "duration_ms": 1583.245,
+      "started_at": "2026-05-17T21:19:22.707038+00:00",
+      "finished_at": "2026-05-17T21:19:23.005915+00:00",
+      "duration_ms": 298.877,
       "error": null
     },
     {
       "node_name": "pre_plan_intent",
       "status": "completed",
-      "started_at": "2026-05-17T21:15:18.297930+00:00",
-      "finished_at": "2026-05-17T21:15:18.548357+00:00",
-      "duration_ms": 250.427,
+      "started_at": "2026-05-17T21:19:23.006237+00:00",
+      "finished_at": "2026-05-17T21:19:23.301163+00:00",
+      "duration_ms": 294.926,
       "error": null
     },
     {
       "node_name": "plan_proposal",
       "status": "completed",
-      "started_at": "2026-05-17T21:15:18.548958+00:00",
-      "finished_at": "2026-05-17T21:15:29.854498+00:00",
-      "duration_ms": 11305.54,
+      "started_at": "2026-05-17T21:19:23.305003+00:00",
+      "finished_at": "2026-05-17T21:19:24.506013+00:00",
+      "duration_ms": 1201.01,
       "error": null
     },
     {
       "node_name": "reflect",
       "status": "completed",
-      "started_at": "2026-05-17T21:15:29.855131+00:00",
-      "finished_at": "2026-05-17T21:15:29.870888+00:00",
-      "duration_ms": 15.757,
+      "started_at": "2026-05-17T21:19:24.508679+00:00",
+      "finished_at": "2026-05-17T21:19:24.521583+00:00",
+      "duration_ms": 12.904,
       "error": null
     },
     {
       "node_name": "relevant_response",
       "status": "completed",
-      "started_at": "2026-05-17T21:15:29.871152+00:00",
-      "finished_at": "2026-05-17T21:15:47.444170+00:00",
-      "duration_ms": 17573.018,
+      "started_at": "2026-05-17T21:19:24.522003+00:00",
+      "finished_at": "2026-05-17T21:19:29.962739+00:00",
+      "duration_ms": 5440.736,
       "error": null
     }
   ],
   "llm_calls": [
     {
-      "call_id": "f6ce471b-5cf6-4f96-af83-1b4a2aa86d32",
+      "call_id": "3b6135ab-5eeb-4fc0-a7e6-df1a59ea74f2",
       "node_name": "relevance_intent",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:15:16.712626+00:00",
-      "finished_at": "2026-05-17T21:15:16.712626+00:00",
-      "duration_ms": 221.668
+      "started_at": "2026-05-17T21:19:22.705540+00:00",
+      "finished_at": "2026-05-17T21:19:22.705540+00:00",
+      "duration_ms": 214.188
     },
     {
-      "call_id": "993452a2-db6e-4f75-98f3-1b31f06e68e9",
+      "call_id": "362558b6-8797-4001-8a0b-59104e0f67db",
       "node_name": "entity_extract",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:15:17.132676+00:00",
-      "finished_at": "2026-05-17T21:15:17.132676+00:00",
-      "duration_ms": 418.218
+      "started_at": "2026-05-17T21:19:22.970010+00:00",
+      "finished_at": "2026-05-17T21:19:22.970010+00:00",
+      "duration_ms": 262.398
     },
     {
-      "call_id": "0058404f-cba5-4b4a-9bc9-3f2080a263f4",
-      "node_name": "entity_extract",
-      "model_name": "llama-3.1-8b-instant",
-      "call_kind": "generate",
-      "prompt_tokens": null,
-      "completion_tokens": null,
-      "total_tokens": null,
-      "started_at": "2026-05-17T21:15:17.654041+00:00",
-      "finished_at": "2026-05-17T21:15:17.654041+00:00",
-      "duration_ms": 520.909
-    },
-    {
-      "call_id": "1ffead7a-9b2a-4478-81f9-77c6bef191f6",
-      "node_name": "entity_extract",
-      "model_name": "llama-3.1-8b-instant",
-      "call_kind": "generate",
-      "prompt_tokens": null,
-      "completion_tokens": null,
-      "total_tokens": null,
-      "started_at": "2026-05-17T21:15:18.276801+00:00",
-      "finished_at": "2026-05-17T21:15:18.276801+00:00",
-      "duration_ms": 622.226
-    },
-    {
-      "call_id": "5d7a78a2-a7d2-442d-bca9-713d41a5fbb5",
+      "call_id": "273d8ecb-6037-4f10-a2d4-03965b9ef367",
       "node_name": "pre_plan_intent",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:15:18.548252+00:00",
-      "finished_at": "2026-05-17T21:15:18.548252+00:00",
-      "duration_ms": 237.027
+      "started_at": "2026-05-17T21:19:23.301013+00:00",
+      "finished_at": "2026-05-17T21:19:23.301013+00:00",
+      "duration_ms": 282.357
     },
     {
-      "call_id": "f599e689-014e-4cbd-b354-062f8aebc336",
+      "call_id": "af33fbaf-231a-4943-9cde-168296584529",
       "node_name": "plan_proposal",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:15:24.122602+00:00",
-      "finished_at": "2026-05-17T21:15:24.122602+00:00",
-      "duration_ms": 5558.215
+      "started_at": "2026-05-17T21:19:24.490630+00:00",
+      "finished_at": "2026-05-17T21:19:24.490630+00:00",
+      "duration_ms": 632.245
     },
     {
-      "call_id": "088adf8f-ba56-4320-8f90-d6af995b6ce8",
-      "node_name": "plan_proposal",
-      "model_name": "llama-3.1-8b-instant",
-      "call_kind": "generate",
-      "prompt_tokens": null,
-      "completion_tokens": null,
-      "total_tokens": null,
-      "started_at": "2026-05-17T21:15:29.831506+00:00",
-      "finished_at": "2026-05-17T21:15:29.831506+00:00",
-      "duration_ms": 5708.473
-    },
-    {
-      "call_id": "13e1b02a-5d33-4384-8398-2ef1a336ae55",
+      "call_id": "b4b88a7d-6053-455e-a92e-26a944f106a0",
       "node_name": "relevant_response",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:15:47.443810+00:00",
-      "finished_at": "2026-05-17T21:15:47.443810+00:00",
-      "duration_ms": 17572.248
+      "started_at": "2026-05-17T21:19:29.962385+00:00",
+      "finished_at": "2026-05-17T21:19:29.962385+00:00",
+      "duration_ms": 5439.86
     }
   ],
   "tool_calls": []

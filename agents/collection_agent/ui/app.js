@@ -739,6 +739,7 @@ function extractNodePromptResponse(entry) {
   const update = (entry && entry.state_update && typeof entry.state_update === "object") ? entry.state_update : {};
 
   const prompt = pickFirstNonEmptyString([
+    update.prompt,
     raw.prompt,
     raw.user_prompt,
     raw.input_prompt,
@@ -749,6 +750,7 @@ function extractNodePromptResponse(entry) {
   ]);
 
   const systemPrompt = pickFirstNonEmptyString([
+    update.system_prompt,
     raw.system_prompt,
     before.system_prompt,
     after.system_prompt,
@@ -763,11 +765,17 @@ function extractNodePromptResponse(entry) {
   ]);
 
   const llmResponse = pickFirstNonEmptyString([
+    update.llm_response,
     raw.raw_response,
     raw.llm_response,
     raw.generated_text,
     update.generated_text,
     after.generated_text,
+  ]);
+  const llmError = pickFirstNonEmptyString([
+    update.llm_error,
+    raw.llm_error,
+    after.llm_error,
   ]);
 
   const messages = Array.isArray(raw.messages) ? raw.messages : [];
@@ -780,6 +788,7 @@ function extractNodePromptResponse(entry) {
     system_prompt: systemPrompt || null,
     response: response || null,
     llm_response: llmResponse || null,
+    llm_error: llmError || null,
     messages: messages.length ? messages : null,
     tool_calls: toolCalls.length ? toolCalls : null,
   };
