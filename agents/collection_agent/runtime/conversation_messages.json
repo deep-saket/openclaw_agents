@@ -1183,39 +1183,11 @@
   ],
   "collection-user_a": [
     {
-      "id": "bbbf9a43-84de-4485-b692-8e0322847d71",
+      "id": "2aed1173-f4b6-4a54-8728-b16a86127a31",
       "session_id": "collection-user_a",
       "role": "agent",
       "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, I need to verify your identity. Please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
-      "created_at": "2026-05-17T21:15:47.465159Z"
-    },
-    {
-      "id": "4be447fb-4018-4d14-be1d-c9d7acf80af6",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "Hii Alex!! This is Aditi",
-      "created_at": "2026-05-17T21:15:56.733253Z"
-    },
-    {
-      "id": "62b79f64-3415-4099-a4ed-17afecb43e90",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "I noticed you've already confirmed your name. Can you please confirm your date of birth (YYYY-MM-DD) and your registered phone number?",
-      "created_at": "2026-05-17T21:17:31.709788Z"
-    },
-    {
-      "id": "d2e0e29a-cd13-4fd0-a255-249f2b3e2ef3",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "My DoB ius 1991-08-19",
-      "created_at": "2026-05-17T21:19:22.411005Z"
-    },
-    {
-      "id": "2d429d86-6501-4b49-80e7-5687d409fcda",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you for confirming your date of birth, Aditi. I just need to confirm your registered phone number to proceed.",
-      "created_at": "2026-05-17T21:19:29.985762Z"
+      "created_at": "2026-05-17T21:27:51.361834Z"
     }
   ]
 }

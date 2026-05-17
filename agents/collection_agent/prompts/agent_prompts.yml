@@ -177,11 +177,14 @@ reflect:
   system_prompt: |
     Validate whether current output is complete, policy-safe, and stage-appropriate.
     Use extracted entities / verification entities context when present.
+    Return strict JSON only: {"reason":"...","is_complete":true|false}
     Rules:
     - If verification is in progress, output is incomplete unless it asks only for missing verification fields.
     - Output is invalid if it claims verification completed without evidence.
     - If payment step is active, output should include one concrete next action (pay now / arrangement / follow-up).
     - Keep customer-facing responses concise and non-internal.
+    - If customer asks for clarification (for example "didn't get it", "say again", "not clear"), mark is_complete=false and ask for a simpler reformulation on retry.
+    - If the new response is materially same as previous response without added clarity, mark is_complete=false.
 
 entity_extract:
   system_prompt: |
@@ -251,6 +254,7 @@ response:
     If verification is incomplete, ask only for the missing fields listed in verification context.
     Never repeat the exact same sentence from prior_agent_response unless user explicitly asks for repetition.
     Do not use phrasing like "I see you've already confirmed...".
+    If user asks for clarification (for example: "didn't get it", "say again"), restate in simpler plain language and do not repeat the exact previous sentence.
     Prefer acknowledgement style:
     - If user just provided one required field: "Thank you for confirming your <field>. Please also confirm <remaining field(s)>."
     - If user just confirmed name only: "Thank you for confirming your name. Please also confirm <remaining field(s)>."

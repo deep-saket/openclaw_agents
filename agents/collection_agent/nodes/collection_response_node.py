@@ -86,20 +86,6 @@ class CollectionResponseNode(ResponseNode):
             if isinstance(conversation_plan, dict)
             else ""
         )
-        if (
-            response_target == "customer"
-            and bool(memory_state.get("identity_verified", False))
-            and current_plan_node_id == "explain_dues"
-        ):
-            return (
-                f"Thank you {str(facts.get('customer_name', 'Customer')).strip() or 'Customer'}. "
-                f"For case {str(facts.get('case_id', 'COLL-1001')).strip() or 'COLL-1001'}, "
-                f"your overdue amount is INR {float(facts.get('overdue_amount', 0.0) or 0.0):.2f}, "
-                f"EMI is INR {float(facts.get('emi_amount', 0.0) or 0.0):.2f}, "
-                f"late fee is INR {float(facts.get('late_fee', 0.0) or 0.0):.2f}, "
-                f"and the account is {int(facts.get('dpd', 0) or 0)} days past due. "
-                "Would you like to pay now, request an arrangement, or schedule a follow-up?"
-            )
         verification_guard_context = self._build_verification_guard_context(
             state=state,
             memory_state=memory_state,
@@ -611,6 +597,13 @@ class CollectionResponseNode(ResponseNode):
         ensure_intro: bool = False,
     ) -> str:
         rendered = text.strip()
+
+        # Normalize robotic verification phrasing from model variants.
+        rendered = re.sub(
+            r"(?i)\bi\s+(?:see|noticed)\s+you(?:'ve| have)\s+already\s+confirmed[^.!?]*[.!?]\s*",
+            "Thank you. ",
+            rendered,
+        )
 
         # Replace placeholder fragments with deterministic values.
         rendered = re.sub(
