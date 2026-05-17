@@ -70,7 +70,14 @@ class ReactNode(PlannerNode):
                 memory_context=memory_context,
                 available_tools=available_tools,
             )
+            self.last_plan_debug = {
+                "prompt": rendered_user_prompt,
+                "system_prompt": rendered_system_prompt or None,
+                "llm_response": None,
+                "llm_error": None,
+            }
             raw = self.llm.generate(rendered_system_prompt or "", rendered_user_prompt).strip()
+            self.last_plan_debug["llm_response"] = raw
             return self._parse_decision(raw)
         plan_kwargs = {
             "user_input": user_input,

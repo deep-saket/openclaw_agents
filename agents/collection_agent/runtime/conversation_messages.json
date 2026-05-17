@@ -862,36 +862,6 @@
       "created_at": "2026-05-17T04:47:58.590166Z"
     }
   ],
-  "collection-user_a": [
-    {
-      "id": "c6e1e4db-5fd4-4454-91f2-317e70bb0ba0",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
-      "created_at": "2026-05-17T04:58:39.870663Z"
-    },
-    {
-      "id": "5e41b195-c371-4387-a266-81469f4dcce9",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "Hii Alex!! This is Aditi",
-      "created_at": "2026-05-17T04:58:46.568912Z"
-    },
-    {
-      "id": "622bdcc0-1054-41d0-9f03-a7f4bae0c16c",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
-      "created_at": "2026-05-17T05:02:56.536229Z"
-    },
-    {
-      "id": "5dbea830-87dc-4474-9f31-9d6cf87df8d3",
-      "session_id": "collection-user_a",
-      "role": "customer",
-      "content": "My DoB ius 1991-08-19",
-      "created_at": "2026-05-17T05:15:18.755393Z"
-    }
-  ],
   "json-verify-a": [
     {
       "id": "46c78b18-ac1c-4f51-8a6c-6244b7870a86",
@@ -913,6 +883,318 @@
       "role": "agent",
       "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
       "created_at": "2026-05-17T05:00:28.770655Z"
+    }
+  ],
+  "verify-live-a": [
+    {
+      "id": "713cd3b4-7c1d-4573-b8be-4b6f09586078",
+      "session_id": "verify-live-a",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD).",
+      "created_at": "2026-05-17T19:29:11.043291Z"
+    },
+    {
+      "id": "fe28a44c-fee3-4b6f-9092-377b82ea63d6",
+      "session_id": "verify-live-a",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-17T19:29:11.055649Z"
+    },
+    {
+      "id": "fddd6a9e-43e8-4c19-b892-ecf8543c720b",
+      "session_id": "verify-live-a",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number\n.",
+      "created_at": "2026-05-17T19:30:40.482227Z"
+    },
+    {
+      "id": "8f6db0d0-c934-4055-8b68-b30ab6854011",
+      "session_id": "verify-live-a",
+      "role": "customer",
+      "content": "My phone number is 919900001001",
+      "created_at": "2026-05-17T19:30:40.501204Z"
+    },
+    {
+      "id": "0c16440d-55c6-45bf-bc43-73d98e4beafa",
+      "session_id": "verify-live-a",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number\n.",
+      "created_at": "2026-05-17T19:31:36.528460Z"
+    }
+  ],
+  "verify-live-d": [
+    {
+      "id": "b813afe3-62e9-4b9f-90ad-e7488a1ba383",
+      "session_id": "verify-live-d",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T19:33:45.248282Z"
+    },
+    {
+      "id": "c0aa4ca4-3824-456c-a22a-9eb4e758475c",
+      "session_id": "verify-live-d",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-17T19:33:45.259348Z"
+    },
+    {
+      "id": "bd111e01-782c-415e-be4d-498fb6984ff7",
+      "session_id": "verify-live-d",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T19:35:06.510334Z"
+    },
+    {
+      "id": "cc3ff741-daa0-481a-a07b-55a442d892a4",
+      "session_id": "verify-live-d",
+      "role": "customer",
+      "content": "My phone number is 919900001001",
+      "created_at": "2026-05-17T19:35:06.528646Z"
+    },
+    {
+      "id": "2588e8c7-cca7-4fe1-8175-3f219747f19a",
+      "session_id": "verify-live-d",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD).",
+      "created_at": "2026-05-17T19:36:04.290339Z"
+    }
+  ],
+  "verify-live-e": [
+    {
+      "id": "8e16ff0f-bd27-4ab3-a59f-68bdef7054d1",
+      "session_id": "verify-live-e",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T19:36:51.674414Z"
+    },
+    {
+      "id": "f83835d6-526e-489b-a142-e8976f18aca2",
+      "session_id": "verify-live-e",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-17T19:36:51.684487Z"
+    },
+    {
+      "id": "24e6083e-076a-47e7-af0d-bb2fa9a4201f",
+      "session_id": "verify-live-e",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your registered phone number.",
+      "created_at": "2026-05-17T19:38:16.632435Z"
+    },
+    {
+      "id": "26e69b8e-0aec-403d-8c85-c184bb8ac7f6",
+      "session_id": "verify-live-e",
+      "role": "customer",
+      "content": "My phone number is 919900001001",
+      "created_at": "2026-05-17T19:38:16.646906Z"
+    },
+    {
+      "id": "a0e85dc9-ae32-48a9-843f-1e405c1eb612",
+      "session_id": "verify-live-e",
+      "role": "agent",
+      "content": "Please verify your identity to proceed with collections.",
+      "created_at": "2026-05-17T19:39:03.900527Z"
+    }
+  ],
+  "verify-live-f": [
+    {
+      "id": "01e96ede-cb70-4a52-9da3-952673f60953",
+      "session_id": "verify-live-f",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T19:43:17.495127Z"
+    },
+    {
+      "id": "148d231c-5da1-4752-9834-674b0a47ad15",
+      "session_id": "verify-live-f",
+      "role": "customer",
+      "content": "Yes,this is Aditi. My DoB is 1991-08-19",
+      "created_at": "2026-05-17T19:43:17.505480Z"
+    },
+    {
+      "id": "19e765b1-e820-4c02-8e0c-6c8bc4d91941",
+      "session_id": "verify-live-f",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your registered phone number.",
+      "created_at": "2026-05-17T19:44:03.166599Z"
+    },
+    {
+      "id": "325f6d2b-f66a-417d-9599-a4261310bc4c",
+      "session_id": "verify-live-f",
+      "role": "customer",
+      "content": "My phone number is 919900001001",
+      "created_at": "2026-05-17T19:44:03.182946Z"
+    },
+    {
+      "id": "599526da-9752-43ec-85dd-1398cabc3de5",
+      "session_id": "verify-live-f",
+      "role": "agent",
+      "content": "Please confirm your identity to proceed.",
+      "created_at": "2026-05-17T19:44:53.427536Z"
+    }
+  ],
+  "verify-live-g": [
+    {
+      "id": "551b38fa-bb9c-4269-8ed8-be84250978cc",
+      "session_id": "verify-live-g",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T19:48:01.726433Z"
+    },
+    {
+      "id": "5c85ace9-2f39-4810-a9a1-087684e91239",
+      "session_id": "verify-live-g",
+      "role": "customer",
+      "content": "Yes,this is Aditi. My DoB is 1991-08-19",
+      "created_at": "2026-05-17T19:48:01.737091Z"
+    },
+    {
+      "id": "f7b6ebf5-6d64-43a1-a0b4-cac48a2e785e",
+      "session_id": "verify-live-g",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your registered phone number.",
+      "created_at": "2026-05-17T19:49:01.890779Z"
+    },
+    {
+      "id": "ec6a4772-804e-478b-9ee0-ed3394b9e55b",
+      "session_id": "verify-live-g",
+      "role": "customer",
+      "content": "My phone number is 919900001001",
+      "created_at": "2026-05-17T19:49:01.909565Z"
+    },
+    {
+      "id": "62040502-99b5-4945-ac9b-6f66118b73be",
+      "session_id": "verify-live-g",
+      "role": "agent",
+      "content": "Thank you Aditi Sharma. For case COLL-1001, your overdue amount is INR 12500.00, EMI is INR 12500.00, late fee is INR 850.00, and the account is 47 days past due. Would you like to pay now, request an arrangement, or schedule a follow-up?",
+      "created_at": "2026-05-17T19:49:50.534631Z"
+    }
+  ],
+  "plan-visibility-fix-1": [
+    {
+      "id": "5cb8fe68-4ec1-40f0-9d6c-f6e83912b181",
+      "session_id": "plan-visibility-fix-1",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your date of birth (YYYY-MM-DD).",
+      "created_at": "2026-05-17T20:07:32.121519Z"
+    },
+    {
+      "id": "c0a35386-f51a-49af-82f7-cac114f46e3a",
+      "session_id": "plan-visibility-fix-1",
+      "role": "customer",
+      "content": "Yes,this is Aditi. My DoB is 1991-08-19",
+      "created_at": "2026-05-17T20:07:32.131627Z"
+    },
+    {
+      "id": "0830403c-fdd6-4072-b318-265bcc0c8fc9",
+      "session_id": "plan-visibility-fix-1",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. To continue, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T20:09:04.996954Z"
+    },
+    {
+      "id": "1f032439-a60c-4e92-b8cd-106fb0449106",
+      "session_id": "plan-visibility-fix-1",
+      "role": "customer",
+      "content": "My phone number is 919900001001",
+      "created_at": "2026-05-17T20:09:05.017206Z"
+    },
+    {
+      "id": "d1c84a9a-6e3a-44af-8fd2-59d8dac63822",
+      "session_id": "plan-visibility-fix-1",
+      "role": "agent",
+      "content": "Thank you Aditi Sharma. For case COLL-1001, your overdue amount is INR 12500.00, EMI is INR 12500.00, late fee is INR 850.00, and the account is 47 days past due. Would you like to pay now, request an arrangement, or schedule a follow-up?",
+      "created_at": "2026-05-17T20:10:02.256756Z"
+    }
+  ],
+  "debug-session-verify": [
+    {
+      "id": "17dc0df1-4bba-4aba-848f-3b788c5fc09c",
+      "session_id": "debug-session-verify",
+      "role": "customer",
+      "content": "Yes,this is Aditi. My DoB is 1991-08-19",
+      "created_at": "2026-05-17T20:21:18.662811Z"
+    },
+    {
+      "id": "7bd3226e-8f5a-4274-948b-cd8b4012b3a5",
+      "session_id": "debug-session-verify",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your registered phone number.",
+      "created_at": "2026-05-17T20:21:18.794509Z"
+    },
+    {
+      "id": "5e229ae3-33b3-4749-994a-8dbd5f8d06f2",
+      "session_id": "debug-session-verify",
+      "role": "customer",
+      "content": "My phone number is 919900001001",
+      "created_at": "2026-05-17T20:21:18.795662Z"
+    },
+    {
+      "id": "ae14adb8-df53-41d3-9fc1-5e6dbd02f314",
+      "session_id": "debug-session-verify",
+      "role": "agent",
+      "content": "This request is outside collections scope. I can only help with loan dues, EMI, payments, verification, hardship plans, and follow-ups.",
+      "created_at": "2026-05-17T20:21:18.854356Z"
+    },
+    {
+      "id": "ad165aa1-f54d-4448-ada2-31157b952597",
+      "session_id": "debug-session-verify",
+      "role": "customer",
+      "content": "ok continue",
+      "created_at": "2026-05-17T20:21:18.855659Z"
+    },
+    {
+      "id": "f4696eb8-0300-4087-bba3-33129146452a",
+      "session_id": "debug-session-verify",
+      "role": "agent",
+      "content": "This request is outside collections scope. I can only help with loan dues, EMI, payments, verification, hardship plans, and follow-ups.",
+      "created_at": "2026-05-17T20:21:18.918861Z"
+    }
+  ],
+  "debug-session-verify-2": [
+    {
+      "id": "13e5278e-16ca-4ca8-b36d-6db8bf6aedd9",
+      "session_id": "debug-session-verify-2",
+      "role": "customer",
+      "content": "Yes,this is Aditi. My DoB is 1991-08-19",
+      "created_at": "2026-05-17T20:21:42.168400Z"
+    },
+    {
+      "id": "a9b44ee1-9094-4f17-9175-516abece923d",
+      "session_id": "debug-session-verify-2",
+      "role": "agent",
+      "content": "Hello, this is Alex from collections. Am I speaking with Aditi Sharma? For verification, please confirm your registered phone number.",
+      "created_at": "2026-05-17T20:21:42.299056Z"
+    },
+    {
+      "id": "373364f6-bb52-4273-9bb4-af1aece0ca08",
+      "session_id": "debug-session-verify-2",
+      "role": "customer",
+      "content": "My phone number is 919900001001",
+      "created_at": "2026-05-17T20:21:42.300171Z"
+    },
+    {
+      "id": "a6e94a14-f323-40dc-a93b-a4affc5774e4",
+      "session_id": "debug-session-verify-2",
+      "role": "agent",
+      "content": "Thank you Aditi Sharma. For case COLL-1001, your overdue amount is INR 12500.00, EMI is INR 12500.00, late fee is INR 850.00, and the account is 47 days past due. Would you like to pay now, request an arrangement, or schedule a follow-up?",
+      "created_at": "2026-05-17T20:21:42.409062Z"
+    }
+  ],
+  "collection-user_a": [
+    {
+      "id": "bbbf9a43-84de-4485-b692-8e0322847d71",
+      "session_id": "collection-user_a",
+      "role": "agent",
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, I need to verify your identity. Please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-17T21:15:47.465159Z"
+    },
+    {
+      "id": "4be447fb-4018-4d14-be1d-c9d7acf80af6",
+      "session_id": "collection-user_a",
+      "role": "customer",
+      "content": "Hii Alex!! This is Aditi",
+      "created_at": "2026-05-17T21:15:56.733253Z"
     }
   ]
 }

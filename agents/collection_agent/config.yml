@@ -2,6 +2,9 @@ agent:
   name: collection_agent
   mode:
     default: strict_collections
+  # When true, intent/plan/response must come from LLM structured outputs.
+  # Heuristic keyword fallbacks and deterministic response fallbacks are disabled.
+  strict_llm_mode: true
   llm_planner_enabled: true
 paths:
   data_dir: ./data

@@ -18,6 +18,13 @@ class CustomerVerifyTool(BaseTool[CustomerVerifyInput, CustomerVerifyOutput]):
     input_schema = CustomerVerifyInput
     output_schema = CustomerVerifyOutput
 
+    @staticmethod
+    def _normalize_phone(value: str) -> str:
+        digits = "".join(ch for ch in str(value) if ch.isdigit())
+        if len(digits) >= 10:
+            return digits[-10:]
+        return digits
+
     def execute(self, input: CustomerVerifyInput) -> CustomerVerifyOutput:
         case_row = self.store.get_case(case_id=input.case_id, customer_id=input.customer_id)
         if case_row is None:
@@ -37,11 +44,12 @@ class CustomerVerifyTool(BaseTool[CustomerVerifyInput, CustomerVerifyOutput]):
         )
 
         expected_dob = str(challenge.get("dob", "")).strip().lower()
-        expected_phone = str(challenge.get("phone", customer.get("phone", ""))).strip().lower()
+        expected_phone = self._normalize_phone(str(challenge.get("phone", customer.get("phone", ""))).strip())
         provided = {key: str(value).strip().lower() for key, value in input.challenge_answers.items()}
+        provided_phone = self._normalize_phone(provided.get("phone", ""))
         matched = (
             provided.get("dob", "") == expected_dob
-            and provided.get("phone", "") == expected_phone
+            and provided_phone == expected_phone
         )
         if failed_attempts >= 3:
             status = "locked"

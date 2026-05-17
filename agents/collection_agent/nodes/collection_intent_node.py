@@ -25,6 +25,7 @@ class CollectionIntentNode(IntentNode):
 
     output_key: str = "intent"
     allow_deterministic_fallback: bool = False
+    enable_relevance_guard: bool = True
 
     def classify(
         self,
@@ -45,9 +46,17 @@ class CollectionIntentNode(IntentNode):
         context_block = self._build_intent_context_block(context or {})
         if context_block:
             rendered_user_prompt = f"{rendered_user_prompt}\n\n{context_block}"
+        debug_payload: dict[str, Any] = {
+            "prompt": rendered_user_prompt,
+            "system_prompt": rendered_system_prompt or None,
+            "llm_response": None,
+            "llm_error": None,
+        }
 
         if self.llm is None:
-            return self._deterministic_classify(user_input=user_input, labels=labels)
+            deterministic = self._deterministic_classify(user_input=user_input, labels=labels)
+            deterministic["_debug"] = debug_payload
+            return deterministic
 
         try:
             runner = StructuredOutputRunner(self.llm, max_retries=2)
@@ -56,6 +65,7 @@ class CollectionIntentNode(IntentNode):
                 user_prompt=rendered_user_prompt,
                 schema=_IntentPayload,
             )
+            debug_payload["llm_response"] = payload.model_dump(mode="json")
             intent_name = self._normalize_intent_name(payload.intent)
             if labels and intent_name not in {self._normalize_intent_name(v) for v in labels}:
                 raise ValueError(f"Intent `{payload.intent}` is not in allowed labels: {labels}")
@@ -63,14 +73,18 @@ class CollectionIntentNode(IntentNode):
                 "intent": intent_name or self.default_intent,
                 "confidence": float(payload.confidence),
                 "reason": payload.reason,
+                "_debug": debug_payload,
             }
         except Exception as exc:
+            debug_payload["llm_error"] = str(exc)
             if not self.allow_deterministic_fallback:
                 raise RuntimeError(
                     "CollectionIntentNode failed to produce structured LLM intent output. "
                     f"Fallback disabled. Error: {exc}"
                 ) from exc
-            return self._deterministic_classify(user_input=user_input, labels=labels)
+            deterministic = self._deterministic_classify(user_input=user_input, labels=labels)
+            deterministic["_debug"] = debug_payload
+            return deterministic
 
     def execute(self, state: AgentState) -> NodeUpdate:
         self._record_llm_usage(state, node_name="intent")
@@ -86,16 +100,24 @@ class CollectionIntentNode(IntentNode):
             user_prompt=self.user_prompt,
             context=context,
         )
+        pre_guard_debug = intent.get("_debug") if isinstance(intent, dict) else {}
         intent = self._apply_relevance_guard(
             intent=intent,
             user_input=str(state.get("user_input", "")),
             context=context,
         )
+        if isinstance(intent, dict) and "_debug" not in intent and isinstance(pre_guard_debug, dict):
+            intent["_debug"] = pre_guard_debug
+        debug_payload = intent.pop("_debug", {}) if isinstance(intent, dict) else {}
         update: NodeUpdate = {
             self.output_key: intent,
             # Compatibility channel for shared routing assumptions in existing
             # graph/runtime reducers. This can be removed after full migration.
             "intent": intent,
+            "prompt": debug_payload.get("prompt"),
+            "system_prompt": debug_payload.get("system_prompt"),
+            "llm_response": debug_payload.get("llm_response"),
+            "llm_error": debug_payload.get("llm_error"),
         }
         intent_name = self._normalize_intent_name(intent.get("intent") if isinstance(intent, dict) else None)
         mapped_response = self._lookup_mapped_value(self.response_map, intent_name)
@@ -185,6 +207,8 @@ class CollectionIntentNode(IntentNode):
         user_input: str,
         context: dict[str, Any],
     ) -> dict[str, Any]:
+        if not self.enable_relevance_guard:
+            return intent
         if self.output_key != "relevance_intent":
             return intent
         current_intent = self._normalize_intent_name(intent.get("intent"))

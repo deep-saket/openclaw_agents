@@ -3161,5 +3161,68 @@
     "status": "completed",
     "error": null,
     "created_at": "2026-05-04T04:57:12.550976Z"
+  },
+  {
+    "id": "c3bf5835-69cb-4d37-bbe4-f44ba261785c",
+    "tool_name": "customer_verify",
+    "input_payload": {
+      "amount": 1991.0,
+      "case_id": "COLL-1001",
+      "challenge_answers": {}
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "locked",
+      "failed_attempts": 3,
+      "required_fields": [
+        "dob",
+        "phone"
+      ]
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-17T18:37:58.187504Z"
+  },
+  {
+    "id": "1d3c3d37-52b9-49f3-9964-49d50c54e13f",
+    "tool_name": "customer_verify",
+    "input_payload": {
+      "amount": 1991.0,
+      "case_id": "COLL-1001",
+      "challenge_answers": {}
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "failed",
+      "failed_attempts": 2,
+      "required_fields": [
+        "dob",
+        "phone"
+      ]
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-17T20:21:18.751995Z"
+  },
+  {
+    "id": "ffb69c02-8325-4880-9811-7562fb3d666c",
+    "tool_name": "customer_verify",
+    "input_payload": {
+      "amount": 1991.0,
+      "case_id": "COLL-1001",
+      "challenge_answers": {}
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "failed",
+      "failed_attempts": 3,
+      "required_fields": [
+        "dob",
+        "phone"
+      ]
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-17T20:21:42.256542Z"
   }
 ]

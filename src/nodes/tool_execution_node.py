@@ -61,7 +61,13 @@ class ToolExecutionNode(BaseGraphNode):
             "observation": {
                 "tool_name": tool_result["tool_name"],
                 "output": tool_result["output"],
-            }
+            },
+            "tool_calls": [
+                {
+                    "tool_name": str(tool_call.tool_name),
+                    "arguments": dict(tool_call.arguments) if isinstance(tool_call.arguments, dict) else tool_call.arguments,
+                }
+            ],
         }
 
     def _get_executor(self) -> ToolExecutor:

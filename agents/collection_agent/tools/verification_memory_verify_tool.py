@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from src.tools.base import BaseTool
 
@@ -17,15 +18,26 @@ class VerificationMemoryVerifyTool(BaseTool[VerificationMemoryVerifyInput, Verif
     input_schema = VerificationMemoryVerifyInput
     output_schema = VerificationMemoryVerifyOutput
 
+    @staticmethod
+    def _normalize_value(field: str, value: Any) -> str:
+        raw = str(value).strip().lower()
+        key = str(field).strip().lower()
+        if key == "phone":
+            digits = "".join(ch for ch in raw if ch.isdigit())
+            if len(digits) >= 10:
+                return digits[-10:]
+            return digits
+        return raw
+
     def execute(self, input: VerificationMemoryVerifyInput) -> VerificationMemoryVerifyOutput:
         required_fields = [str(x).strip() for x in input.required_fields if str(x).strip()]
         expected = {
-            str(key).strip(): str(value).strip().lower()
+            str(key).strip(): self._normalize_value(str(key), value)
             for key, value in input.expected_challenge.items()
             if str(key).strip()
         }
         entities = {
-            str(key).strip(): str(value).strip().lower()
+            str(key).strip(): self._normalize_value(str(key), value)
             for key, value in input.entities.items()
             if str(key).strip()
         }
@@ -77,4 +89,3 @@ class VerificationMemoryVerifyTool(BaseTool[VerificationMemoryVerifyInput, Verif
             required_fields=required_fields,
             compared_fields=sorted(set(required_fields + (["name"] if "name" in entities else []))),
         )
-

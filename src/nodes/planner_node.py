@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
 
@@ -29,6 +29,7 @@ class PlannerNode(BaseGraphNode):
     user_prompt: str | None = None
     available_tools: Any | None = None
     max_steps: int = 4
+    last_plan_debug: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
 
     def plan(
         self,
@@ -69,10 +70,17 @@ class PlannerNode(BaseGraphNode):
             memory_context=memory_context,
             available_tools=available_tools,
         )
+        self.last_plan_debug = {
+            "prompt": rendered_user_prompt,
+            "system_prompt": rendered_system_prompt or None,
+            "llm_response": None,
+            "llm_error": None,
+        }
         if self.llm is None:
             response_text = rendered_user_prompt
         else:
             response_text = self.llm.generate(rendered_system_prompt or "", rendered_user_prompt).strip()
+            self.last_plan_debug["llm_response"] = response_text
         return SimpleNamespace(
             thought="PlannerNode generated a direct response from its configured prompts.",
             tool_call=None,
@@ -101,9 +109,23 @@ class PlannerNode(BaseGraphNode):
             system_prompt=self.system_prompt,
             user_prompt=self.user_prompt,
         )
+        tool_calls = None
+        tool_call = getattr(decision, "tool_call", None)
+        if tool_call is not None:
+            tool_calls = [
+                {
+                    "tool_name": str(getattr(tool_call, "tool_name", "")),
+                    "arguments": getattr(tool_call, "arguments", {}) or {},
+                }
+            ]
         return {
             "decision": decision,
             "steps": state.get("steps", 0) + 1,
+            "prompt": self.last_plan_debug.get("prompt"),
+            "system_prompt": self.last_plan_debug.get("system_prompt"),
+            "llm_response": self.last_plan_debug.get("llm_response"),
+            "llm_error": self.last_plan_debug.get("llm_error"),
+            "tool_calls": tool_calls,
         }
 
     def route(self, state: AgentState) -> str:

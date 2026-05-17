@@ -77,6 +77,7 @@ class CollectionAgent(BaseAgent):
     verification_entity_extract_tool: Any | None = None
     verification_memory_verify_tool: Any | None = None
     allow_deterministic_fallback: bool = False
+    strict_llm_mode: bool = True
     agent_name: str = "collection_agent"
     last_trace: ExecutionTrace | None = None
     _session_locks: dict[str, threading.Lock] = field(default_factory=dict, init=False, repr=False)
@@ -154,18 +155,20 @@ class CollectionAgent(BaseAgent):
         self.entity_extract_tool = self.entity_extract_tool or EntityExtractTool()
         self.verification_entity_extract_tool = self.verification_entity_extract_tool or VerificationEntityExtractTool()
         self.verification_memory_verify_tool = self.verification_memory_verify_tool or VerificationMemoryVerifyTool()
+        deterministic_fallback_enabled = bool(self.allow_deterministic_fallback and not self.strict_llm_mode)
         self.planner = self.planner or CollectionPlanner(
             llm=self.llm,
             intent_system_prompt=str(intent_prompts.get("system_prompt", "")),
             intent_user_prompt=str(intent_prompts.get("user_prompt", "")),
-            require_llm=not self.allow_deterministic_fallback,
-            allow_rule_fallback=self.allow_deterministic_fallback,
+            require_llm=not deterministic_fallback_enabled,
+            allow_rule_fallback=deterministic_fallback_enabled,
         )
 
         self.memory_retrieve_node = MemoryRetrieveNode(tool_registry=self.tool_registry, memories=[WorkingMemory])
         self.relevance_intent_node = CollectionIntentNode(
             llm=self.llm,
-            allow_deterministic_fallback=self.allow_deterministic_fallback,
+            allow_deterministic_fallback=deterministic_fallback_enabled,
+            enable_relevance_guard=not self.strict_llm_mode,
             system_prompt=str(intent_prompts.get("relevance_system_prompt", "")),
             user_prompt=str(intent_prompts.get("relevance_user_prompt", "")),
             output_key="relevance_intent",
@@ -180,36 +183,7 @@ class CollectionAgent(BaseAgent):
             },
             default_route="irrelevant",
             empty_input_intent="empty",
-            fallback_keyword_map={
-                "relevant": [
-                    "collections",
-                    "collection",
-                    "loan",
-                    "dues",
-                    "emi",
-                    "overdue",
-                    "defaulter",
-                    "default",
-                    "payment",
-                    "pay",
-                    "repay",
-                    "policy",
-                    "verify",
-                    "hardship",
-                    "discount",
-                    "settlement",
-                    "follow up",
-                    "followup",
-                    "case",
-                    "promise",
-                    "waiver",
-                    "restructure",
-                    "bye",
-                    "goodbye",
-                    "end conversation",
-                    "that's all",
-                ]
-            },
+            fallback_keyword_map={},
             response_map={
                 "empty": "No input was provided. Please share a collections-related query such as dues, EMI, payment, verification, or repayment plan.",
                 "irrelevant": "This request is outside collections scope. I can only help with loan dues, EMI, payments, verification, hardship plans, and follow-ups.",
@@ -218,7 +192,7 @@ class CollectionAgent(BaseAgent):
         )
         self.pre_plan_intent_node = CollectionIntentNode(
             llm=self.llm,
-            allow_deterministic_fallback=self.allow_deterministic_fallback,
+            allow_deterministic_fallback=deterministic_fallback_enabled,
             system_prompt=str(intent_prompts.get("pre_plan_system_prompt", "")),
             user_prompt=str(intent_prompts.get("pre_plan_user_prompt", "")),
             output_key="pre_plan_intent",
@@ -231,23 +205,11 @@ class CollectionAgent(BaseAgent):
                 "unknown": "decide",
             },
             default_route="decide",
-            fallback_keyword_map={
-                "plan": [
-                    "what can you do",
-                    "help",
-                    "explain",
-                    "overview",
-                    "summary",
-                    "process",
-                    "steps",
-                    "policy",
-                    "dues explanation",
-                ]
-            },
+            fallback_keyword_map={},
         )
         self.execution_path_intent_node = CollectionIntentNode(
             llm=self.llm,
-            allow_deterministic_fallback=self.allow_deterministic_fallback,
+            allow_deterministic_fallback=deterministic_fallback_enabled,
             system_prompt=str(intent_prompts.get("execution_path_system_prompt", "")),
             user_prompt=str(intent_prompts.get("execution_path_user_prompt", "")),
             output_key="execution_path_intent",
@@ -260,23 +222,11 @@ class CollectionAgent(BaseAgent):
                 "unknown": "need_tool",
             },
             default_route="need_tool",
-            fallback_keyword_map={
-                "need_memory": [
-                    "previous",
-                    "last call",
-                    "history",
-                    "already promised",
-                    "promise date",
-                    "existing plan",
-                    "follow up",
-                    "follow-up",
-                    "status of my case",
-                ]
-            },
+            fallback_keyword_map={},
         )
         self.post_memory_plan_intent_node = CollectionIntentNode(
             llm=self.llm,
-            allow_deterministic_fallback=self.allow_deterministic_fallback,
+            allow_deterministic_fallback=deterministic_fallback_enabled,
             system_prompt=str(intent_prompts.get("post_memory_plan_system_prompt", "")),
             user_prompt=str(intent_prompts.get("post_memory_plan_user_prompt", "")),
             output_key="post_memory_plan_intent",
@@ -289,16 +239,7 @@ class CollectionAgent(BaseAgent):
                 "unknown": "react",
             },
             default_route="react",
-            fallback_keyword_map={
-                "plan": [
-                    "explain",
-                    "summarize",
-                    "respond",
-                    "clarify",
-                    "policy",
-                    "dues breakdown",
-                ]
-            },
+            fallback_keyword_map={},
         )
         self.react_node = ReactNode(
             planner=self.planner,
@@ -314,6 +255,7 @@ class CollectionAgent(BaseAgent):
             user_prompt=str(plan_proposal_prompts.get("user_prompt", "")),
             classifier_system_prompt=str(plan_proposal_prompts.get("classifier_system_prompt", "")),
             classifier_user_prompt=str(plan_proposal_prompts.get("classifier_user_prompt", "")),
+            strict_llm_mode=self.strict_llm_mode,
         )
         self.tool_execution_node = ToolExecutionNode(executor=self.tool_executor)
         self.reflect_node = CollectionReflectNode(
@@ -339,6 +281,7 @@ class CollectionAgent(BaseAgent):
                 response_prompts.get("verification_hardship_prefix", "I am sorry to hear this, and I appreciate you sharing it. ")
             ),
             verification_ack_template=str(response_prompts.get("verification_ack_template", "Thank you{customer_suffix}. ")),
+            strict_llm_mode=self.strict_llm_mode,
             default_response="No action selected.",
             default_target="customer",
         )
@@ -353,7 +296,8 @@ class CollectionAgent(BaseAgent):
             llm=self.llm,
             extract_callback=self._capture_verification_evidence,
             reconcile_callback=self._reconcile_verification_from_collected,
-            allow_callback_fallback=self.allow_deterministic_fallback,
+            # Strict LLM-first path; deterministic callback remains disabled by default.
+            allow_callback_fallback=False,
             system_prompt=str(entity_extract_prompts.get("system_prompt", "")),
             user_prompt=str(entity_extract_prompts.get("user_prompt", "")),
         )
@@ -491,6 +435,12 @@ class CollectionAgent(BaseAgent):
                     "observation": state_update.get("observation") if isinstance(state_update, dict) else None,
                     "response": state_update.get("response") if isinstance(state_update, dict) else None,
                     "route": state_update.get("route") if isinstance(state_update, dict) else None,
+                    "prompt": state_update.get("prompt") if isinstance(state_update, dict) else None,
+                    "system_prompt": state_update.get("system_prompt") if isinstance(state_update, dict) else None,
+                    "llm_response": state_update.get("llm_response") if isinstance(state_update, dict) else None,
+                    "llm_error": state_update.get("llm_error") if isinstance(state_update, dict) else None,
+                    "messages": state_update.get("messages") if isinstance(state_update, dict) else None,
+                    "tool_calls": state_update.get("tool_calls") if isinstance(state_update, dict) else None,
                     "state_update_keys": sorted(state_update.keys()),
                     "state_update": state_update,
                     "human_message": debug_message,
@@ -571,9 +521,28 @@ class CollectionAgent(BaseAgent):
             return f"{node_name}: classified intent={intent}{route_part}.{reason_part}".strip()
 
         if node_name == "entity_extract":
-            extracted = update.get("extracted_entities") if isinstance(update.get("extracted_entities"), dict) else {}
+            extracted_turn = (
+                update.get("extracted_entities_turn")
+                if isinstance(update.get("extracted_entities_turn"), dict)
+                else {}
+            )
+            extracted_all = (
+                update.get("extracted_entities")
+                if isinstance(update.get("extracted_entities"), dict)
+                else {}
+            )
+            updated_fields = (
+                update.get("extracted_entities_updated_fields")
+                if isinstance(update.get("extracted_entities_updated_fields"), list)
+                else []
+            )
             verified = bool(update.get("identity_verified", False))
-            return f"entity_extract: captured {len(extracted)} entities; identity_verified={verified}."
+            updated_suffix = f", updated={len([x for x in updated_fields if str(x).strip()])}" if updated_fields else ""
+            return (
+                f"entity_extract: turn_entities={len(extracted_turn)}; "
+                f"session_entities={len(extracted_all)}{updated_suffix}; "
+                f"identity_verified={verified}."
+            )
 
         if node_name == "react":
             decision = update.get("decision")
@@ -1047,6 +1016,9 @@ class CollectionAgent(BaseAgent):
         matched = False
         status = "insufficient"
         missing_required = [field for field in required_fields if not str(collected.get(field, "")).strip()]
+        missing_fields_state = list(missing_required)
+        mismatched_fields_state: list[str] = []
+        compared_fields_state: list[str] = []
 
         if (not has_memory_challenge) and bool(cfg.get("fallback_to_database_verify", True)):
             if not missing_required:
@@ -1057,6 +1029,9 @@ class CollectionAgent(BaseAgent):
                 if db_result is not None:
                     status = str(db_result.get("status", status)).strip().lower()
                     matched = status == "verified"
+                    compared_fields_state = [str(x).strip() for x in db_result.get("required_fields", []) if str(x).strip()]
+                    if status == "failed" and not missing_required:
+                        mismatched_fields_state = list(compared_fields_state or required_fields)
         elif bool(cfg.get("prefer_memory_verify", True)) and self.verification_memory_verify_tool is not None:
             entities_for_match = {
                 str(key): str(value)
@@ -1076,6 +1051,9 @@ class CollectionAgent(BaseAgent):
             )
             status = str(memory_verify.status).strip().lower()
             matched = bool(memory_verify.matched)
+            missing_fields_state = [str(x).strip() for x in memory_verify.missing_fields if str(x).strip()]
+            mismatched_fields_state = [str(x).strip() for x in memory_verify.mismatched_fields if str(x).strip()]
+            compared_fields_state = [str(x).strip() for x in memory_verify.compared_fields if str(x).strip()]
         should_fallback = has_memory_challenge and (status == "failed" or (
             status == "insufficient" and bool(cfg.get("fallback_on_insufficient_entities", False))
         ))
@@ -1087,6 +1065,9 @@ class CollectionAgent(BaseAgent):
             if db_result is not None:
                 status = str(db_result.get("status", status)).strip().lower()
                 matched = status == "verified"
+                compared_fields_state = [str(x).strip() for x in db_result.get("required_fields", []) if str(x).strip()]
+                if status == "failed" and not missing_fields_state:
+                    mismatched_fields_state = list(compared_fields_state or required_fields)
 
         if not bool(cfg.get("auto_verify_from_memory_evidence", True)) and status != "verified":
             matched = False
@@ -1095,6 +1076,9 @@ class CollectionAgent(BaseAgent):
         updates["verification_entities"] = collected
         updates["verification_collected"] = collected
         updates["verification_last_status"] = ("verified" if matched else (status or "failed"))
+        updates["verification_missing_fields"] = sorted(set(missing_fields_state))
+        updates["verification_mismatched_fields"] = sorted(set(mismatched_fields_state))
+        updates["verification_compared_fields"] = sorted(set(compared_fields_state))
         memory.set_state(**updates)
 
     def _verify_from_database_with_entities(self, *, customer_id: str, entities: dict[str, Any]) -> dict[str, Any] | None:

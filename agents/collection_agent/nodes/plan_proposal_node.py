@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -70,9 +70,18 @@ class PlanProposalNode(BaseGraphNode):
     user_prompt: str = ""
     classifier_system_prompt: str = ""
     classifier_user_prompt: str = ""
+    strict_llm_mode: bool = True
+    last_debug: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
+    max_json_chars: int = 1400
 
     def execute(self, state: AgentState) -> NodeUpdate:
         self._record_llm_usage(state, node_name="plan_proposal")
+        self.last_debug = {
+            "prompt": None,
+            "system_prompt": None,
+            "llm_response": None,
+            "llm_error": None,
+        }
         memory = state.get("memory")
         memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
         mode = str(memory_state.get("mode", "strict_collections"))
@@ -100,6 +109,13 @@ class PlanProposalNode(BaseGraphNode):
             if memory is not None:
                 memory.set_state(mode=mode)
 
+        def with_debug(update: NodeUpdate) -> NodeUpdate:
+            update.setdefault("prompt", self.last_debug.get("prompt"))
+            update.setdefault("system_prompt", self.last_debug.get("system_prompt"))
+            update.setdefault("llm_response", self.last_debug.get("llm_response"))
+            update.setdefault("llm_error", self.last_debug.get("llm_error"))
+            return update
+
         def with_plan(update: NodeUpdate) -> NodeUpdate:
             response_target = str(update.get("response_target", "customer")).strip().lower() or "customer"
             route = str(update.get("route", "continue")).strip().lower() or "continue"
@@ -118,6 +134,12 @@ class PlanProposalNode(BaseGraphNode):
             )
             update["conversation_plan"] = plan
             if proposal:
+                proposal = self._align_customer_proposal_with_plan(
+                    proposal=proposal,
+                    plan=plan,
+                    memory_state=memory_state,
+                    plan_signals=plan_signals,
+                )
                 current_id = str(plan.get("current_node_id", ""))
                 proposal["conversation_plan_id"] = plan.get("plan_id")
                 proposal["conversation_plan_version"] = plan.get("version")
@@ -127,7 +149,7 @@ class PlanProposalNode(BaseGraphNode):
                 update["plan_proposal"] = proposal
             if memory is not None:
                 memory.set_state(active_conversation_plan=plan)
-            return update
+            return with_debug(update)
 
         if bool(memory_state.get("agent_loop_blocked", False)):
             if memory is not None:
@@ -440,6 +462,10 @@ class PlanProposalNode(BaseGraphNode):
         )
         if llm_proposal is not None:
             return llm_proposal
+        if self.strict_llm_mode:
+            raise RuntimeError(
+                "PlanProposalNode failed to produce LLM structured output while strict_llm_mode is enabled."
+            )
 
         decision_text = str(getattr(decision, "response_text", "") or "").strip()
         decision_target = str(getattr(decision, "response_target", "") or "").strip().lower()
@@ -542,24 +568,92 @@ class PlanProposalNode(BaseGraphNode):
             "plan_origin": plan_origin,
             "mode": mode,
             "default_plan": default_plan,
-            "existing_plan_json": json.dumps(existing_plan, ensure_ascii=True, default=str),
+            "existing_plan_json": self._json_compact(
+                self._compact_existing_plan_for_prompt(existing_plan),
+                max_chars=self.max_json_chars,
+            ),
             "decision_payload_json": json.dumps(decision_payload, ensure_ascii=True, default=str),
             "obs_tool": obs_tool,
-            "obs_output_json": json.dumps(obs_output, ensure_ascii=True, default=str),
+            "obs_output_json": self._json_compact(obs_output, max_chars=900),
             "customer_context_json": customer_context_json,
             "verification_context_json": verification_context_json,
             "entities_context_json": entities_context_json,
         }
         system_prompt = self._render_prompt_template(self.system_prompt, template_vars)
         user_prompt = self._render_prompt_template(self.user_prompt, template_vars)
+        self.last_debug["prompt"] = user_prompt
+        self.last_debug["system_prompt"] = system_prompt or None
+        self.last_debug["llm_error"] = None
         try:
             payload = StructuredOutputRunner(self.llm, max_retries=2).run(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 schema=_PlanProposalPayload,
             )
-        except Exception:
-            return None
+            prior = self.last_debug.get("llm_response")
+            merged = dict(prior) if isinstance(prior, dict) else {}
+            merged["proposal"] = payload.model_dump(mode="json", by_alias=True)
+            self.last_debug["llm_response"] = merged
+        except Exception as exc:
+            self.last_debug["llm_error"] = str(exc)
+            minimal_template_vars = {
+                "user_input": self._truncate_text(user_input, 280),
+                "plan_origin": plan_origin,
+                "mode": mode,
+                "default_plan": self._truncate_text(default_plan, 220),
+                "existing_plan_json": self._json_compact(
+                    self._compact_existing_plan_for_prompt(existing_plan, minimal=True),
+                    max_chars=900,
+                ),
+                "decision_payload_json": self._json_compact(
+                    {
+                        "response_text": str(decision_payload.get("response_text", ""))[:180],
+                        "respond_directly": bool(decision_payload.get("respond_directly", False)),
+                        "tool_name": str(((decision_payload.get("tool_call") or {}).get("tool_name", ""))),
+                    },
+                    max_chars=500,
+                ),
+                "obs_tool": obs_tool,
+                "obs_output_json": self._json_compact(
+                    {
+                        "status": (obs_output or {}).get("status") if isinstance(obs_output, dict) else None,
+                        "needs_additional_action": bool((obs_output or {}).get("needs_additional_action", False))
+                        if isinstance(obs_output, dict)
+                        else False,
+                        "keys": sorted([str(k) for k in obs_output.keys()])[:8] if isinstance(obs_output, dict) else [],
+                    },
+                    max_chars=350,
+                ),
+                "customer_context_json": customer_context_json,
+                "verification_context_json": verification_context_json,
+                "entities_context_json": self._json_compact(
+                    {
+                        "verification_entities": state.get("verification_entities", {}),
+                        "verification_missing_fields": state.get("verification_missing_fields", []),
+                        "identity_verified": bool(memory_state.get("identity_verified", False)),
+                    },
+                    max_chars=500,
+                ),
+            }
+            minimal_system_prompt = self._render_prompt_template(self.system_prompt, minimal_template_vars)
+            minimal_user_prompt = self._render_prompt_template(self.user_prompt, minimal_template_vars)
+            self.last_debug["prompt"] = minimal_user_prompt
+            self.last_debug["system_prompt"] = minimal_system_prompt or None
+            try:
+                payload = StructuredOutputRunner(self.llm, max_retries=4).run(
+                    system_prompt=minimal_system_prompt,
+                    user_prompt=minimal_user_prompt,
+                    schema=_PlanProposalPayload,
+                )
+                prior = self.last_debug.get("llm_response")
+                merged = dict(prior) if isinstance(prior, dict) else {}
+                merged["proposal"] = payload.model_dump(mode="json", by_alias=True)
+                merged["attempt"] = "minimal_recovery"
+                self.last_debug["llm_response"] = merged
+                self.last_debug["llm_error"] = None
+            except Exception as exc2:
+                self.last_debug["llm_error"] = f"primary={exc}; recovery={exc2}"
+                return None
 
         proposal = payload.model_dump(mode="json", by_alias=True)
         target = str(proposal.get("target", "customer")).strip().lower()
@@ -670,6 +764,7 @@ class PlanProposalNode(BaseGraphNode):
             route=route,
             proposal=proposal,
             plan_update=plan_update,
+            previous_current=previous_current,
         )
         self._apply_plan_tree_update(plan=plan, plan_update=plan_update)
         markers = self._init_or_reconcile_step_markers(plan=plan)
@@ -758,91 +853,44 @@ class PlanProposalNode(BaseGraphNode):
     def _remove_verify_identity_node_if_verified(self, *, plan: dict[str, Any], identity_verified: bool) -> None:
         if not identity_verified:
             return
+        # Keep completed steps visible in topology: do not remove verify_identity.
         nodes = [dict(node) for node in plan.get("nodes", []) if isinstance(node, dict)]
-        if not any(str(node.get("id", "")).strip() == "verify_identity" for node in nodes):
-            return
-
-        root_id = str(plan.get("root_node_id", "open_and_context")).strip() or "open_and_context"
-        outgoing_targets: list[str] = []
-        existing_node_ids = {str(node.get("id", "")).strip() for node in nodes if str(node.get("id", "")).strip()}
-        filtered_edges: list[dict[str, Any]] = []
-        for edge in plan.get("edges", []):
-            if not isinstance(edge, dict):
-                continue
-            src = str(edge.get("from", "")).strip()
-            dst = str(edge.get("to", "")).strip()
-            cond = str(edge.get("condition", "")).strip()
-            if src == "verify_identity" and dst:
-                outgoing_targets.append(dst)
-                continue
-            if dst == "verify_identity" or src == "verify_identity":
-                continue
-            if src and dst:
-                filtered_edges.append({"from": src, "to": dst, "condition": cond})
-
-        node_ids_after = {nid for nid in existing_node_ids if nid != "verify_identity"}
-        reconnect_targets = [dst for dst in outgoing_targets if dst in node_ids_after]
-        if not reconnect_targets and "explain_dues" in node_ids_after:
-            reconnect_targets = ["explain_dues"]
-        for dst in reconnect_targets:
-            filtered_edges.append(
-                {"from": root_id, "to": dst, "condition": "identity_already_verified"}
-            )
-
-        deduped: list[dict[str, Any]] = []
-        seen: set[tuple[str, str, str]] = set()
-        for edge in filtered_edges:
-            key = (edge["from"], edge["to"], edge["condition"])
-            if key in seen:
-                continue
-            seen.add(key)
-            deduped.append(edge)
-
-        plan["nodes"] = [node for node in nodes if str(node.get("id", "")).strip() != "verify_identity"]
-        plan["edges"] = deduped
+        for node in nodes:
+            if str(node.get("id", "")).strip() == "verify_identity":
+                node["status"] = "done"
+        plan["nodes"] = nodes
         markers = plan.get("step_markers")
         if isinstance(markers, dict):
-            markers.pop("verify_identity", None)
+            prior = markers.get("verify_identity") if isinstance(markers.get("verify_identity"), dict) else {}
+            markers["verify_identity"] = {
+                "state": "done",
+                "updated_at": datetime.now(UTC).isoformat(),
+                "source": "memory_identity_verified",
+                "reason": str(prior.get("reason", "identity_verified_in_memory")),
+            }
             plan["step_markers"] = markers
 
     @staticmethod
     def _create_initial_plan_graph(*, memory_state: dict[str, Any], mode: str) -> dict[str, Any]:
         case_id = str(memory_state.get("active_case_id", "COLL-1001")).strip().upper() or "COLL-1001"
         identity_verified = bool(memory_state.get("identity_verified", False))
-        if identity_verified:
-            nodes = [
-                {"id": "open_and_context", "label": "Open call and establish case context", "owner": "collection_agent", "status": "in_progress"},
-                {"id": "explain_dues", "label": "Explain dues and policy options", "owner": "customer", "status": "pending"},
-                {"id": "collect_payment_intent", "label": "Collect payment intent", "owner": "customer", "status": "pending"},
-                {"id": "evaluate_assistance", "label": "Evaluate discount/restructure assistance", "owner": "collection_agent", "status": "pending"},
-                {"id": "resolve_outcome", "label": "Finalize payment, promise, or follow-up", "owner": "customer", "status": "pending"},
-            ]
-            edges = [
-                {"from": "open_and_context", "to": "explain_dues", "condition": "identity_already_verified"},
-                {"from": "explain_dues", "to": "collect_payment_intent", "condition": "dues_explained"},
-                {"from": "collect_payment_intent", "to": "resolve_outcome", "condition": "pay_now"},
-                {"from": "collect_payment_intent", "to": "evaluate_assistance", "condition": "cannot_pay_full"},
-                {"from": "evaluate_assistance", "to": "resolve_outcome", "condition": "assistance_ready"},
-            ]
-            next_node_ids = ["explain_dues"]
-        else:
-            nodes = [
-                {"id": "open_and_context", "label": "Open call and establish case context", "owner": "collection_agent", "status": "in_progress"},
-                {"id": "verify_identity", "label": "Verify customer identity", "owner": "customer", "status": "pending"},
-                {"id": "explain_dues", "label": "Explain dues and policy options", "owner": "customer", "status": "pending"},
-                {"id": "collect_payment_intent", "label": "Collect payment intent", "owner": "customer", "status": "pending"},
-                {"id": "evaluate_assistance", "label": "Evaluate discount/restructure assistance", "owner": "collection_agent", "status": "pending"},
-                {"id": "resolve_outcome", "label": "Finalize payment, promise, or follow-up", "owner": "customer", "status": "pending"},
-            ]
-            edges = [
-                {"from": "open_and_context", "to": "verify_identity", "condition": "case_context_ready"},
-                {"from": "verify_identity", "to": "explain_dues", "condition": "identity_verified"},
-                {"from": "explain_dues", "to": "collect_payment_intent", "condition": "dues_explained"},
-                {"from": "collect_payment_intent", "to": "resolve_outcome", "condition": "pay_now"},
-                {"from": "collect_payment_intent", "to": "evaluate_assistance", "condition": "cannot_pay_full"},
-                {"from": "evaluate_assistance", "to": "resolve_outcome", "condition": "assistance_ready"},
-            ]
-            next_node_ids = ["verify_identity"]
+        nodes = [
+            {"id": "open_and_context", "label": "Initialize case context", "owner": "collection_agent", "status": "in_progress"},
+            {"id": "verify_identity", "label": "Verify customer identity", "owner": "customer", "status": ("done" if identity_verified else "pending")},
+            {"id": "explain_dues", "label": "Explain dues and policy options", "owner": "customer", "status": "pending"},
+            {"id": "collect_payment_intent", "label": "Collect payment intent", "owner": "customer", "status": "pending"},
+            {"id": "evaluate_assistance", "label": "Evaluate discount/restructure assistance", "owner": "collection_agent", "status": "pending"},
+            {"id": "resolve_outcome", "label": "Finalize payment, promise, or follow-up", "owner": "customer", "status": "pending"},
+        ]
+        edges = [
+            {"from": "open_and_context", "to": "verify_identity", "condition": "case_context_ready"},
+            {"from": "verify_identity", "to": "explain_dues", "condition": "identity_verified"},
+            {"from": "explain_dues", "to": "collect_payment_intent", "condition": "dues_explained"},
+            {"from": "collect_payment_intent", "to": "resolve_outcome", "condition": "pay_now"},
+            {"from": "collect_payment_intent", "to": "evaluate_assistance", "condition": "cannot_pay_full"},
+            {"from": "evaluate_assistance", "to": "resolve_outcome", "condition": "assistance_ready"},
+        ]
+        next_node_ids = ["verify_identity"] if not identity_verified else ["explain_dues"]
         return {
             "plan_id": f"plan-{case_id}",
             "version": 1,
@@ -867,11 +915,15 @@ class PlanProposalNode(BaseGraphNode):
         nodes = [dict(node) for node in plan.get("nodes", []) if isinstance(node, dict)]
         edges = [dict(edge) for edge in plan.get("edges", []) if isinstance(edge, dict)]
         node_map = {str(node.get("id", "")): node for node in nodes if str(node.get("id", "")).strip()}
+        historical_ids = self._historical_node_ids(plan=plan)
 
         for node_id in [str(x).strip() for x in plan_update.get("remove_node_ids", []) if str(x).strip()]:
+            if node_id in historical_ids:
+                continue
             node_map.pop(node_id, None)
         if plan_update.get("remove_node_ids"):
             removed_ids = {str(x).strip() for x in plan_update.get("remove_node_ids", []) if str(x).strip()}
+            removed_ids = {node_id for node_id in removed_ids if node_id not in historical_ids}
             edges = [
                 edge
                 for edge in edges
@@ -1094,7 +1146,7 @@ class PlanProposalNode(BaseGraphNode):
                 # Bootstrap marker states from node status for initial sessions.
                 state = status
             elif node_id == root_id and not existing:
-                state = "done"
+                state = "pending"
             else:
                 state = "pending"
 
@@ -1170,6 +1222,16 @@ class PlanProposalNode(BaseGraphNode):
             # Deterministic safety: if identity is already verified in memory state,
             # keep the marker aligned even when the model omits mark_done.
             set_state("verify_identity", "done", "memory_identity_verified")
+
+        root_id = str(plan.get("root_node_id", "open_and_context")).strip() or "open_and_context"
+        if (
+            previous_current == root_id
+            and candidate
+            and candidate != root_id
+            and self._marker_state(markers=markers, node_id=root_id) == "pending"
+        ):
+            # Root step completes only when planner advances to next actionable step.
+            set_state(root_id, "done", "case_context_ready_transition")
 
         if (
             previous_current
@@ -1398,9 +1460,26 @@ class PlanProposalNode(BaseGraphNode):
                 if child not in reachable:
                     queue.append(child)
 
-        keep = set(reachable) | {kid for kid in keep_ids if kid in node_map}
+        historical_ids = self._historical_node_ids(plan=plan)
+        keep = set(reachable) | {kid for kid in keep_ids if kid in node_map} | {hid for hid in historical_ids if hid in node_map}
         plan["nodes"] = [node_map[node_id] for node_id in node_map if node_id in keep]
         plan["edges"] = [edge for edge in filtered_edges if edge["from"] in keep and edge["to"] in keep]
+
+    @staticmethod
+    def _historical_node_ids(*, plan: dict[str, Any]) -> set[str]:
+        markers = plan.get("step_markers") if isinstance(plan.get("step_markers"), dict) else {}
+        historical: set[str] = set()
+        for node_id, raw in markers.items():
+            node_key = str(node_id).strip()
+            if not node_key:
+                continue
+            if isinstance(raw, dict):
+                state = str(raw.get("state", "pending")).strip().lower()
+            else:
+                state = str(raw or "pending").strip().lower()
+            if state in {"done", "skipped", "blocked"}:
+                historical.add(node_key)
+        return historical
 
     def _infer_current_node_id(
         self,
@@ -1411,6 +1490,7 @@ class PlanProposalNode(BaseGraphNode):
         route: str,
         proposal: dict[str, Any],
         plan_update: dict[str, Any],
+        previous_current: str,
     ) -> str:
         selected_next = str(plan_update.get("selected_next_node_id", "")).strip()
         if selected_next:
@@ -1421,6 +1501,12 @@ class PlanProposalNode(BaseGraphNode):
 
         lowered = user_input.lower()
         proposal_intent = str(proposal.get("intent", "")).strip().lower() if isinstance(proposal, dict) else ""
+        if self.strict_llm_mode:
+            if proposal_intent == "conversation_termination" or self._is_conversation_termination(user_input):
+                return "resolve_outcome"
+            if route == "propose":
+                return "evaluate_assistance"
+            return str(previous_current or "").strip()
         if proposal_intent == "conversation_termination" or self._is_conversation_termination(user_input):
             return "resolve_outcome"
         if route == "propose":
@@ -1462,6 +1548,59 @@ class PlanProposalNode(BaseGraphNode):
             if isinstance(node, dict) and str(node.get("id", "")) == node_id:
                 return str(node.get("label", node_id)).strip() or node_id
         return node_id
+
+    @staticmethod
+    def _align_customer_proposal_with_plan(
+        *,
+        proposal: dict[str, Any],
+        plan: dict[str, Any],
+        memory_state: dict[str, Any],
+        plan_signals: dict[str, Any],
+    ) -> dict[str, Any]:
+        aligned = dict(proposal)
+        target = str(aligned.get("target", "customer")).strip().lower() or "customer"
+        if target != "customer":
+            return aligned
+
+        current_node_id = str(plan.get("current_node_id", "")).strip()
+        identity_verified = bool(memory_state.get("identity_verified", False))
+        intent = str(aligned.get("intent", "")).strip().lower()
+        draft_text = str(aligned.get("draft_response", "")).strip().lower()
+        outline_text = str(aligned.get("plan_outline", "")).strip().lower()
+        verification_language = any(
+            token in f"{draft_text} {outline_text}"
+            for token in ["confirm your identity", "verify customer identity", "identity verification"]
+        )
+        hardship_signal = bool(plan_signals.get("hardship_signal", False))
+
+        if identity_verified and current_node_id == "explain_dues":
+            if intent in {"verify_identity", "verification_required_before_discount"} or verification_language:
+                aligned["intent"] = "case_snapshot"
+                aligned["plan_outline"] = "Explain dues context and collect payment intent."
+                aligned["draft_response"] = ""
+                aligned["next_actions"] = ["collect_payment_intent"]
+                aligned["case_snapshot"] = {
+                    "customer_name": str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer",
+                    "case_id": str(memory_state.get("active_case_id", "COLL-1001")).strip() or "COLL-1001",
+                    "overdue_amount": float(memory_state.get("active_overdue_amount", 0.0) or 0.0),
+                    "emi_amount": float(memory_state.get("active_emi_amount", 0.0) or 0.0),
+                    "late_fee": float(memory_state.get("active_late_fee", 0.0) or 0.0),
+                    "dpd": int(memory_state.get("active_dpd", 0) or 0),
+                }
+            elif intent == "discount_recommendation" and not hardship_signal:
+                aligned["intent"] = "case_snapshot"
+                aligned["plan_outline"] = "Explain dues context and collect payment intent."
+                aligned["draft_response"] = ""
+                aligned["next_actions"] = ["collect_payment_intent"]
+                aligned["case_snapshot"] = {
+                    "customer_name": str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer",
+                    "case_id": str(memory_state.get("active_case_id", "COLL-1001")).strip() or "COLL-1001",
+                    "overdue_amount": float(memory_state.get("active_overdue_amount", 0.0) or 0.0),
+                    "emi_amount": float(memory_state.get("active_emi_amount", 0.0) or 0.0),
+                    "late_fee": float(memory_state.get("active_late_fee", 0.0) or 0.0),
+                    "dpd": int(memory_state.get("active_dpd", 0) or 0),
+                }
+        return aligned
 
     @staticmethod
     def _append_timeline_snapshot(*, plan: dict[str, Any], update: dict[str, Any]) -> None:
@@ -1528,6 +1667,16 @@ class PlanProposalNode(BaseGraphNode):
         )
         if llm_payload is not None:
             return llm_payload
+        if self.strict_llm_mode:
+            return {
+                "needs_discount_specialist": False,
+                "is_plan_request": False,
+                "is_plan_rejection": False,
+                "hardship_signal": False,
+                "hardship_reason": str(memory_state.get("hardship_reason", "income_reduction")),
+                "suggested_plan_mode": mode,
+                "reason": "strict_mode_no_classifier_fallback",
+            }
         return {
             "needs_discount_specialist": self._needs_discount_specialist(user_input),
             "is_plan_request": self._is_plan_request(user_input),
@@ -1556,18 +1705,32 @@ class PlanProposalNode(BaseGraphNode):
         vars_map = {
             "user_input": user_input,
             "mode": mode,
-            "memory_state_json": json.dumps(memory_state, ensure_ascii=True, default=str),
-            "existing_plan_json": json.dumps(existing_plan, ensure_ascii=True, default=str),
+            "memory_state_json": self._json_compact(
+                self._compact_memory_state_for_prompt(memory_state),
+                max_chars=self.max_json_chars,
+            ),
+            "existing_plan_json": self._json_compact(
+                self._compact_existing_plan_for_prompt(existing_plan),
+                max_chars=self.max_json_chars,
+            ),
         }
         system_prompt = self._render_prompt_template(self.classifier_system_prompt, vars_map)
         user_prompt = self._render_prompt_template(self.classifier_user_prompt, vars_map)
+        if not self.last_debug.get("prompt"):
+            self.last_debug["prompt"] = user_prompt
+            self.last_debug["system_prompt"] = system_prompt or None
         try:
             payload = StructuredOutputRunner(self.llm, max_retries=2).run(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 schema=_PlanSignalPayload,
             )
-        except Exception:
+            prior = self.last_debug.get("llm_response")
+            merged = dict(prior) if isinstance(prior, dict) else {}
+            merged["classifier"] = payload.model_dump(mode="json")
+            self.last_debug["llm_response"] = merged
+        except Exception as exc:
+            self.last_debug["llm_error"] = str(exc)
             return None
         normalized_mode = str(payload.suggested_plan_mode).strip().lower()
         if normalized_mode not in {"strict_collections", "hardship_negotiation"}:
@@ -1580,4 +1743,85 @@ class PlanProposalNode(BaseGraphNode):
             "hardship_reason": str(payload.hardship_reason or memory_state.get("hardship_reason", "income_reduction")),
             "suggested_plan_mode": normalized_mode,
             "reason": str(payload.reason or ""),
+        }
+
+    @staticmethod
+    def _truncate_text(text: str, max_chars: int) -> str:
+        value = str(text or "")
+        if len(value) <= max_chars:
+            return value
+        return value[: max_chars - 3].rstrip() + "..."
+
+    def _json_compact(self, value: Any, *, max_chars: int) -> str:
+        raw = json.dumps(value, ensure_ascii=True, default=str, separators=(",", ":"))
+        if len(raw) <= max_chars:
+            return raw
+        return self._truncate_text(raw, max_chars)
+
+    @staticmethod
+    def _compact_existing_plan_for_prompt(plan: dict[str, Any], *, minimal: bool = False) -> dict[str, Any]:
+        if not isinstance(plan, dict):
+            return {}
+        nodes_raw = plan.get("nodes") if isinstance(plan.get("nodes"), list) else []
+        edges_raw = plan.get("edges") if isinstance(plan.get("edges"), list) else []
+        markers = plan.get("step_markers") if isinstance(plan.get("step_markers"), dict) else {}
+        max_nodes = 6 if minimal else 10
+        max_edges = 10 if minimal else 16
+        nodes: list[dict[str, Any]] = []
+        for node in nodes_raw[:max_nodes]:
+            if not isinstance(node, dict):
+                continue
+            nodes.append(
+                {
+                    "id": str(node.get("id", "")).strip(),
+                    "label": str(node.get("label", "")).strip(),
+                    "status": str(node.get("status", "")).strip(),
+                    "owner": str(node.get("owner", "")).strip(),
+                }
+            )
+        edges: list[dict[str, Any]] = []
+        for edge in edges_raw[:max_edges]:
+            if not isinstance(edge, dict):
+                continue
+            edges.append(
+                {
+                    "from": str(edge.get("from", "")).strip(),
+                    "to": str(edge.get("to", "")).strip(),
+                    "condition": str(edge.get("condition", "")).strip(),
+                }
+            )
+        marker_view: dict[str, str] = {}
+        marker_limit = 8 if minimal else 14
+        for key, raw in markers.items():
+            if len(marker_view) >= marker_limit:
+                break
+            if not isinstance(raw, dict):
+                continue
+            marker_view[str(key)] = str(raw.get("state", "pending")).strip()
+        return {
+            "plan_id": str(plan.get("plan_id", "")).strip(),
+            "version": int(plan.get("version", 1) or 1),
+            "status": str(plan.get("status", "active")).strip(),
+            "mode": str(plan.get("mode", "strict_collections")).strip(),
+            "current_node_id": str(plan.get("current_node_id", "")).strip(),
+            "previous_node_id": str(plan.get("previous_node_id", "")).strip(),
+            "next_node_ids": [str(x).strip() for x in (plan.get("next_node_ids") or []) if str(x).strip()][:6],
+            "nodes": nodes,
+            "edges": edges,
+            "step_markers": marker_view,
+        }
+
+    @staticmethod
+    def _compact_memory_state_for_prompt(memory_state: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(memory_state, dict):
+            return {}
+        return {
+            "active_case_id": str(memory_state.get("active_case_id", "")).strip(),
+            "active_user_id": str(memory_state.get("active_user_id", "")).strip(),
+            "active_customer_name": str(memory_state.get("active_customer_name", "")).strip(),
+            "identity_verified": bool(memory_state.get("identity_verified", False)),
+            "verification_entities": memory_state.get("verification_entities", {}),
+            "verification_missing_fields": memory_state.get("verification_missing_fields", []),
+            "mode": str(memory_state.get("mode", "strict_collections")).strip(),
+            "last_response_target": str(memory_state.get("last_response_target", "")).strip(),
         }

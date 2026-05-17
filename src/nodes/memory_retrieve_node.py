@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from src.nodes.base import BaseGraphNode
@@ -39,6 +39,7 @@ class MemoryRetrieveNode(BaseGraphNode):
     system_prompt: str | None = None
     user_prompt: str | None = None
     max_queries_per_target: int = 3
+    last_plan_debug: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
 
     def plan(
         self,
@@ -66,7 +67,14 @@ class MemoryRetrieveNode(BaseGraphNode):
             memory_context=memory_context,
             memory_targets=self._memory_targets(memory_targets),
         )
+        self.last_plan_debug = {
+            "prompt": rendered_user_prompt,
+            "system_prompt": (system_prompt or self.system_prompt or None),
+            "llm_response": None,
+            "llm_error": None,
+        }
         raw = self.llm.generate(system_prompt or self.system_prompt or "", rendered_user_prompt).strip()
+        self.last_plan_debug["llm_response"] = raw
         planned = self._parse_plan(raw)
         return planned or default_plan
 
@@ -142,6 +150,10 @@ class MemoryRetrieveNode(BaseGraphNode):
         return {
             "memory_context": assembled_context,
             "memory_retrievals": retrieval_events,
+            "prompt": self.last_plan_debug.get("prompt"),
+            "system_prompt": self.last_plan_debug.get("system_prompt"),
+            "llm_response": self.last_plan_debug.get("llm_response"),
+            "llm_error": self.last_plan_debug.get("llm_error"),
         }
 
     def _default_plan(self, *, memory: Any | None, memory_targets: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:

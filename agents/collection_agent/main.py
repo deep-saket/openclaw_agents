@@ -402,6 +402,9 @@ def main() -> None:
         data_store=CollectionDataStore(base_dir=base_dir),
         llm=llm,
         verification_policy=(config.get("verification", {}) if isinstance(config.get("verification"), dict) else {}),
+        strict_llm_mode=bool(
+            (config.get("agent", {}) if isinstance(config.get("agent"), dict) else {}).get("strict_llm_mode", True)
+        ),
         trace_sink=trace_sink,
         trace_output_dir=base_dir / "runtime" / "traces",
     )

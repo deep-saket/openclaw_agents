@@ -264,7 +264,11 @@ class CollectionDebugRuntime:
     @classmethod
     def create(cls, base_dir: Path) -> "CollectionDebugRuntime":
         config_path = base_dir / "config.yml"
+        # Prefer agent-local env, then workspace-root env fallback.
         load_env_file(base_dir / ".env")
+        repo_root_env = base_dir.parents[1] / ".env"
+        if repo_root_env.exists():
+            load_env_file(repo_root_env)
         raw_config = load_collection_config(config_path if config_path.exists() else DEFAULT_CONFIG_PATH)
 
         llm_error: str | None = None
@@ -285,6 +289,11 @@ class CollectionDebugRuntime:
             llm=llm,
             verification_policy=(
                 raw_config.get("verification", {}) if isinstance(raw_config.get("verification"), dict) else {}
+            ),
+            strict_llm_mode=bool(
+                (raw_config.get("agent", {}) if isinstance(raw_config.get("agent"), dict) else {}).get(
+                    "strict_llm_mode", True
+                )
             ),
             trace_output_dir=base_dir / "runtime" / "traces",
         )

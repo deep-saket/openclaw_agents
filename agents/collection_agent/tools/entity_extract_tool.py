@@ -37,10 +37,33 @@ class EntityExtractTool(BaseTool[EntityExtractInput, EntityExtractOutput]):
         if dob_match:
             entities["dob"] = dob_match.group(1)
 
-        digits_only = re.sub(r"\D", "", text)
-        phone_match = re.search(r"(?:\+?91)?([6-9]\d{9})", digits_only)
-        if phone_match:
-            entities["phone"] = phone_match.group(1)
+        # Phone extraction: avoid combining unrelated numbers (e.g., DOB + phone).
+        phone_value = ""
+
+        phone_labeled = re.search(
+            r"\b(?:phone|mobile|contact)(?:\s+number)?\b[\s:,\-]*(?:is\s+)?((?:\+?91[\s\-]*)?[6-9][\d\s\-]{8,14})",
+            text,
+            re.IGNORECASE,
+        )
+        if phone_labeled:
+            normalized = re.sub(r"\D", "", phone_labeled.group(1))
+            if len(normalized) == 12 and normalized.startswith("91"):
+                normalized = normalized[-10:]
+            if len(normalized) == 10 and normalized[0] in {"6", "7", "8", "9"}:
+                phone_value = normalized
+
+        if not phone_value:
+            candidates = re.findall(r"(?:\+?91[\s\-]*)?[6-9][\d\s\-]{8,14}", text)
+            for candidate in candidates:
+                normalized = re.sub(r"\D", "", candidate)
+                if len(normalized) == 12 and normalized.startswith("91"):
+                    normalized = normalized[-10:]
+                if len(normalized) == 10 and normalized[0] in {"6", "7", "8", "9"}:
+                    phone_value = normalized
+                    break
+
+        if phone_value:
+            entities["phone"] = phone_value
 
         zip_match = re.search(
             r"\b(?:zip(?:\s*code)?|pincode|pin(?:\s*code)?)\b[\s:,\-]*(?:is\s+)?(\d{6})\b",
@@ -58,9 +81,12 @@ class EntityExtractTool(BaseTool[EntityExtractInput, EntityExtractOutput]):
         if pan_last4_match:
             entities["last4_pan"] = pan_last4_match.group(1).upper()
 
-        name_match = re.search(r"\b(?:my name is|i am|this is)\s+([a-zA-Z][a-zA-Z\s'.-]{1,80})", text, re.IGNORECASE)
+        name_match = re.search(
+            r"\b(?:my name is|i am|this is)\s+([a-zA-Z][a-zA-Z\s'.-]{1,80}?)(?=\s*(?:[,.!?]|$|\bmy\s+dob\b|\bdob\b|\bphone\b|\bnumber\b))",
+            text,
+            re.IGNORECASE,
+        )
         if name_match:
             entities["name"] = re.sub(r"\s+", " ", name_match.group(1)).strip()
 
         return EntityExtractOutput(entities=entities, entity_keys=sorted(entities.keys()))
-
