@@ -139,7 +139,8 @@ flowchart TD
   IN -->|irrelevant/empty| IR["IrrelevantResponseNode\n- static response"]
   IR --> End["END"]
 
-  IN -->|relevant| PG["IntentNode (Pre-Plan Gate)\n- plan | decide"]
+  IN -->|relevant| EN["CollectionEntityExtractNode\n- LLM entity extraction\n- verification entity sync"]
+  EN --> PG["IntentNode (Pre-Plan Gate)\n- plan | decide"]
   PG -->|plan| PP["PlanProposalNode\n- plan advance / next action"]
   PG -->|decide| XP["IntentNode (Execution Path)\n- need_memory | need_tool"]
 
@@ -179,6 +180,11 @@ Graph assets:
 
 - Produces static out-of-scope response.
 - Terminates current graph pass.
+
+### `CollectionEntityExtractNode`
+
+- Runs immediately after relevance pass for in-scope turns.
+- Extracts entities (LLM-first), syncs verification entities, and updates verification state context before planning/routing.
 
 ### `IntentNode (Pre-Plan Gate)`
 
@@ -245,6 +251,9 @@ Implementation note:
 | `case_prioritize` | Scores and orders delinquent cases so collections effort starts with highest-risk and highest-recovery opportunities. | `case_ids?`, `portfolio_id?` | `queue[]`, `total` | `yes` |
 | `contact_attempt` | Logs outreach attempts across channels and preserves reachability history for follow-up strategy and compliance traceability. | `case_id`, `channel?`, `reached?` | `attempt_id`, `status` | `yes` |
 | `customer_verify` | Performs challenge-based identity verification before exposing sensitive dues/policy/account details. | `case_id?`, `customer_id?`, `challenge_answers?` | `status`, `failed_attempts` | `no` |
+| `entity_extract` | Extracts generic entities from raw input text (IDs, DOB, phone, PAN-last4, ZIP, name) for downstream orchestration/state updates. | `text` | `entities`, `entity_keys` | `no` |
+| `verification_entity_extract` | Filters raw text down to verification-relevant entities required for identity checks. | `text`, `required_fields`, `include_name?` | `entities`, `detected_fields`, `missing_fields` | `no` |
+| `verification_memory_verify` | Verifies extracted verification entities against expected challenge values cached in memory state. | `entities`, `expected_challenge`, `required_fields` | `status`, `matched`, `missing_fields`, `mismatched_fields` | `no` |
 | `loan_policy_lookup` | Fetches policy constraints (waiver/restructure/promise windows) that govern which offers can legally be proposed. | `case_id?`, `loan_id?` | policy object | `no` |
 | `dues_explain_build` | Builds a borrower-friendly dues explanation that summarizes principal overdue, fees, and total payable amount. | `case_id` | `explanation`, `total_due` | `yes` |
 | `offer_eligibility` | Checks baseline concession eligibility and produces initial direction (`waiver`, `restructure`, or `none`) under policy rules. | `case_id`, `hardship_flag?`, `requested_waiver_pct?` | `allowed`, `offer_type`, `approved_waiver_pct` | `no` |
@@ -289,6 +298,19 @@ Defined in `agents/collection_agent/config.yml` under `voice_runtime`:
 - `pipecat.vad_enabled`
 - `pipecat.audio_in_sample_rate`
 - `pipecat.audio_out_sample_rate`
+
+### Verification pipeline config
+
+Defined in `agents/collection_agent/config.yml` under `verification`:
+
+- `required_fields`: which fields must match for verification (example: `dob`, `phone`)
+- `require_field_in_challenge`: enforce only fields available in challenge payload
+- `auto_verify_from_memory_evidence`: allow pre-graph memory verification to set `identity_verified`
+- `require_name_match_for_auto_verify`: require extracted name match with active customer
+- `tool_only_verification`: disable memory verification success; only `customer_verify` can verify
+- `prefer_memory_verify`: verify against cached memory challenge first
+- `fallback_to_database_verify`: if memory verify is insufficient/failed, call database-backed `customer_verify`
+- `fallback_on_insufficient_entities`: if `false`, skip DB verify when required entities are still missing
 
 ### Run
 

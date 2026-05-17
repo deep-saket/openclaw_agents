@@ -24,11 +24,6 @@ tools:
   input: case_id, amount, channel(optional)
   output: payment_reference_id, payment_url, expires_at
 
-- name: payment_pause
-  purpose: Pause EMI payments for a fixed duration after missed due date.
-  input: case_id, customer_id, reason, requested_by, duration, start_date
-  output: isSuccess, pause_id, from_date, to_date, duration_months, next_due_date
-
 - name: promise_capture
   purpose: Save borrower promise-to-pay commitment details.
   input: case_id, promised_date, promised_amount

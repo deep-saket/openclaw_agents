@@ -14,22 +14,36 @@ from uuid import uuid4
 from langgraph.graph import END, START, StateGraph
 
 from agents.collection_memory_helper_agent.repository import CollectionMemoryRepository
-from agents.collection_agent.nodes import CollectionIntentNode, CollectionReflectNode, CollectionResponseNode, PlanProposalNode
+from agents.collection_agent.nodes import (
+    CollectionEntityExtractNode,
+    CollectionIntentNode,
+    CollectionReflectNode,
+    CollectionResponseNode,
+    PlanProposalNode,
+)
 from agents.collection_agent.planner import CollectionPlanner
 from agents.collection_agent.prompts import load_collection_agent_prompts, render_collection_tool_catalog_yaml
 from agents.collection_agent.repository import CollectionRepository
 from agents.collection_agent.state import CollectionGraphState
 from agents.collection_agent.tools import (
     CustomerVerifyTool,
+    EntityExtractTool,
     HumanEscalationTool,
     LoanPolicyLookupTool,
     OfferEligibilityTool,
-    PaymentPauseTool,
     PaymentLinkCreateTool,
     PlanProposeTool,
     PromiseCaptureTool,
+    VerificationEntityExtractTool,
+    VerificationMemoryVerifyTool,
 )
 from agents.collection_agent.tools.data_store import CollectionDataStore
+from agents.collection_agent.tools.schemas import (
+    CustomerVerifyInput,
+    EntityExtractInput,
+    VerificationEntityExtractInput,
+    VerificationMemoryVerifyInput,
+)
 from src.agents.base_agent import BaseAgent
 from src.memory.session_store import SessionStore
 from src.memory.types import WorkingMemory
@@ -58,6 +72,10 @@ class CollectionAgent(BaseAgent):
     trace_sink: Any | None = None
     trace_output_dir: Path | None = None
     memory_repository: CollectionMemoryRepository | None = None
+    verification_policy: dict[str, Any] | None = None
+    entity_extract_tool: Any | None = None
+    verification_entity_extract_tool: Any | None = None
+    verification_memory_verify_tool: Any | None = None
     allow_deterministic_fallback: bool = False
     agent_name: str = "collection_agent"
     last_trace: ExecutionTrace | None = None
@@ -65,6 +83,7 @@ class CollectionAgent(BaseAgent):
     _session_locks_guard: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     _STATIC_NEXT_NODE_MAP: ClassVar[dict[str, str]] = {
+        "entity_extract": "pre_plan_intent",
         "memory_retrieve": "post_memory_plan_intent",
         "tool_execution": "react",
         "relevant_response": "END",
@@ -73,7 +92,7 @@ class CollectionAgent(BaseAgent):
 
     _ROUTE_NEXT_NODE_MAP: ClassVar[dict[str, dict[str, str]]] = {
         "relevance_intent": {
-            "relevant": "pre_plan_intent",
+            "relevant": "entity_extract",
             "irrelevant": "irrelevant_response",
             "empty": "irrelevant_response",
         },
@@ -131,6 +150,9 @@ class CollectionAgent(BaseAgent):
             memory_store=None,
             memory_policy=None,
         )
+        self.entity_extract_tool = self.entity_extract_tool or EntityExtractTool()
+        self.verification_entity_extract_tool = self.verification_entity_extract_tool or VerificationEntityExtractTool()
+        self.verification_memory_verify_tool = self.verification_memory_verify_tool or VerificationMemoryVerifyTool()
         self.planner = self.planner or CollectionPlanner(
             llm=self.llm,
             intent_system_prompt=str(intent_prompts.get("system_prompt", "")),
@@ -315,6 +337,12 @@ class CollectionAgent(BaseAgent):
             default_response="This request is outside collections scope. I can only help with loan dues, EMI, payments, verification, hardship plans, and follow-ups.",
             default_target="customer",
         )
+        self.entity_extract_node = CollectionEntityExtractNode(
+            llm=self.llm,
+            extract_callback=self._capture_verification_evidence,
+            reconcile_callback=self._reconcile_verification_from_collected,
+            allow_callback_fallback=self.allow_deterministic_fallback,
+        )
         self.graph = self._build_graph()
 
     def _build_tool_registry(self) -> ToolRegistry:
@@ -323,7 +351,6 @@ class CollectionAgent(BaseAgent):
         registry.register(LoanPolicyLookupTool(store=self.data_store))
         registry.register(OfferEligibilityTool(store=self.data_store))
         registry.register(PaymentLinkCreateTool(store=self.data_store))
-        registry.register(PaymentPauseTool(store=self.data_store))
         registry.register(PromiseCaptureTool(store=self.data_store))
         registry.register(HumanEscalationTool(store=self.data_store))
         registry.register(PlanProposeTool(store=self.data_store))
@@ -332,6 +359,7 @@ class CollectionAgent(BaseAgent):
     def _build_graph(self) -> Any:
         graph = StateGraph(CollectionGraphState)
         graph.add_node("relevance_intent", self._wrap_node("relevance_intent", self.relevance_intent_node.execute))
+        graph.add_node("entity_extract", self._wrap_node("entity_extract", self.entity_extract_node.execute))
         graph.add_node("pre_plan_intent", self._wrap_node("pre_plan_intent", self.pre_plan_intent_node.execute))
         graph.add_node(
             "execution_path_intent", self._wrap_node("execution_path_intent", self.execution_path_intent_node.execute)
@@ -355,11 +383,12 @@ class CollectionAgent(BaseAgent):
             "relevance_intent",
             self.relevance_intent_node.route,
             {
-                "relevant": "pre_plan_intent",
+                "relevant": "entity_extract",
                 "irrelevant": "irrelevant_response",
                 "empty": "irrelevant_response",
             },
         )
+        graph.add_edge("entity_extract", "pre_plan_intent")
         graph.add_conditional_edges(
             "pre_plan_intent",
             self.pre_plan_intent_node.route,
@@ -527,6 +556,11 @@ class CollectionAgent(BaseAgent):
             route_part = f", route={route}" if route else ""
             return f"{node_name}: classified intent={intent}{route_part}.{reason_part}".strip()
 
+        if node_name == "entity_extract":
+            extracted = update.get("extracted_entities") if isinstance(update.get("extracted_entities"), dict) else {}
+            verified = bool(update.get("identity_verified", False))
+            return f"entity_extract: captured {len(extracted)} entities; identity_verified={verified}."
+
         if node_name == "react":
             decision = update.get("decision")
             tool_call = None
@@ -599,8 +633,6 @@ class CollectionAgent(BaseAgent):
                     )
                 )
             self._sync_user_and_memory_context(memory=memory, user_input=user_input)
-            self._capture_verification_evidence(memory=memory, user_input=user_input)
-            self._reconcile_verification_from_collected(memory=memory)
             user_id = str(memory.state.get("active_user_id", "")).strip()
             case_id = str(memory.state.get("active_case_id", "COLL-1001")).strip()
             channel = str(memory.state.get("active_channel", "sms")).strip()
@@ -808,6 +840,30 @@ class CollectionAgent(BaseAgent):
             user_key_event_memory=(user_context or {}),
         )
 
+    def _verification_cfg(self) -> dict[str, Any]:
+        raw = self.verification_policy if isinstance(self.verification_policy, dict) else {}
+        return {
+            "required_fields": raw.get("required_fields", ["dob", "phone"]),
+            "require_field_in_challenge": bool(raw.get("require_field_in_challenge", True)),
+            "auto_verify_from_memory_evidence": bool(raw.get("auto_verify_from_memory_evidence", True)),
+            "require_name_match_for_auto_verify": bool(raw.get("require_name_match_for_auto_verify", False)),
+            "tool_only_verification": bool(raw.get("tool_only_verification", False)),
+            "prefer_memory_verify": bool(raw.get("prefer_memory_verify", True)),
+            "fallback_to_database_verify": bool(raw.get("fallback_to_database_verify", True)),
+            "fallback_on_insufficient_entities": bool(raw.get("fallback_on_insufficient_entities", False)),
+        }
+
+    def _required_verification_fields(self, *, challenge: dict[str, Any]) -> list[str]:
+        cfg = self._verification_cfg()
+        configured = cfg.get("required_fields")
+        fields = [str(x).strip() for x in configured] if isinstance(configured, list) else ["dob", "phone"]
+        fields = [field for field in fields if field]
+        if not fields:
+            fields = ["dob", "phone"]
+        if not bool(cfg.get("require_field_in_challenge", True)):
+            return fields
+        return [field for field in fields if str(challenge.get(field, "")).strip()]
+
     def _hydrate_case_context(self, *, memory: Any) -> None:
         memory_state = dict(memory.state)
         active_case_id = str(memory_state.get("active_case_id", "")).strip()
@@ -835,7 +891,12 @@ class CollectionAgent(BaseAgent):
             customer_row = self.data_store.get_customer(customer_id)
             if isinstance(customer_row, dict):
                 challenge = customer_row.get("challenge") if isinstance(customer_row.get("challenge"), dict) else {}
-                required_fields = [field for field in ["dob", "phone"] if str(challenge.get(field, "")).strip()]
+                required_fields = self._required_verification_fields(challenge=challenge)
+                challenge_cache = {
+                    field: str(challenge.get(field, "")).strip()
+                    for field in required_fields
+                    if str(challenge.get(field, "")).strip()
+                }
                 memory.set_state(
                     active_customer_name=str(customer_row.get("name", memory_state.get("active_customer_name", "Customer")))
                     .strip()
@@ -843,6 +904,7 @@ class CollectionAgent(BaseAgent):
                     active_customer_phone=str(customer_row.get("phone", "")).strip(),
                     active_customer_email=str(customer_row.get("email", "")).strip(),
                     active_verification_required_fields=required_fields,
+                    active_verification_challenge=challenge_cache,
                 )
 
     def _resolve_user_id(self, *, memory_state: dict[str, Any], user_input: str) -> str | None:
@@ -875,91 +937,177 @@ class CollectionAgent(BaseAgent):
         if not text:
             return
         memory_state = dict(getattr(memory, "state", {}))
-        collected = dict(memory_state.get("verification_collected", {}))
-        lowered = text.lower()
-
-        name_match = re.search(r"\b(?:my name is|i am|this is)\s+([a-zA-Z][a-zA-Z\s'.-]{1,80})", text, re.IGNORECASE)
-        if name_match:
-            collected["name"] = re.sub(r"\s+", " ", name_match.group(1)).strip()
-
-        dob_match = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", text)
-        if dob_match:
-            collected["dob"] = dob_match.group(1)
-
-        digits_only = re.sub(r"\D", "", text)
-        phone_match = re.search(r"(?:\+?91)?([6-9]\d{9})", digits_only)
-        if phone_match:
-            collected["phone"] = phone_match.group(1)
-
-        zip_match = re.search(
-            r"\b(?:zip(?:\s*code)?|pincode|pin(?:\s*code)?)\b[\s:,\-]*(?:is\s+)?(\d{6})\b",
-            lowered,
-            re.IGNORECASE,
+        collected = (
+            dict(memory_state.get("verification_entities", {}))
+            if isinstance(memory_state.get("verification_entities"), dict)
+            else {}
         )
-        if zip_match:
-            collected["zip"] = zip_match.group(1)
 
-        pan_last4_match = re.search(
-            r"\b(?:last\s*4|last\s*four|ending)\b.{0,30}?\b([a-zA-Z0-9]{4})\b",
-            text,
-            re.IGNORECASE,
+        required_fields = memory_state.get("active_verification_required_fields")
+        required = [str(x).strip() for x in required_fields if str(x).strip()] if isinstance(required_fields, list) else []
+        if self.entity_extract_tool is not None:
+            raw_entities = self.entity_extract_tool.execute(input=EntityExtractInput(text=text))
+            if isinstance(raw_entities.entities, dict):
+                memory.set_state(extracted_entities=dict(raw_entities.entities))
+        if self.verification_entity_extract_tool is None:
+            return
+        extracted = self.verification_entity_extract_tool.execute(
+            input=VerificationEntityExtractInput(
+                text=text,
+                required_fields=required,
+                include_name=True,
+            )
         )
-        if pan_last4_match:
-            collected["last4_pan"] = pan_last4_match.group(1).upper()
-        else:
-            standalone_4 = re.fullmatch(r"[a-zA-Z0-9]{4}", text.replace(" ", ""))
-            if standalone_4:
-                collected["last4_pan"] = standalone_4.group(0).upper()
+        entities = extracted.entities if isinstance(extracted.entities, dict) else {}
+        for key, value in entities.items():
+            val = str(value).strip()
+            if val:
+                collected[key] = val
 
         active_name = str(memory_state.get("active_customer_name", "")).strip().lower()
         provided_name = str(collected.get("name", "")).strip().lower()
         if active_name and provided_name and active_name == provided_name:
             collected["name_confirmed"] = True
+        elif provided_name:
+            collected["name_confirmed"] = False
 
-        if collected != dict(memory_state.get("verification_collected", {})):
-            memory.set_state(verification_collected=collected)
+        if collected != dict(memory_state.get("verification_entities", {})):
+            memory.set_state(
+                verification_entities=collected,
+                verification_collected=collected,  # compatibility key used by existing nodes/UI
+            )
 
     def _reconcile_verification_from_collected(self, *, memory: Any) -> None:
         memory_state = dict(getattr(memory, "state", {}))
         customer_id = str(memory_state.get("active_user_id", "")).strip()
         if not customer_id:
             return
-        customer_row = self.data_store.get_customer(customer_id)
-        if not isinstance(customer_row, dict):
-            return
-        challenge = customer_row.get("challenge") if isinstance(customer_row.get("challenge"), dict) else {}
+        cfg = self._verification_cfg()
+
+        collected = (
+            dict(memory_state.get("verification_entities", {}))
+            if isinstance(memory_state.get("verification_entities"), dict)
+            else {}
+        )
+        if not collected and isinstance(memory_state.get("verification_collected"), dict):
+            collected = dict(memory_state.get("verification_collected", {}))
+
+        challenge_from_memory = (
+            dict(memory_state.get("active_verification_challenge", {}))
+            if isinstance(memory_state.get("active_verification_challenge"), dict)
+            else {}
+        )
+        has_memory_challenge = bool(challenge_from_memory)
+        challenge = challenge_from_memory
+        if not challenge:
+            customer_row = self.data_store.get_customer(customer_id)
+            if isinstance(customer_row, dict) and isinstance(customer_row.get("challenge"), dict):
+                raw = customer_row.get("challenge", {})
+                required_hint = memory_state.get("active_verification_required_fields")
+                required_from_state = (
+                    [str(x).strip() for x in required_hint if str(x).strip()]
+                    if isinstance(required_hint, list)
+                    else []
+                )
+                required = required_from_state or self._required_verification_fields(challenge=raw)
+                challenge = {
+                    field: str(raw.get(field, "")).strip()
+                    for field in required
+                    if str(raw.get(field, "")).strip()
+                }
+                memory.set_state(active_verification_challenge=challenge)
         if not challenge:
             return
 
-        collected = (
-            dict(memory_state.get("verification_collected", {}))
-            if isinstance(memory_state.get("verification_collected"), dict)
-            else {}
-        )
-        required_fields = [field for field in ["dob", "phone"] if str(challenge.get(field, "")).strip()]
+        required_fields = [field for field in challenge.keys() if str(field).strip()]
         updates: dict[str, Any] = {"active_verification_required_fields": required_fields}
+        expected_name = str(memory_state.get("active_customer_name", "")).strip()
 
-        expected_name = str(customer_row.get("name", "")).strip().lower()
-        provided_name = str(collected.get("name", "")).strip().lower()
-        if expected_name and provided_name and expected_name == provided_name:
-            collected["name_confirmed"] = True
-        elif provided_name:
-            collected["name_confirmed"] = False
-
-        missing_required = [field for field in required_fields if not str(collected.get(field, "")).strip()]
-        if missing_required:
-            updates["identity_verified"] = False
+        if bool(cfg.get("tool_only_verification", False)):
+            updates["identity_verified"] = bool(memory_state.get("identity_verified", False))
+            updates["verification_entities"] = collected
             updates["verification_collected"] = collected
             memory.set_state(**updates)
             return
 
-        expected = {key: str(challenge.get(key, "")).strip().lower() for key in required_fields}
-        provided = {key: str(collected.get(key, "")).strip().lower() for key in expected}
-        matched = all(provided.get(key) == expected.get(key) for key in expected)
+        matched = False
+        status = "insufficient"
+        missing_required = [field for field in required_fields if not str(collected.get(field, "")).strip()]
+
+        if (not has_memory_challenge) and bool(cfg.get("fallback_to_database_verify", True)):
+            if not missing_required:
+                db_result = self._verify_from_database_with_entities(
+                    customer_id=customer_id,
+                    entities=collected,
+                )
+                if db_result is not None:
+                    status = str(db_result.get("status", status)).strip().lower()
+                    matched = status == "verified"
+        elif bool(cfg.get("prefer_memory_verify", True)) and self.verification_memory_verify_tool is not None:
+            entities_for_match = {
+                str(key): str(value)
+                for key, value in collected.items()
+                if str(key).strip() and (
+                    str(key) in set(required_fields) or str(key) == "name"
+                ) and str(value).strip()
+            }
+            memory_verify = self.verification_memory_verify_tool.execute(
+                input=VerificationMemoryVerifyInput(
+                    entities=entities_for_match,
+                    expected_challenge=challenge,
+                    required_fields=required_fields,
+                    require_name_match=bool(cfg.get("require_name_match_for_auto_verify", False)),
+                    expected_name=expected_name or None,
+                )
+            )
+            status = str(memory_verify.status).strip().lower()
+            matched = bool(memory_verify.matched)
+        should_fallback = has_memory_challenge and (status == "failed" or (
+            status == "insufficient" and bool(cfg.get("fallback_on_insufficient_entities", False))
+        ))
+        if should_fallback and bool(cfg.get("fallback_to_database_verify", True)):
+            db_result = self._verify_from_database_with_entities(
+                customer_id=customer_id,
+                entities=collected,
+            )
+            if db_result is not None:
+                status = str(db_result.get("status", status)).strip().lower()
+                matched = status == "verified"
+
+        if not bool(cfg.get("auto_verify_from_memory_evidence", True)) and status != "verified":
+            matched = False
+
         updates["identity_verified"] = bool(matched)
+        updates["verification_entities"] = collected
         updates["verification_collected"] = collected
-        updates["verification_last_status"] = "verified" if matched else "failed"
+        updates["verification_last_status"] = ("verified" if matched else (status or "failed"))
         memory.set_state(**updates)
+
+    def _verify_from_database_with_entities(self, *, customer_id: str, entities: dict[str, Any]) -> dict[str, Any] | None:
+        if not isinstance(entities, dict) or not entities:
+            return None
+        case_row = self.data_store.get_case(customer_id=customer_id)
+        case_id = str(case_row.get("case_id", "")).strip() if isinstance(case_row, dict) else ""
+        if not case_id:
+            return None
+        tool = CustomerVerifyTool(store=self.data_store)
+        challenge_answers = {
+            str(k): str(v)
+            for k, v in entities.items()
+            if str(k).strip() and str(k) != "name_confirmed" and str(v).strip()
+        }
+        result = tool.execute(
+            input=CustomerVerifyInput(
+                case_id=case_id,
+                customer_id=customer_id,
+                challenge_answers=challenge_answers,
+            )
+        )
+        return {
+            "status": str(result.status),
+            "required_fields": list(result.required_fields),
+            "failed_attempts": int(result.failed_attempts),
+        }
 
     def _apply_post_turn_verification_state(self, *, memory: Any, state: AgentState) -> None:
         observation = state.get("observation")
@@ -995,6 +1143,7 @@ class CollectionAgent(BaseAgent):
     def _phase_for_node(node_name: str) -> str:
         phase_map = {
             "relevance_intent": "relevance_classification",
+            "entity_extract": "entity_extraction",
             "pre_plan_intent": "pre_plan_routing",
             "execution_path_intent": "execution_routing",
             "memory_retrieve": "memory_hydration",

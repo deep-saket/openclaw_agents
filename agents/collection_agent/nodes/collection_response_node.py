@@ -111,6 +111,26 @@ class CollectionResponseNode(ResponseNode):
         turn_index = int(memory_state.get("turn_index", state.get("turn_index", 0)) or 0)
         is_opening_turn = turn_index <= 0
         verification_context = verification_guard_context if isinstance(verification_guard_context, dict) else {}
+        extracted_entities = state.get("extracted_entities")
+        if not isinstance(extracted_entities, dict):
+            extracted_entities = memory_state.get("extracted_entities", {}) if isinstance(memory_state.get("extracted_entities"), dict) else {}
+        extracted_entity_descriptions = state.get("extracted_entity_descriptions")
+        if not isinstance(extracted_entity_descriptions, dict):
+            extracted_entity_descriptions = (
+                memory_state.get("extracted_entity_descriptions", {})
+                if isinstance(memory_state.get("extracted_entity_descriptions"), dict)
+                else {}
+            )
+        verification_entities = state.get("verification_entities")
+        if not isinstance(verification_entities, dict):
+            verification_entities = memory_state.get("verification_entities", {}) if isinstance(memory_state.get("verification_entities"), dict) else {}
+        verification_missing_fields = state.get("verification_missing_fields")
+        if not isinstance(verification_missing_fields, list):
+            verification_missing_fields = [
+                str(x).strip()
+                for x in memory_state.get("active_verification_required_fields", [])
+                if str(x).strip() and not str(verification_entities.get(str(x).strip(), "")).strip()
+            ]
 
         system_prompt = (
             f"{self.system_prompt or ''}\n"
@@ -142,6 +162,10 @@ class CollectionResponseNode(ResponseNode):
             f"Plan proposal: {json.dumps(proposal, ensure_ascii=True)}\n"
             f"Conversation plan graph: {json.dumps(conversation_plan, ensure_ascii=True)}\n"
             f"Verification context: {json.dumps(verification_context, ensure_ascii=True)}\n"
+            f"Extracted entities: {json.dumps(extracted_entities, ensure_ascii=True)}\n"
+            f"Extracted entity descriptions: {json.dumps(extracted_entity_descriptions, ensure_ascii=True)}\n"
+            f"Verification entities: {json.dumps(verification_entities, ensure_ascii=True)}\n"
+            f"Verification missing fields: {json.dumps(verification_missing_fields, ensure_ascii=True)}\n"
             f"Observation: {json.dumps(observation, ensure_ascii=True, default=str)}\n"
             "Generate only structured JSON output."
         )

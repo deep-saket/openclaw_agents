@@ -220,6 +220,7 @@ class PlanProposalNode(BaseGraphNode):
 
         if mode != "hardship_negotiation":
             plan_proposal = self._build_plan_proposal(
+                state=state,
                 user_input=user_input,
                 memory_state=memory_state,
                 observation=(observation if isinstance(observation, dict) else None),
@@ -245,6 +246,7 @@ class PlanProposalNode(BaseGraphNode):
             if memory is not None and isinstance(output, dict):
                 memory.set_state(current_plan=output, plan_revision_index=int(memory_state.get("plan_revision_index", 0)))
             plan_proposal = self._build_plan_proposal(
+                state=state,
                 user_input=user_input,
                 memory_state=memory_state,
                 observation=(observation if isinstance(observation, dict) else None),
@@ -279,6 +281,7 @@ class PlanProposalNode(BaseGraphNode):
 
         if not should_propose:
             plan_proposal = self._build_plan_proposal(
+                state=state,
                 user_input=user_input,
                 memory_state=memory_state,
                 observation=(observation if isinstance(observation, dict) else None),
@@ -400,6 +403,7 @@ class PlanProposalNode(BaseGraphNode):
     def _build_plan_proposal(
         self,
         *,
+        state: AgentState,
         user_input: str,
         memory_state: dict[str, Any],
         observation: dict[str, Any] | None,
@@ -410,6 +414,7 @@ class PlanProposalNode(BaseGraphNode):
         existing_plan: dict[str, Any],
     ) -> dict[str, Any]:
         llm_proposal = self._build_plan_proposal_with_llm(
+            state=state,
             user_input=user_input,
             memory_state=memory_state,
             observation=observation,
@@ -462,6 +467,7 @@ class PlanProposalNode(BaseGraphNode):
     def _build_plan_proposal_with_llm(
         self,
         *,
+        state: AgentState,
         user_input: str,
         memory_state: dict[str, Any],
         observation: dict[str, Any] | None,
@@ -506,6 +512,17 @@ class PlanProposalNode(BaseGraphNode):
             ensure_ascii=True,
             default=str,
         )
+        entities_context_json = json.dumps(
+            {
+                "extracted_entities": state.get("extracted_entities", {}),
+                "extracted_entity_descriptions": state.get("extracted_entity_descriptions", {}),
+                "verification_entities": state.get("verification_entities", {}),
+                "verification_missing_fields": state.get("verification_missing_fields", []),
+                "identity_verified": bool(memory_state.get("identity_verified", False)),
+            },
+            ensure_ascii=True,
+            default=str,
+        )
         template_vars = {
             "user_input": user_input,
             "plan_origin": plan_origin,
@@ -517,6 +534,7 @@ class PlanProposalNode(BaseGraphNode):
             "obs_output_json": json.dumps(obs_output, ensure_ascii=True, default=str),
             "customer_context_json": customer_context_json,
             "verification_context_json": verification_context_json,
+            "entities_context_json": entities_context_json,
         }
         system_prompt = self._render_prompt_template(self.system_prompt, template_vars)
         user_prompt = self._render_prompt_template(self.user_prompt, template_vars)
@@ -651,6 +669,10 @@ class PlanProposalNode(BaseGraphNode):
             observed_output=(observed_output if isinstance(observed_output, dict) else {}),
             memory_identity_verified=bool(memory_state.get("identity_verified", False)),
         )
+        self._remove_verify_identity_node_if_verified(
+            plan=plan,
+            identity_verified=bool(memory_state.get("identity_verified", False)),
+        )
         markers = self._init_or_reconcile_step_markers(plan=plan)
         next_current = self._resolve_next_current_node(
             plan=plan,
@@ -713,9 +735,94 @@ class PlanProposalNode(BaseGraphNode):
         )
         return plan
 
+    def _remove_verify_identity_node_if_verified(self, *, plan: dict[str, Any], identity_verified: bool) -> None:
+        if not identity_verified:
+            return
+        nodes = [dict(node) for node in plan.get("nodes", []) if isinstance(node, dict)]
+        if not any(str(node.get("id", "")).strip() == "verify_identity" for node in nodes):
+            return
+
+        root_id = str(plan.get("root_node_id", "open_and_context")).strip() or "open_and_context"
+        outgoing_targets: list[str] = []
+        existing_node_ids = {str(node.get("id", "")).strip() for node in nodes if str(node.get("id", "")).strip()}
+        filtered_edges: list[dict[str, Any]] = []
+        for edge in plan.get("edges", []):
+            if not isinstance(edge, dict):
+                continue
+            src = str(edge.get("from", "")).strip()
+            dst = str(edge.get("to", "")).strip()
+            cond = str(edge.get("condition", "")).strip()
+            if src == "verify_identity" and dst:
+                outgoing_targets.append(dst)
+                continue
+            if dst == "verify_identity" or src == "verify_identity":
+                continue
+            if src and dst:
+                filtered_edges.append({"from": src, "to": dst, "condition": cond})
+
+        node_ids_after = {nid for nid in existing_node_ids if nid != "verify_identity"}
+        reconnect_targets = [dst for dst in outgoing_targets if dst in node_ids_after]
+        if not reconnect_targets and "explain_dues" in node_ids_after:
+            reconnect_targets = ["explain_dues"]
+        for dst in reconnect_targets:
+            filtered_edges.append(
+                {"from": root_id, "to": dst, "condition": "identity_already_verified"}
+            )
+
+        deduped: list[dict[str, Any]] = []
+        seen: set[tuple[str, str, str]] = set()
+        for edge in filtered_edges:
+            key = (edge["from"], edge["to"], edge["condition"])
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(edge)
+
+        plan["nodes"] = [node for node in nodes if str(node.get("id", "")).strip() != "verify_identity"]
+        plan["edges"] = deduped
+        markers = plan.get("step_markers")
+        if isinstance(markers, dict):
+            markers.pop("verify_identity", None)
+            plan["step_markers"] = markers
+
     @staticmethod
     def _create_initial_plan_graph(*, memory_state: dict[str, Any], mode: str) -> dict[str, Any]:
         case_id = str(memory_state.get("active_case_id", "COLL-1001")).strip().upper() or "COLL-1001"
+        identity_verified = bool(memory_state.get("identity_verified", False))
+        if identity_verified:
+            nodes = [
+                {"id": "open_and_context", "label": "Open call and establish case context", "owner": "collection_agent", "status": "in_progress"},
+                {"id": "explain_dues", "label": "Explain dues and policy options", "owner": "customer", "status": "pending"},
+                {"id": "collect_payment_intent", "label": "Collect payment intent", "owner": "customer", "status": "pending"},
+                {"id": "evaluate_assistance", "label": "Evaluate discount/restructure assistance", "owner": "collection_agent", "status": "pending"},
+                {"id": "resolve_outcome", "label": "Finalize payment, promise, or follow-up", "owner": "customer", "status": "pending"},
+            ]
+            edges = [
+                {"from": "open_and_context", "to": "explain_dues", "condition": "identity_already_verified"},
+                {"from": "explain_dues", "to": "collect_payment_intent", "condition": "dues_explained"},
+                {"from": "collect_payment_intent", "to": "resolve_outcome", "condition": "pay_now"},
+                {"from": "collect_payment_intent", "to": "evaluate_assistance", "condition": "cannot_pay_full"},
+                {"from": "evaluate_assistance", "to": "resolve_outcome", "condition": "assistance_ready"},
+            ]
+            next_node_ids = ["explain_dues"]
+        else:
+            nodes = [
+                {"id": "open_and_context", "label": "Open call and establish case context", "owner": "collection_agent", "status": "in_progress"},
+                {"id": "verify_identity", "label": "Verify customer identity", "owner": "customer", "status": "pending"},
+                {"id": "explain_dues", "label": "Explain dues and policy options", "owner": "customer", "status": "pending"},
+                {"id": "collect_payment_intent", "label": "Collect payment intent", "owner": "customer", "status": "pending"},
+                {"id": "evaluate_assistance", "label": "Evaluate discount/restructure assistance", "owner": "collection_agent", "status": "pending"},
+                {"id": "resolve_outcome", "label": "Finalize payment, promise, or follow-up", "owner": "customer", "status": "pending"},
+            ]
+            edges = [
+                {"from": "open_and_context", "to": "verify_identity", "condition": "case_context_ready"},
+                {"from": "verify_identity", "to": "explain_dues", "condition": "identity_verified"},
+                {"from": "explain_dues", "to": "collect_payment_intent", "condition": "dues_explained"},
+                {"from": "collect_payment_intent", "to": "resolve_outcome", "condition": "pay_now"},
+                {"from": "collect_payment_intent", "to": "evaluate_assistance", "condition": "cannot_pay_full"},
+                {"from": "evaluate_assistance", "to": "resolve_outcome", "condition": "assistance_ready"},
+            ]
+            next_node_ids = ["verify_identity"]
         return {
             "plan_id": f"plan-{case_id}",
             "version": 1,
@@ -725,23 +832,9 @@ class PlanProposalNode(BaseGraphNode):
             "root_node_id": "open_and_context",
             "current_node_id": "open_and_context",
             "previous_node_id": None,
-            "next_node_ids": ["verify_identity"],
-            "nodes": [
-                {"id": "open_and_context", "label": "Open call and establish case context", "owner": "collection_agent", "status": "in_progress"},
-                {"id": "verify_identity", "label": "Verify customer identity", "owner": "customer", "status": "pending"},
-                {"id": "explain_dues", "label": "Explain dues and policy options", "owner": "customer", "status": "pending"},
-                {"id": "collect_payment_intent", "label": "Collect payment intent", "owner": "customer", "status": "pending"},
-                {"id": "evaluate_assistance", "label": "Evaluate discount/restructure assistance", "owner": "collection_agent", "status": "pending"},
-                {"id": "resolve_outcome", "label": "Finalize payment, promise, or follow-up", "owner": "customer", "status": "pending"},
-            ],
-            "edges": [
-                {"from": "open_and_context", "to": "verify_identity", "condition": "case_context_ready"},
-                {"from": "verify_identity", "to": "explain_dues", "condition": "identity_verified"},
-                {"from": "explain_dues", "to": "collect_payment_intent", "condition": "dues_explained"},
-                {"from": "collect_payment_intent", "to": "resolve_outcome", "condition": "pay_now"},
-                {"from": "collect_payment_intent", "to": "evaluate_assistance", "condition": "cannot_pay_full"},
-                {"from": "evaluate_assistance", "to": "resolve_outcome", "condition": "assistance_ready"},
-            ],
+            "next_node_ids": next_node_ids,
+            "nodes": nodes,
+            "edges": edges,
             "timeline": [],
             "revision_log": [],
             "updated_from": "initial",
@@ -828,6 +921,29 @@ class PlanProposalNode(BaseGraphNode):
         node_ids = {str(node.get("id")) for node in plan.get("nodes", []) if isinstance(node, dict)}
         parent_map = self._parent_map(nodes=plan.get("edges", []))
 
+        def is_actionable(node_id: str) -> bool:
+            if node_id not in node_ids:
+                return False
+            if not self._is_node_unlocked(plan=plan, node_id=node_id, markers=markers):
+                return False
+            return self._marker_state(markers=markers, node_id=node_id) == "pending"
+
+        def first_actionable_descendant(start_node_id: str) -> str:
+            queue: list[str] = [start_node_id]
+            visited: set[str] = set()
+            while queue:
+                nid = queue.pop(0)
+                if not nid or nid in visited:
+                    continue
+                visited.add(nid)
+                if is_actionable(nid):
+                    return nid
+                children = self._next_nodes_from_edges(nodes=plan.get("edges", []), current_node_id=nid)
+                for child in children:
+                    if child not in visited:
+                        queue.append(child)
+            return ""
+
         def nearest_unlocked(node_id: str) -> str:
             cursor = node_id
             visited: set[str] = set()
@@ -845,6 +961,11 @@ class PlanProposalNode(BaseGraphNode):
 
         if not previous_current or previous_current not in node_ids:
             root = str(plan.get("root_node_id", "open_and_context"))
+            if is_actionable(candidate):
+                return candidate
+            first = first_actionable_descendant(root)
+            if first:
+                return first
             if candidate in node_ids and self._is_node_unlocked(plan=plan, node_id=candidate, markers=markers):
                 return candidate
             return root if root in node_ids else candidate
@@ -852,17 +973,26 @@ class PlanProposalNode(BaseGraphNode):
         previous_current = nearest_unlocked(previous_current)
         allowed_next = self._next_nodes_from_edges(nodes=plan.get("edges", []), current_node_id=previous_current)
         if not allowed_next:
+            if is_actionable(candidate):
+                return candidate
             if candidate in node_ids and self._is_node_unlocked(plan=plan, node_id=candidate, markers=markers):
                 return candidate
+            first = first_actionable_descendant(previous_current)
+            if first:
+                return first
             return previous_current
 
-        if candidate in allowed_next and self._is_node_unlocked(plan=plan, node_id=candidate, markers=markers):
+        if candidate in allowed_next and is_actionable(candidate):
             return candidate
 
         # Enforce sequential progression with marker gates.
         for node_id in allowed_next:
-            if self._is_node_unlocked(plan=plan, node_id=node_id, markers=markers):
+            if is_actionable(node_id):
                 return node_id
+        for node_id in allowed_next:
+            first = first_actionable_descendant(node_id)
+            if first:
+                return first
         return previous_current
 
     @staticmethod
@@ -940,8 +1070,8 @@ class PlanProposalNode(BaseGraphNode):
 
             if previous_state in {"done", "skipped", "blocked"}:
                 state = previous_state
-            elif (not has_existing_markers) and status in {"done", "skipped", "blocked"} and node_id == root_id:
-                # Bootstrap only the root marker from status for legacy sessions.
+            elif (not has_existing_markers) and status in {"done", "skipped", "blocked"}:
+                # Bootstrap marker states from node status for initial sessions.
                 state = status
             elif node_id == root_id and not existing:
                 state = "done"

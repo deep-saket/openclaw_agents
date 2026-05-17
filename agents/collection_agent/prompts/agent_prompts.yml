@@ -7,11 +7,13 @@ react:
     Avoid unnecessary tool calls for simple conversational acknowledgements.
     If verification is incomplete, prioritize completing verification before dues disclosure.
     If user asks trust/safety questions (for example scam concern), respond in-scope and keep collections flow.
+    Always use extracted entities context (if present) before deciding tools or direct response.
   user_prompt: |
     User input: {user_input}
     Observation: {observation}
     Memory context: {memory_context}
     Available tools: {available_tools}
+    Use extracted_entities / verification_entities from Memory context before deciding.
 
 plan_proposal:
   system_prompt: |
@@ -21,6 +23,7 @@ plan_proposal:
     Allowed `target`: customer or self.
     No placeholders. Keep plan_outline concise and action-oriented.
     Never advance identity verification steps without verification evidence.
+    Use extracted entities and verification entities context to ground step progression.
   user_prompt: |
     User input: {user_input}
     Plan origin: {plan_origin}
@@ -32,6 +35,7 @@ plan_proposal:
     Observation output JSON: {obs_output_json}
     Customer context JSON: {customer_context_json}
     Verification context JSON: {verification_context_json}
+    Entities context JSON: {entities_context_json}
     Return JSON with keys:
     - target: customer|self
     - intent: short snake_case intent
@@ -64,24 +68,27 @@ plan_proposal:
     Mode: {mode}
     Memory state JSON: {memory_state_json}
     Existing plan tree JSON: {existing_plan_json}
+    Consider entity context embedded in memory state and current plan context.
     Return strict JSON only.
 
 intent:
   system_prompt: |
     You are the intent planner for a bank collections agent.
     Return JSON only with keys:
-    - intent: one of [off_topic, hardship_request, verify_identity, policy_lookup, offer_check, payment_link, payment_pause, promise_capture, human_escalation, plan_accept, unknown]
+    - intent: one of [off_topic, hardship_request, verify_identity, policy_lookup, offer_check, payment_link, promise_capture, human_escalation, plan_accept, unknown]
     - tool_name: optional string tool name
     - arguments: optional object of arguments for tool_name
     - respond_text: optional direct response string
     - mode_update: optional one of [strict_collections, hardship_negotiation]
     - reason: short explanation
     Prefer selecting tool_name+arguments when action is needed.
+    Use extracted entities from conversation context when available.
   user_prompt: |
     User input: {user_input}
     Current mode: {mode}
     Current state: {state}
     Available tools: {available_tools}
+    Use extracted_entities and verification_entities from Current state when present.
     Output strict JSON only.
   relevance_system_prompt: |
     You are a relevance classifier for a bank collections agent.
@@ -103,6 +110,7 @@ intent:
     User input: {user_input}
     Intent labels: {intent_labels}
     Use the attached conversation context block to judge relevance in-session.
+    If the message carries identity entities (name, dob, phone, pan, zip), treat it as potentially relevant in active session.
     Prefer relevant unless the message is clearly unrelated to collections.
     Return strict JSON only.
   pre_plan_system_prompt: |
@@ -120,6 +128,7 @@ intent:
   pre_plan_user_prompt: |
     User input: {user_input}
     Intent labels: {intent_labels}
+    Use extracted_entities / verification_entities from conversation context block if present.
     Return strict JSON only.
   execution_path_system_prompt: |
     You are a routing classifier for a collections agent.
@@ -136,6 +145,7 @@ intent:
   execution_path_user_prompt: |
     User input: {user_input}
     Intent labels: {intent_labels}
+    Use extracted_entities / verification_entities from conversation context block if present.
     Return strict JSON only.
   post_memory_plan_system_prompt: |
     You are a post-memory router for a collections agent.
@@ -152,11 +162,13 @@ intent:
   post_memory_plan_user_prompt: |
     User input: {user_input}
     Intent labels: {intent_labels}
+    Use extracted_entities / verification_entities from conversation context block if present.
     Return strict JSON only.
 
 reflect:
   system_prompt: |
     Validate whether current output is complete, policy-safe, and stage-appropriate.
+    Use extracted entities / verification entities context when present.
     Rules:
     - If verification is in progress, output is incomplete unless it asks only for missing verification fields.
     - Output is invalid if it claims verification completed without evidence.
@@ -184,6 +196,7 @@ response:
     - If customer expresses hardship/vulnerability (job loss, medical stress, income loss), first acknowledge empathetically in one sentence.
     - Keep empathy natural and brief; avoid scripted or robotic wording.
     - Before verification is complete, do not disclose overdue amount, dues breakdown, policy terms, or payment plan specifics.
+    - Use extracted entities and verification entities context to avoid asking for already provided values.
   user_prompt: |
     User input: {user_input}
     Observation: {observation}

@@ -5,16 +5,20 @@ Purpose: Exports Collection Agent tool classes and schemas.
 
 from agents.collection_agent.tools.customer_verify_tool import CustomerVerifyTool
 from agents.collection_agent.tools.data_store import CollectionDataStore
+from agents.collection_agent.tools.entity_extract_tool import EntityExtractTool
 from agents.collection_agent.tools.human_escalation_tool import HumanEscalationTool
 from agents.collection_agent.tools.loan_policy_lookup_tool import LoanPolicyLookupTool
 from agents.collection_agent.tools.offer_eligibility_tool import OfferEligibilityTool
-from agents.collection_agent.tools.payment_pause_tool import PaymentPauseTool
 from agents.collection_agent.tools.payment_link_create_tool import PaymentLinkCreateTool
 from agents.collection_agent.tools.plan_propose_tool import PlanProposeTool
 from agents.collection_agent.tools.promise_capture_tool import PromiseCaptureTool
+from agents.collection_agent.tools.verification_entity_extract_tool import VerificationEntityExtractTool
+from agents.collection_agent.tools.verification_memory_verify_tool import VerificationMemoryVerifyTool
 from agents.collection_agent.tools.schemas import (
     CustomerVerifyInput,
     CustomerVerifyOutput,
+    EntityExtractInput,
+    EntityExtractOutput,
     HumanEscalationInput,
     HumanEscalationOutput,
     LoanPolicyLookupInput,
@@ -23,28 +27,34 @@ from agents.collection_agent.tools.schemas import (
     OfferEligibilityOutput,
     PaymentLinkCreateInput,
     PaymentLinkCreateOutput,
-    PaymentPauseInput,
-    PaymentPauseOutput,
     PlanProposeInput,
     PlanProposeOutput,
     PromiseCaptureInput,
     PromiseCaptureOutput,
     StrictScriptInput,
     StrictScriptOutput,
+    VerificationEntityExtractInput,
+    VerificationEntityExtractOutput,
+    VerificationMemoryVerifyInput,
+    VerificationMemoryVerifyOutput,
 )
 
 __all__ = [
     "CollectionDataStore",
     "CustomerVerifyTool",
+    "EntityExtractTool",
     "HumanEscalationTool",
     "LoanPolicyLookupTool",
     "OfferEligibilityTool",
     "PaymentLinkCreateTool",
     "PromiseCaptureTool",
-    "PaymentPauseTool",
     "PlanProposeTool",
+    "VerificationEntityExtractTool",
+    "VerificationMemoryVerifyTool",
     "CustomerVerifyInput",
     "CustomerVerifyOutput",
+    "EntityExtractInput",
+    "EntityExtractOutput",
     "HumanEscalationInput",
     "HumanEscalationOutput",
     "LoanPolicyLookupInput",
@@ -53,12 +63,14 @@ __all__ = [
     "OfferEligibilityOutput",
     "PaymentLinkCreateInput",
     "PaymentLinkCreateOutput",
-    "PaymentPauseInput",
-    "PaymentPauseOutput",
     "PlanProposeInput",
     "PlanProposeOutput",
     "PromiseCaptureInput",
     "PromiseCaptureOutput",
     "StrictScriptInput",
     "StrictScriptOutput",
+    "VerificationEntityExtractInput",
+    "VerificationEntityExtractOutput",
+    "VerificationMemoryVerifyInput",
+    "VerificationMemoryVerifyOutput",
 ]

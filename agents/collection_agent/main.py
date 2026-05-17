@@ -401,6 +401,7 @@ def main() -> None:
         repository=CollectionRepository(runtime_dir=base_dir / "runtime"),
         data_store=CollectionDataStore(base_dir=base_dir),
         llm=llm,
+        verification_policy=(config.get("verification", {}) if isinstance(config.get("verification"), dict) else {}),
         trace_sink=trace_sink,
         trace_output_dir=base_dir / "runtime" / "traces",
     )

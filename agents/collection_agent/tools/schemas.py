@@ -258,6 +258,45 @@ class PlanProposeOutput(BaseModel):
     status: Literal["proposed", "revised"]
 
 
+class EntityExtractInput(BaseModel):
+    text: str
+
+
+class EntityExtractOutput(BaseModel):
+    entities: dict[str, str] = Field(default_factory=dict)
+    entity_keys: list[str] = Field(default_factory=list)
+
+
+class VerificationEntityExtractInput(BaseModel):
+    text: str
+    required_fields: list[str] = Field(default_factory=list)
+    include_name: bool = True
+
+
+class VerificationEntityExtractOutput(BaseModel):
+    entities: dict[str, str] = Field(default_factory=dict)
+    required_fields: list[str] = Field(default_factory=list)
+    detected_fields: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list)
+
+
+class VerificationMemoryVerifyInput(BaseModel):
+    entities: dict[str, str] = Field(default_factory=dict)
+    expected_challenge: dict[str, str] = Field(default_factory=dict)
+    required_fields: list[str] = Field(default_factory=list)
+    require_name_match: bool = False
+    expected_name: str | None = None
+
+
+class VerificationMemoryVerifyOutput(BaseModel):
+    status: Literal["verified", "failed", "insufficient"]
+    matched: bool
+    missing_fields: list[str] = Field(default_factory=list)
+    mismatched_fields: list[str] = Field(default_factory=list)
+    required_fields: list[str] = Field(default_factory=list)
+    compared_fields: list[str] = Field(default_factory=list)
+
+
 class StrictScriptInput(BaseModel):
     scenario: str
     placeholders: dict[str, str] = Field(default_factory=dict)

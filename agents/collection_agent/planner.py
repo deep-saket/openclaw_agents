@@ -182,7 +182,6 @@ class CollectionPlanner(PlannerNode):
             "policy_lookup": "loan_policy_lookup",
             "offer_check": "offer_eligibility",
             "payment_link": "payment_link_create",
-            "payment_pause": "payment_pause",
             "promise_capture": "promise_capture",
             "human_escalation": "human_escalation",
         }
@@ -247,10 +246,6 @@ class CollectionPlanner(PlannerNode):
             }
             return self._tool("promise_capture", args)
 
-        if "pause" in lowered or "moratorium" in lowered or "defer emi" in lowered:
-            args = self._extract_args(user_input)
-            return self._tool("payment_pause", self._norm("payment_pause", args))
-
         if "verify" in lowered or "zip" in lowered or "dob" in lowered:
             return self._tool("customer_verify", self._norm("customer_verify", self._extract_args(user_input)))
 
@@ -258,7 +253,7 @@ class CollectionPlanner(PlannerNode):
             return self._tool("loan_policy_lookup", self._norm("loan_policy_lookup", self._extract_args(user_input)))
 
         return self._respond(
-            "Please choose one: verify customer, request assistance, create payment link, or request payment pause."
+            "Please choose one: verify customer, request assistance, or create payment link."
         )
 
     def _response_from_observation(self, observation: dict[str, Any], mode: str, memory: Any | None) -> Any:
@@ -404,12 +399,6 @@ class CollectionPlanner(PlannerNode):
             normalized.setdefault("amount", 6000.0)
             normalized.setdefault("consent_confirmed", True)
             normalized.setdefault("simulate_status", "success")
-        elif tool_name == "payment_pause":
-            normalized.setdefault("customer_id", "CUST-2001")
-            normalized.setdefault("reason", "temporary_financial_hardship")
-            normalized.setdefault("requested_by", "customer")
-            normalized.setdefault("duration", 3)
-            normalized.setdefault("start_date", datetime.now(UTC).date().isoformat())
         elif tool_name == "channel_switch":
             normalized.setdefault("from_channel", "sms")
             normalized.setdefault("to_channel", "voice")

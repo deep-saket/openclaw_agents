@@ -6,6 +6,7 @@
     "email": "aditi.sharma@example.com",
     "challenge": {
       "dob": "1991-08-19",
+      "phone": "9900001001",
       "last4_pan": "AF4K",
       "zip": "560102"
     }
@@ -17,6 +18,7 @@
     "email": "rohan.gupta@example.com",
     "challenge": {
       "dob": "1988-04-22",
+      "phone": "9900001002",
       "last4_pan": "QP9T",
       "zip": "400067"
     }
@@ -28,6 +30,7 @@
     "email": "neha.verma@example.com",
     "challenge": {
       "dob": "1994-01-09",
+      "phone": "9900001003",
       "last4_pan": "HX2C",
       "zip": "122001"
     }
@@ -39,6 +42,7 @@
     "email": "arjun.mehta@example.com",
     "challenge": {
       "dob": "1985-12-03",
+      "phone": "9900001004",
       "last4_pan": "ZN7M",
       "zip": "110052"
     }
@@ -50,6 +54,7 @@
     "email": "priya.nair@example.com",
     "challenge": {
       "dob": "1990-06-17",
+      "phone": "9900001005",
       "last4_pan": "DK6P",
       "zip": "682018"
     }
@@ -61,6 +66,7 @@
     "email": "vikram.rao@example.com",
     "challenge": {
       "dob": "1987-10-29",
+      "phone": "9900001006",
       "last4_pan": "PL8V",
       "zip": "500034"
     }

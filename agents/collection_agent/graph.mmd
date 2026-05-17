@@ -3,7 +3,8 @@ flowchart TD
   IN -->|irrelevant/empty| IR["IrrelevantResponseNode\n- static response"]
   IR --> End["END"]
 
-  IN -->|relevant| PG["IntentNode (Pre-Plan Gate)\n- plan | decide"]
+  IN -->|relevant| EN["CollectionEntityExtractNode\n- LLM entity extraction\n- verification entity sync"]
+  EN --> PG["IntentNode (Pre-Plan Gate)\n- plan | decide"]
   PG -->|plan| PP["PlanProposalNode\n- plan advance / next action"]
   PG -->|decide| XP["IntentNode (Execution Path)\n- need_memory | need_tool"]
 

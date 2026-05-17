@@ -35,6 +35,11 @@ class CollectionGraphState(AgentState, total=False):
     response_metadata: dict[str, Any]
     plan_proposal: dict[str, Any]
     conversation_plan: dict[str, Any]
+    extracted_entities: dict[str, Any]
+    extracted_entity_descriptions: dict[str, Any]
+    verification_entities: dict[str, Any]
+    verification_missing_fields: list[str]
+    identity_verified: bool
 
 
 CollectionNodeUpdate = CollectionGraphState

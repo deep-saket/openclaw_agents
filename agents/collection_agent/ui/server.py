@@ -283,6 +283,9 @@ class CollectionDebugRuntime:
             repository=collection_repo,
             data_store=collection_store,
             llm=llm,
+            verification_policy=(
+                raw_config.get("verification", {}) if isinstance(raw_config.get("verification"), dict) else {}
+            ),
             trace_output_dir=base_dir / "runtime" / "traces",
         )
         discount_agent = DiscountPlanningAgent(llm=llm)
