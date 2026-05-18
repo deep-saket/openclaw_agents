@@ -52,6 +52,84 @@ class CollectionPlanner(PlannerNode):
         state = dict(getattr(memory, "state", {})) if memory is not None else {}
         mode = str(state.get("mode", "strict_collections"))
 
+        # Verification tools must be triggered from intent/react tool path.
+        # Use iterative verification (dob then phone) based on collected entities.
+        identity_verified = bool(state.get("identity_verified", False))
+        required_fields = (
+            [str(x).strip() for x in state.get("active_verification_required_fields", []) if str(x).strip()]
+            if isinstance(state.get("active_verification_required_fields"), list)
+            else []
+        )
+        verified_fields = (
+            [str(x).strip() for x in state.get("verification_verified_fields", []) if str(x).strip()]
+            if isinstance(state.get("verification_verified_fields"), list)
+            else []
+        )
+        verification_entities = (
+            dict(state.get("verification_entities", {}))
+            if isinstance(state.get("verification_entities"), dict)
+            else {}
+        )
+        turn_entities = (
+            dict(state.get("extracted_entities_turn", {}))
+            if isinstance(state.get("extracted_entities_turn"), dict)
+            else {}
+        )
+        if (not observation) and (not identity_verified) and required_fields:
+            pending_fields = [field for field in required_fields if field not in set(verified_fields)]
+            case_id = str(state.get("active_case_id", "COLL-1001")).strip() or "COLL-1001"
+            customer_id = str(state.get("active_user_id", "")).strip()
+            # Prefer the field explicitly provided in the current turn to avoid re-verifying
+            # an already-satisfied/older field when both appear pending.
+            if "phone" in pending_fields and str(turn_entities.get("phone", "")).strip():
+                return self._tool(
+                    "verify_mobile",
+                    self._norm(
+                        "verify_mobile",
+                        {
+                            "case_id": case_id,
+                            "customer_id": customer_id,
+                            "phone": str(turn_entities.get("phone", "")).strip(),
+                        },
+                    ),
+                )
+            if "dob" in pending_fields and str(turn_entities.get("dob", "")).strip():
+                return self._tool(
+                    "verify_dob",
+                    self._norm(
+                        "verify_dob",
+                        {
+                            "case_id": case_id,
+                            "customer_id": customer_id,
+                            "dob": str(turn_entities.get("dob", "")).strip(),
+                        },
+                    ),
+                )
+            if "phone" in pending_fields and str(verification_entities.get("phone", "")).strip():
+                return self._tool(
+                    "verify_mobile",
+                    self._norm(
+                        "verify_mobile",
+                        {
+                            "case_id": case_id,
+                            "customer_id": customer_id,
+                            "phone": str(verification_entities.get("phone", "")).strip(),
+                        },
+                    ),
+                )
+            if "dob" in pending_fields and str(verification_entities.get("dob", "")).strip():
+                return self._tool(
+                    "verify_dob",
+                    self._norm(
+                        "verify_dob",
+                        {
+                            "case_id": case_id,
+                            "customer_id": customer_id,
+                            "dob": str(verification_entities.get("dob", "")).strip(),
+                        },
+                    ),
+                )
+
         if self.require_llm and self.llm is None:
             if self.allow_rule_fallback:
                 return self._rule_fallback(user_input=text, lowered=lowered, mode=mode, memory=memory, state=state)
@@ -178,7 +256,7 @@ class CollectionPlanner(PlannerNode):
             args.setdefault("case_id", str(memory.state.get("active_case_id", "COLL-1001")))
 
         mapping = {
-            "verify_identity": "customer_verify",
+            "verify_identity": "verify_dob",
             "policy_lookup": "loan_policy_lookup",
             "offer_check": "offer_eligibility",
             "payment_link": "payment_link_create",
@@ -246,8 +324,14 @@ class CollectionPlanner(PlannerNode):
             }
             return self._tool("promise_capture", args)
 
-        if "verify" in lowered or "zip" in lowered or "dob" in lowered:
-            return self._tool("customer_verify", self._norm("customer_verify", self._extract_args(user_input)))
+        if "verify" in lowered or "dob" in lowered:
+            args = self._extract_args(user_input)
+            if str(args.get("dob", "")).strip():
+                return self._tool("verify_dob", self._norm("verify_dob", args))
+        if "verify" in lowered or "phone" in lowered or "mobile" in lowered:
+            args = self._extract_args(user_input)
+            if str(args.get("phone", "")).strip():
+                return self._tool("verify_mobile", self._norm("verify_mobile", args))
 
         if "policy" in lowered:
             return self._tool("loan_policy_lookup", self._norm("loan_policy_lookup", self._extract_args(user_input)))
@@ -389,8 +473,10 @@ class CollectionPlanner(PlannerNode):
         elif tool_name == "contact_attempt":
             normalized.setdefault("channel", "sms")
             normalized.setdefault("reached", False)
-        elif tool_name == "customer_verify":
-            normalized.setdefault("challenge_answers", {})
+        elif tool_name == "verify_dob":
+            normalized.setdefault("dob", "")
+        elif tool_name == "verify_mobile":
+            normalized.setdefault("phone", "")
         elif tool_name == "dues_explain_build":
             normalized.setdefault("locale", "en-IN")
         elif tool_name == "offer_eligibility":

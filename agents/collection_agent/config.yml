@@ -24,17 +24,18 @@ verification:
   # If true, only fields present in challenge data are enforced.
   # If false, enforce required_fields even if challenge payload misses them.
   require_field_in_challenge: true
-  # If true, memory-based match can set identity_verified=true before explicit customer_verify tool call.
-  auto_verify_from_memory_evidence: true
+  # If true, memory-based match can set identity_verified=true before explicit verification tool calls.
+  auto_verify_from_memory_evidence: false
   # If true, memory-based verification also requires extracted customer name to match active customer name.
   require_name_match_for_auto_verify: false
   # If true, pre-graph memory reconciliation will never set identity_verified=true;
-  # only customer_verify tool results can verify identity.
-  tool_only_verification: false
+  # only verify_dob / verify_mobile tool results can verify identity.
+  tool_only_verification: true
   # If true, verify from memory challenge snapshot first using extracted verification entities.
-  prefer_memory_verify: true
-  # If memory verification is failed/insufficient, fallback to customer_verify (database-backed) check.
-  fallback_to_database_verify: true
+  # Keep false for strict tool-driven verification progression.
+  prefer_memory_verify: false
+  # If memory verification is failed/insufficient, fallback to database-backed verify_dob/verify_mobile checks.
+  fallback_to_database_verify: false
   # If false, do not call database verify when entities are still incomplete (prevents unnecessary failed attempts).
   fallback_on_insufficient_entities: false
 voice_runtime:

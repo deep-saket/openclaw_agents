@@ -1217,13 +1217,260 @@
       "created_at": "2026-05-17T21:38:59.777979Z"
     }
   ],
+  "collection-debug-react": [
+    {
+      "id": "51dd68ac-0bfb-4ad3-8a96-3f94de1dc08d",
+      "session_id": "collection-debug-react",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-18T13:35:06.796877Z"
+    },
+    {
+      "id": "4d69e71a-dd77-467c-82cd-baae64ca7d50",
+      "session_id": "collection-debug-react",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth, Aditi. To proceed, could you please share your phone number?",
+      "created_at": "2026-05-18T13:36:16.106223Z"
+    }
+  ],
+  "collection-fix1-test": [
+    {
+      "id": "823f11e2-4c66-4580-833c-263e513e63af",
+      "session_id": "collection-fix1-test",
+      "role": "customer",
+      "content": "Hi Alex!! This is Aditi",
+      "created_at": "2026-05-18T13:42:05.484812Z"
+    },
+    {
+      "id": "f1c375a1-5a0a-487a-a48e-9f8241fa4b71",
+      "session_id": "collection-fix1-test",
+      "role": "agent",
+      "content": "Thank you for confirming your name. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-18T13:42:36.249709Z"
+    },
+    {
+      "id": "a32cf098-2073-4af0-a5c3-c31fbdc861fc",
+      "session_id": "collection-fix1-test",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-18T13:42:36.262395Z"
+    },
+    {
+      "id": "1f401ea5-88e0-4618-8598-3e1d2bc26e0e",
+      "session_id": "collection-fix1-test",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth. Please also confirm your registered phone number.",
+      "created_at": "2026-05-18T13:43:38.234405Z"
+    }
+  ],
+  "collection-fix1-dob": [
+    {
+      "id": "bf7b0e1d-f993-4fc5-be2e-c88de8fa5d95",
+      "session_id": "collection-fix1-dob",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-18T13:44:45.770076Z"
+    },
+    {
+      "id": "82d9f9a7-1b44-414e-a464-afbf504b7db9",
+      "session_id": "collection-fix1-dob",
+      "role": "agent",
+      "content": "Thank you for providing your date of birth, Aditi. To proceed, could you please share your phone number?",
+      "created_at": "2026-05-18T13:44:51.511390Z"
+    }
+  ],
+  "collection-fix1b-dob": [
+    {
+      "id": "dc21688e-c29b-4637-a033-d02bd64db809",
+      "session_id": "collection-fix1b-dob",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-18T13:45:57.367489Z"
+    },
+    {
+      "id": "0e5a3446-7990-459d-9e5a-c99b9d4c8b1e",
+      "session_id": "collection-fix1b-dob",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth, Aditi. To proceed, could you please share your phone number?",
+      "created_at": "2026-05-18T13:46:02.212652Z"
+    }
+  ],
+  "collection-fix1c-dob": [
+    {
+      "id": "ccec8816-19c0-4c32-b117-3ee7993e01ee",
+      "session_id": "collection-fix1c-dob",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-18T13:46:31.670154Z"
+    },
+    {
+      "id": "b80b62f3-336a-4251-ad6e-276c95045838",
+      "session_id": "collection-fix1c-dob",
+      "role": "agent",
+      "content": "Thank you for providing your date of birth, Aditi. To proceed, could you please share your phone number?",
+      "created_at": "2026-05-18T13:47:01.482025Z"
+    }
+  ],
+  "collection-fix1d-dob": [
+    {
+      "id": "b1a686a2-5cbf-49dd-b665-557435f4f0e1",
+      "session_id": "collection-fix1d-dob",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-18T13:47:29.633361Z"
+    },
+    {
+      "id": "fdbbedca-8cd3-4369-881f-fc85b3872b16",
+      "session_id": "collection-fix1d-dob",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth, Aditi. To proceed, could you please share your phone number?",
+      "created_at": "2026-05-18T13:48:13.355637Z"
+    }
+  ],
+  "collection-verify-advance-check": [
+    {
+      "id": "914e06c0-9119-4f5e-ad74-8c8671c458f6",
+      "session_id": "collection-verify-advance-check",
+      "role": "customer",
+      "content": "Hi Alex!! This is Aditi",
+      "created_at": "2026-05-18T13:52:05.976682Z"
+    },
+    {
+      "id": "363feed2-4c93-4421-8f88-525a57b190d1",
+      "session_id": "collection-verify-advance-check",
+      "role": "agent",
+      "content": "Thank you for confirming your name, Aditi. Please also confirm your date of birth and registered phone number so I can assist you better.",
+      "created_at": "2026-05-18T13:52:18.948832Z"
+    },
+    {
+      "id": "0db4f66d-56f9-47ca-9250-9c389d5a58db",
+      "session_id": "collection-verify-advance-check",
+      "role": "customer",
+      "content": "My DoB is 1991-08-19",
+      "created_at": "2026-05-18T13:52:18.951291Z"
+    },
+    {
+      "id": "2f2c7b04-4219-4ffc-bb3e-d3971c4509f2",
+      "session_id": "collection-verify-advance-check",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth, Aditi. Please also confirm your registered phone number so I can assist you better.",
+      "created_at": "2026-05-18T13:53:33.395018Z"
+    },
+    {
+      "id": "6d10c191-aba1-421f-b8cc-630d71b5cccb",
+      "session_id": "collection-verify-advance-check",
+      "role": "customer",
+      "content": "its 919900001001",
+      "created_at": "2026-05-18T13:53:33.398604Z"
+    }
+  ],
   "collection-user_a": [
     {
-      "id": "95902baa-bf5a-4d68-b7b9-377da9bfb106",
+      "id": "e2d68501-e373-468a-8a54-5018937c0061",
       "session_id": "collection-user_a",
       "role": "customer",
-      "content": "Hii Alex!! This is Aditi",
-      "created_at": "2026-05-18T04:24:45.402566Z"
+      "content": "Hi Alex!! This is Aditi",
+      "created_at": "2026-05-18T13:59:48.115497Z"
+    },
+    {
+      "id": "1d6c3d16-79c6-4e68-8d02-f2a6c5de84cd",
+      "session_id": "collection-user_a",
+      "role": "agent",
+      "content": "Thank you for confirming your name, Aditi. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-18T14:00:00.877176Z"
+    },
+    {
+      "id": "4278106e-4351-4d9f-86b7-54ccf8356e9f",
+      "session_id": "collection-user_a",
+      "role": "customer",
+      "content": "My DoB ius 1991-08-19",
+      "created_at": "2026-05-18T14:00:06.826803Z"
+    },
+    {
+      "id": "21131744-5cc1-4378-b01c-44cb3559be30",
+      "session_id": "collection-user_a",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth, Aditi. To proceed, could you please provide your phone number?",
+      "created_at": "2026-05-18T14:01:15.318259Z"
+    },
+    {
+      "id": "6667b115-a727-4a28-b12e-3fac142a3dc6",
+      "session_id": "collection-user_a",
+      "role": "customer",
+      "content": "its 919900001001",
+      "created_at": "2026-05-18T14:01:34.952665Z"
+    },
+    {
+      "id": "4ae6a8f7-c9b9-4d56-ba34-da4246fb1408",
+      "session_id": "collection-user_a",
+      "role": "agent",
+      "content": "Thank you for confirming your phone number, Aditi. Please also confirm your date of birth.",
+      "created_at": "2026-05-18T14:02:33.376626Z"
+    },
+    {
+      "id": "03775d69-872a-4c8d-8273-9dc3eb5c2352",
+      "session_id": "collection-user_a",
+      "role": "customer",
+      "content": "but I have given you my dob",
+      "created_at": "2026-05-18T14:03:19.676101Z"
+    },
+    {
+      "id": "72b11214-603c-424b-82d5-90e27116ea18",
+      "session_id": "collection-user_a",
+      "role": "agent",
+      "content": "We have your date of birth on record, but we need your phone number to verify your identity. Please provide your phone number.",
+      "created_at": "2026-05-18T14:03:36.777225Z"
+    },
+    {
+      "id": "8c20c34f-c788-4375-9af9-d211212c40d0",
+      "session_id": "collection-user_a",
+      "role": "customer",
+      "content": "have not I given you both",
+      "created_at": "2026-05-18T14:03:55.374410Z"
+    },
+    {
+      "id": "2b8abf06-982d-4023-a5e8-8c4a03e6802d",
+      "session_id": "collection-user_a",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth. Please also confirm your phone number.",
+      "created_at": "2026-05-18T14:04:38.315475Z"
+    }
+  ],
+  "collection-user_a-cli": [
+    {
+      "id": "b09f921c-633a-499e-9b27-c1456253a0c1",
+      "session_id": "collection-user_a-cli",
+      "role": "customer",
+      "content": "Hi Alex!! This is Aditi.",
+      "created_at": "2026-05-18T16:27:39.345683Z"
+    },
+    {
+      "id": "917ffb96-ce04-4a62-9db2-72944c5d50b6",
+      "session_id": "collection-user_a-cli",
+      "role": "agent",
+      "content": "Thank you for confirming your name, Aditi. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-18T16:28:31.033433Z"
+    },
+    {
+      "id": "057ee564-bdd1-4871-8810-338cbbe9a5e0",
+      "session_id": "collection-user_a-cli",
+      "role": "customer",
+      "content": "My DoB ius 1991-08-19",
+      "created_at": "2026-05-18T16:28:33.042123Z"
+    },
+    {
+      "id": "eeed533e-7193-4bc9-affe-bc7ccb0821b9",
+      "session_id": "collection-user_a-cli",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth. Please also confirm your registered phone number.",
+      "created_at": "2026-05-18T16:35:01.361753Z"
+    },
+    {
+      "id": "53014a3b-9374-49e4-85ac-f56130c233d8",
+      "session_id": "collection-user_a-cli",
+      "role": "customer",
+      "content": "its 919900001001",
+      "created_at": "2026-05-18T16:35:16.675351Z"
     }
   ]
 }

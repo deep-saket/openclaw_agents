@@ -1,8 +1,13 @@
 tools:
-- name: customer_verify
-  purpose: Verify borrower identity before sharing dues/policy-sensitive details.
-  input: case_id(optional), customer_id(optional), challenge_answers(optional)
-  output: status, failed_attempts
+- name: verify_dob
+  purpose: Verify borrower date of birth (DOB) against case-linked customer challenge record.
+  input: case_id(optional), customer_id(optional), dob(required, YYYY-MM-DD)
+  output: status(verified|failed|locked), field=dob, failed_attempts
+
+- name: verify_mobile
+  purpose: Verify borrower mobile number against case-linked customer challenge record.
+  input: case_id(optional), customer_id(optional), phone(required, local/international accepted)
+  output: status(verified|failed|locked), field=phone, failed_attempts
 
 - name: loan_policy_lookup
   purpose: Retrieve policy limits that govern promises, waivers, and restructuring decisions.

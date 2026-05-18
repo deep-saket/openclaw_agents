@@ -254,6 +254,21 @@ class CollectionEntityExtractNode(BaseGraphNode):
                         continue
                     if evidence.lower() not in user_input.lower():
                         continue
+                    # Value/evidence consistency gates to prevent hallucinated values.
+                    if key_norm == "dob":
+                        if val_norm not in evidence:
+                            continue
+                    elif key_norm == "phone":
+                        value_digits = "".join(ch for ch in val_norm if ch.isdigit())
+                        evidence_digits = "".join(ch for ch in evidence if ch.isdigit())
+                        if len(value_digits) >= 10 and value_digits[-10:] not in evidence_digits:
+                            continue
+                    elif key_norm in {"zip", "last4_pan"}:
+                        if val_norm.lower() not in evidence.lower():
+                            continue
+                    elif key_norm == "name":
+                        if val_norm.lower() not in evidence.lower():
+                            continue
                 entities[key_norm] = val_norm
         for key, value in dict(payload.entity_descriptions).items():
             key_norm = str(key).strip()

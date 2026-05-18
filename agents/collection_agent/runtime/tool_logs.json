@@ -3224,5 +3224,166 @@
     "status": "completed",
     "error": null,
     "created_at": "2026-05-17T20:21:42.256542Z"
+  },
+  {
+    "id": "da8f935a-d83d-44d7-88cf-4ff2dab42598",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "dob": "1991-08-19"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-18T12:45:55.200481Z"
+  },
+  {
+    "id": "60d32b21-9fdf-411c-a8ac-2e86d0d00e00",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "dob": "1991-08-19"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-18T12:47:47.207697Z"
+  },
+  {
+    "id": "38432934-3140-485d-bbd1-4c14cdd342a3",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "dob": "1991-08-19"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-18T12:49:05.079610Z"
+  },
+  {
+    "id": "7f9f9bdd-847f-4735-ae26-b059bfc427ff",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "dob": "1991-08-19"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-18T12:59:05.792076Z"
+  },
+  {
+    "id": "eadabf20-2a41-41ea-9698-4603d635671c",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "amount": 1991.0,
+      "dob": "1991-08-19",
+      "case_id": "COLL-1001"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-18T13:00:48.253313Z"
+  },
+  {
+    "id": "51dff12b-182e-4f33-b775-2c28d2a7f873",
+    "tool_name": "verify_mobile",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "phone": "919900001001"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "phone",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-18T13:01:53.729688Z"
+  },
+  {
+    "id": "dd09dbe7-b901-4de6-a34a-1e38b80c5ea1",
+    "tool_name": "verify_mobile",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "phone": "919900001001"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "phone",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-18T14:01:36.192017Z"
+  },
+  {
+    "id": "5b8ff776-a12b-41d6-9471-83f488ea5e14",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "dob": "1991-08-19"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-18T16:33:03.548061Z"
+  },
+  {
+    "id": "851b5609-8ea9-489d-915f-9ed586e7dca1",
+    "tool_name": "verify_mobile",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "phone": "919900001001"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "phone",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-18T16:36:12.092400Z"
   }
 ]

@@ -16,17 +16,19 @@ from langgraph.graph import END, START, StateGraph
 from agents.collection_memory_helper_agent.repository import CollectionMemoryRepository
 from agents.collection_agent.nodes import (
     CollectionEntityExtractNode,
-    CollectionIntentNode,
     CollectionReflectNode,
     CollectionResponseNode,
+    ExecutionPathIntentNode,
+    PostMemoryPlanIntentNode,
+    PrePlanIntentNode,
     PlanProposalNode,
+    RelevanceIntentNode,
 )
 from agents.collection_agent.planner import CollectionPlanner
 from agents.collection_agent.prompts import load_collection_agent_prompts, render_collection_tool_catalog_yaml
 from agents.collection_agent.repository import CollectionRepository
 from agents.collection_agent.state import CollectionGraphState
 from agents.collection_agent.tools import (
-    CustomerVerifyTool,
     EntityExtractTool,
     HumanEscalationTool,
     LoanPolicyLookupTool,
@@ -34,13 +36,16 @@ from agents.collection_agent.tools import (
     PaymentLinkCreateTool,
     PlanProposeTool,
     PromiseCaptureTool,
+    VerifyDOBTool,
+    VerifyMobileTool,
     VerificationEntityExtractTool,
     VerificationMemoryVerifyTool,
 )
 from agents.collection_agent.tools.data_store import CollectionDataStore
 from agents.collection_agent.tools.schemas import (
-    CustomerVerifyInput,
     EntityExtractInput,
+    VerifyDOBInput,
+    VerifyMobileInput,
     VerificationEntityExtractInput,
     VerificationMemoryVerifyInput,
 )
@@ -115,7 +120,6 @@ class CollectionAgent(BaseAgent):
             "end": "plan_proposal",
         },
         "plan_proposal": {
-            "propose": "tool_execution",
             "continue": "reflect",
         },
         "reflect": {
@@ -164,81 +168,30 @@ class CollectionAgent(BaseAgent):
         )
 
         self.memory_retrieve_node = MemoryRetrieveNode(tool_registry=self.tool_registry, memories=[WorkingMemory])
-        self.relevance_intent_node = CollectionIntentNode(
+        self.relevance_intent_node = RelevanceIntentNode(
             llm=self.llm,
             allow_deterministic_fallback=deterministic_fallback_enabled,
-            enable_relevance_guard=not self.strict_llm_mode,
+            strict_llm_mode=self.strict_llm_mode,
             system_prompt=str(intent_prompts.get("relevance_system_prompt", "")),
             user_prompt=str(intent_prompts.get("relevance_user_prompt", "")),
-            output_key="relevance_intent",
-            intent_labels=["relevant", "irrelevant", "empty"],
-            default_intent="irrelevant",
-            default_confidence=0.3,
-            route_map={
-                "relevant": "relevant",
-                "irrelevant": "irrelevant",
-                "empty": "empty",
-                "unknown": "irrelevant",
-            },
-            default_route="irrelevant",
-            empty_input_intent="empty",
-            fallback_keyword_map={},
-            response_map={
-                "empty": "No input was provided. Please share a collections-related query such as dues, EMI, payment, verification, or repayment plan.",
-                "irrelevant": "This request is outside collections scope. I can only help with loan dues, EMI, payments, verification, hardship plans, and follow-ups.",
-                "unknown": "This request is outside collections scope. I can only help with loan dues, EMI, payments, verification, hardship plans, and follow-ups.",
-            },
         )
-        self.pre_plan_intent_node = CollectionIntentNode(
+        self.pre_plan_intent_node = PrePlanIntentNode(
             llm=self.llm,
             allow_deterministic_fallback=deterministic_fallback_enabled,
             system_prompt=str(intent_prompts.get("pre_plan_system_prompt", "")),
             user_prompt=str(intent_prompts.get("pre_plan_user_prompt", "")),
-            output_key="pre_plan_intent",
-            intent_labels=["plan", "decide"],
-            default_intent="decide",
-            default_confidence=0.4,
-            route_map={
-                "plan": "plan",
-                "decide": "decide",
-                "unknown": "decide",
-            },
-            default_route="decide",
-            fallback_keyword_map={},
         )
-        self.execution_path_intent_node = CollectionIntentNode(
+        self.execution_path_intent_node = ExecutionPathIntentNode(
             llm=self.llm,
             allow_deterministic_fallback=deterministic_fallback_enabled,
             system_prompt=str(intent_prompts.get("execution_path_system_prompt", "")),
             user_prompt=str(intent_prompts.get("execution_path_user_prompt", "")),
-            output_key="execution_path_intent",
-            intent_labels=["need_memory", "need_tool"],
-            default_intent="need_tool",
-            default_confidence=0.4,
-            route_map={
-                "need_memory": "need_memory",
-                "need_tool": "need_tool",
-                "unknown": "need_tool",
-            },
-            default_route="need_tool",
-            fallback_keyword_map={},
         )
-        self.post_memory_plan_intent_node = CollectionIntentNode(
+        self.post_memory_plan_intent_node = PostMemoryPlanIntentNode(
             llm=self.llm,
             allow_deterministic_fallback=deterministic_fallback_enabled,
             system_prompt=str(intent_prompts.get("post_memory_plan_system_prompt", "")),
             user_prompt=str(intent_prompts.get("post_memory_plan_user_prompt", "")),
-            output_key="post_memory_plan_intent",
-            intent_labels=["plan", "react"],
-            default_intent="react",
-            default_confidence=0.4,
-            route_map={
-                "plan": "plan",
-                "react": "react",
-                "unknown": "react",
-            },
-            default_route="react",
-            fallback_keyword_map={},
         )
         self.react_node = ReactNode(
             planner=self.planner,
@@ -296,9 +249,9 @@ class CollectionAgent(BaseAgent):
             llm=self.llm,
             extract_callback=self._capture_verification_evidence,
             reconcile_callback=self._reconcile_verification_from_collected,
-            # LLM-first extraction; if required verification fields are still missing,
-            # deterministic extractor backfills only to prevent verification dead-ends.
-            allow_callback_fallback=True,
+            # Keep callback fallback aligned with deterministic fallback mode.
+            # In strict LLM mode this remains disabled to avoid hidden hardcoded extraction.
+            allow_callback_fallback=deterministic_fallback_enabled,
             system_prompt=str(entity_extract_prompts.get("system_prompt", "")),
             user_prompt=str(entity_extract_prompts.get("user_prompt", "")),
         )
@@ -306,7 +259,8 @@ class CollectionAgent(BaseAgent):
 
     def _build_tool_registry(self) -> ToolRegistry:
         registry = ToolRegistry()
-        registry.register(CustomerVerifyTool(store=self.data_store))
+        registry.register(VerifyDOBTool(store=self.data_store))
+        registry.register(VerifyMobileTool(store=self.data_store))
         registry.register(LoanPolicyLookupTool(store=self.data_store))
         registry.register(OfferEligibilityTool(store=self.data_store))
         registry.register(PaymentLinkCreateTool(store=self.data_store))
@@ -386,7 +340,6 @@ class CollectionAgent(BaseAgent):
             "plan_proposal",
             self.plan_node.route,
             {
-                "propose": "tool_execution",
                 "continue": "reflect",
             },
         )
@@ -410,6 +363,8 @@ class CollectionAgent(BaseAgent):
                 result = fn(state)
             state_update: dict[str, Any] = {}
             if isinstance(result, dict):
+                if node_name == "tool_execution":
+                    self._persist_tool_observation_history(state=state, update=result)
                 route_value = self._infer_route_value(node_name=node_name, prior_state=state, update=result)
                 self._apply_plan_origin_context(node_name=node_name, route_value=route_value, update=result)
                 history = list(state.get("node_history", []))
@@ -425,6 +380,19 @@ class CollectionAgent(BaseAgent):
                 state_update = {k: v for k, v in result.items() if k != "memory"}
                 if route_value:
                     state_update.setdefault("route", route_value)
+                llm_response = state_update.get("llm_response")
+                llm_error = state_update.get("llm_error")
+                prompt_text = state_update.get("prompt")
+                llm_status = None
+                if llm_error:
+                    llm_status = "llm_error"
+                elif llm_response is not None:
+                    llm_status = "used_llm"
+                elif prompt_text:
+                    llm_status = "prompt_rendered_no_output"
+                if llm_status:
+                    state_update["llm_status"] = llm_status
+                    result.setdefault("llm_status", llm_status)
             debug_message = self._build_node_debug_message(node_name=node_name, state=state, update=state_update)
             emit_trace_event(
                 {
@@ -439,6 +407,7 @@ class CollectionAgent(BaseAgent):
                     "system_prompt": state_update.get("system_prompt") if isinstance(state_update, dict) else None,
                     "llm_response": state_update.get("llm_response") if isinstance(state_update, dict) else None,
                     "llm_error": state_update.get("llm_error") if isinstance(state_update, dict) else None,
+                    "llm_status": state_update.get("llm_status") if isinstance(state_update, dict) else None,
                     "messages": state_update.get("messages") if isinstance(state_update, dict) else None,
                     "tool_calls": state_update.get("tool_calls") if isinstance(state_update, dict) else None,
                     "state_update_keys": sorted(state_update.keys()),
@@ -449,6 +418,49 @@ class CollectionAgent(BaseAgent):
             return result
 
         return _wrapped
+
+    def _persist_tool_observation_history(self, *, state: CollectionGraphState, update: dict[str, Any]) -> None:
+        memory = state.get("memory")
+        if memory is None:
+            return
+        observation = update.get("observation")
+        if not isinstance(observation, dict):
+            return
+        tool_phase = observation.get("tool_phase")
+        payload = tool_phase if isinstance(tool_phase, dict) else observation
+        if not isinstance(payload, dict):
+            return
+        tool_name = str(payload.get("tool_name", "")).strip()
+        if not tool_name:
+            return
+        status = str(payload.get("status", "")).strip()
+        output = payload.get("output") if isinstance(payload.get("output"), dict) else {}
+        entry = {
+            "tool_name": tool_name,
+            "status": status,
+            "output": output,
+            "timestamp_ms": int(time.time() * 1000),
+        }
+        memory_state = dict(getattr(memory, "state", {}))
+        history = (
+            list(memory_state.get("tool_observations_history", []))
+            if isinstance(memory_state.get("tool_observations_history"), list)
+            else []
+        )
+        if history:
+            last = history[-1] if isinstance(history[-1], dict) else {}
+            if (
+                str(last.get("tool_name", "")).strip() == entry["tool_name"]
+                and str(last.get("status", "")).strip() == entry["status"]
+                and dict(last.get("output", {})) == entry["output"]
+            ):
+                memory.set_state(last_tool_observation=entry, tool_observations_history=history[-40:])
+                update["tool_observations_history"] = history[-40:]
+                return
+        history.append(entry)
+        history = history[-40:]
+        memory.set_state(last_tool_observation=entry, tool_observations_history=history)
+        update["tool_observations_history"] = history
 
     def _resolve_next_node(
         self,
@@ -537,11 +549,13 @@ class CollectionAgent(BaseAgent):
                 else []
             )
             verified = bool(update.get("identity_verified", False))
+            llm_status = str(update.get("llm_status", "")).strip()
             updated_suffix = f", updated={len([x for x in updated_fields if str(x).strip()])}" if updated_fields else ""
+            llm_suffix = f"; llm_status={llm_status}" if llm_status else ""
             return (
                 f"entity_extract: turn_entities={len(extracted_turn)}; "
                 f"session_entities={len(extracted_all)}{updated_suffix}; "
-                f"identity_verified={verified}."
+                f"identity_verified={verified}{llm_suffix}."
             )
 
         if node_name == "react":
@@ -579,9 +593,11 @@ class CollectionAgent(BaseAgent):
             feedback = update.get("reflection_feedback") if isinstance(update.get("reflection_feedback"), dict) else {}
             complete = feedback.get("is_complete")
             reason = str(feedback.get("reason", "")).strip()
+            llm_status = str(update.get("llm_status", "")).strip()
             completion = "complete" if complete else "needs retry"
             reason_part = f" reason={reason}" if reason else ""
-            return f"reflect: validation is {completion}.{reason_part}".strip()
+            llm_part = f" llm_status={llm_status}" if llm_status else ""
+            return f"reflect: validation is {completion}.{reason_part}{llm_part}".strip()
 
         if node_name in {"relevant_response", "irrelevant_response"}:
             target = str(update.get("response_target", state.get("response_target", "customer")))
@@ -637,6 +653,11 @@ class CollectionAgent(BaseAgent):
                             "case_id": case_id,
                             "channel": channel,
                             "message_source": sender,
+                            "conversation_history": (
+                                list(memory.state.get("conversation_history", []))
+                                if isinstance(memory.state.get("conversation_history"), list)
+                                else []
+                            ),
                             "memory_targets": [{"type": "working", "enabled": True, "limit": 8}],
                             "observation": None,
                             "node_history": [],
@@ -828,11 +849,11 @@ class CollectionAgent(BaseAgent):
         return {
             "required_fields": raw.get("required_fields", ["dob", "phone"]),
             "require_field_in_challenge": bool(raw.get("require_field_in_challenge", True)),
-            "auto_verify_from_memory_evidence": bool(raw.get("auto_verify_from_memory_evidence", True)),
+            "auto_verify_from_memory_evidence": bool(raw.get("auto_verify_from_memory_evidence", False)),
             "require_name_match_for_auto_verify": bool(raw.get("require_name_match_for_auto_verify", False)),
-            "tool_only_verification": bool(raw.get("tool_only_verification", False)),
-            "prefer_memory_verify": bool(raw.get("prefer_memory_verify", True)),
-            "fallback_to_database_verify": bool(raw.get("fallback_to_database_verify", True)),
+            "tool_only_verification": bool(raw.get("tool_only_verification", True)),
+            "prefer_memory_verify": bool(raw.get("prefer_memory_verify", False)),
+            "fallback_to_database_verify": bool(raw.get("fallback_to_database_verify", False)),
             "fallback_on_insufficient_entities": bool(raw.get("fallback_on_insufficient_entities", False)),
         }
 
@@ -1002,12 +1023,33 @@ class CollectionAgent(BaseAgent):
         if not challenge:
             return
 
-        required_fields = [field for field in challenge.keys() if str(field).strip()]
-        updates: dict[str, Any] = {"active_verification_required_fields": required_fields}
+        # Always bound verification fields to configured policy.
+        # This prevents stale memory challenge payloads from expanding checks
+        # (for example asking for email when policy is dob/phone only).
+        required_fields = self._required_verification_fields(challenge=challenge)
+        if not required_fields:
+            required_fields = [field for field in challenge.keys() if str(field).strip()]
+        challenge = {
+            field: str(challenge.get(field, "")).strip()
+            for field in required_fields
+            if str(challenge.get(field, "")).strip()
+        }
+        updates: dict[str, Any] = {
+            "active_verification_required_fields": required_fields,
+            "active_verification_challenge": challenge,
+        }
         expected_name = str(memory_state.get("active_customer_name", "")).strip()
 
         if bool(cfg.get("tool_only_verification", False)):
-            updates["identity_verified"] = bool(memory_state.get("identity_verified", False))
+            verified_fields = (
+                [str(x).strip() for x in memory_state.get("verification_verified_fields", []) if str(x).strip()]
+                if isinstance(memory_state.get("verification_verified_fields"), list)
+                else []
+            )
+            missing_tool_fields = [field for field in required_fields if field not in set(verified_fields)]
+            updates["verification_verified_fields"] = sorted(set(verified_fields))
+            updates["verification_missing_fields"] = sorted(set(missing_tool_fields))
+            updates["identity_verified"] = not bool(missing_tool_fields)
             updates["verification_entities"] = collected
             updates["verification_collected"] = collected
             memory.set_state(**updates)
@@ -1088,23 +1130,38 @@ class CollectionAgent(BaseAgent):
         case_id = str(case_row.get("case_id", "")).strip() if isinstance(case_row, dict) else ""
         if not case_id:
             return None
-        tool = CustomerVerifyTool(store=self.data_store)
-        challenge_answers = {
-            str(k): str(v)
-            for k, v in entities.items()
-            if str(k).strip() and str(k) != "name_confirmed" and str(v).strip()
-        }
-        result = tool.execute(
-            input=CustomerVerifyInput(
-                case_id=case_id,
-                customer_id=customer_id,
-                challenge_answers=challenge_answers,
+        status_by_field: dict[str, str] = {}
+        if str(entities.get("dob", "")).strip():
+            dob_result = VerifyDOBTool(store=self.data_store).execute(
+                input=VerifyDOBInput(
+                    case_id=case_id,
+                    customer_id=customer_id,
+                    dob=str(entities.get("dob", "")).strip(),
+                )
             )
-        )
+            status_by_field["dob"] = str(dob_result.status)
+        if str(entities.get("phone", "")).strip():
+            phone_result = VerifyMobileTool(store=self.data_store).execute(
+                input=VerifyMobileInput(
+                    case_id=case_id,
+                    customer_id=customer_id,
+                    phone=str(entities.get("phone", "")).strip(),
+                )
+            )
+            status_by_field["phone"] = str(phone_result.status)
+        required_fields = ["dob", "phone"]
+        if not status_by_field:
+            return None
+        if any(status_by_field.get(field) == "locked" for field in required_fields):
+            status = "locked"
+        elif all(status_by_field.get(field) == "verified" for field in required_fields if field in status_by_field):
+            status = "verified"
+        else:
+            status = "failed"
         return {
-            "status": str(result.status),
-            "required_fields": list(result.required_fields),
-            "failed_attempts": int(result.failed_attempts),
+            "status": status,
+            "required_fields": required_fields,
+            "status_by_field": status_by_field,
         }
 
     def _apply_post_turn_verification_state(self, *, memory: Any, state: AgentState) -> None:
@@ -1114,26 +1171,39 @@ class CollectionAgent(BaseAgent):
         tool_phase = observation.get("tool_phase") if isinstance(observation.get("tool_phase"), dict) else observation
         if not isinstance(tool_phase, dict):
             return
-        if str(tool_phase.get("tool_name", "")).strip() != "customer_verify":
+        tool_name = str(tool_phase.get("tool_name", "")).strip()
+        if tool_name not in {"verify_dob", "verify_mobile"}:
             return
 
         output = tool_phase.get("output") if isinstance(tool_phase.get("output"), dict) else {}
         status = str(output.get("status", "")).strip().lower()
-        required_fields_raw = output.get("required_fields")
+        memory_state = dict(getattr(memory, "state", {}))
         required_fields = (
-            [str(x).strip() for x in required_fields_raw if str(x).strip()]
-            if isinstance(required_fields_raw, list)
+            [str(x).strip() for x in memory_state.get("active_verification_required_fields", []) if str(x).strip()]
+            if isinstance(memory_state.get("active_verification_required_fields"), list)
+            else ["dob", "phone"]
+        )
+        verified_fields = (
+            [str(x).strip() for x in memory_state.get("verification_verified_fields", []) if str(x).strip()]
+            if isinstance(memory_state.get("verification_verified_fields"), list)
             else []
         )
+        field_name = str(output.get("field", "")).strip().lower()
+        if not field_name:
+            field_name = "dob" if tool_name == "verify_dob" else "phone"
         updates: dict[str, Any] = {}
-        if required_fields:
-            updates["active_verification_required_fields"] = sorted(set(required_fields))
-        if status == "verified":
-            updates["identity_verified"] = True
-        elif status in {"failed", "locked"}:
-            updates["identity_verified"] = False
+        if status == "verified" and field_name:
+            verified_fields = sorted(set([*verified_fields, field_name]))
+        elif status in {"failed", "locked"} and field_name:
+            verified_fields = [field for field in verified_fields if field != field_name]
             if isinstance(output.get("failed_attempts"), int):
-                updates["verification_failed_attempts"] = int(output["failed_attempts"])
+                updates[f"verification_failed_attempts_{field_name}"] = int(output["failed_attempts"])
+        missing_fields = [field for field in required_fields if field not in set(verified_fields)]
+        updates["active_verification_required_fields"] = sorted(set(required_fields))
+        updates["verification_verified_fields"] = sorted(set(verified_fields))
+        updates["verification_missing_fields"] = sorted(set(missing_fields))
+        updates["verification_last_status"] = status or "unknown"
+        updates["identity_verified"] = not bool(missing_fields)
         if updates:
             memory.set_state(**updates)
 

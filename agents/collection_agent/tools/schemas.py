@@ -70,17 +70,30 @@ class ContactAttemptOutput(BaseModel):
     created_at: datetime
 
 
-class CustomerVerifyInput(BaseModel):
+class VerifyDOBInput(BaseModel):
     case_id: str | None = None
     customer_id: str | None = None
-    challenge_answers: dict[str, str] = Field(default_factory=dict)
+    dob: str
 
 
-class CustomerVerifyOutput(BaseModel):
+class VerifyDOBOutput(BaseModel):
     customer_id: str
     status: Literal["verified", "failed", "locked"]
+    field: Literal["dob"] = "dob"
     failed_attempts: int
-    required_fields: list[str]
+
+
+class VerifyMobileInput(BaseModel):
+    case_id: str | None = None
+    customer_id: str | None = None
+    phone: str
+
+
+class VerifyMobileOutput(BaseModel):
+    customer_id: str
+    status: Literal["verified", "failed", "locked"]
+    field: Literal["phone"] = "phone"
+    failed_attempts: int
 
 
 class LoanPolicyLookupInput(BaseModel):

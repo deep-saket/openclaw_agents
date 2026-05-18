@@ -111,6 +111,9 @@ class CollectionReflectNode(ReflectNode):
         failure_type = "none"
 
         observation = state.get("observation") if isinstance(state.get("observation"), dict) else {}
+        observed_tool = str(observation.get("tool_name", "")).strip().lower()
+        observed_output = observation.get("output") if isinstance(observation.get("output"), dict) else {}
+        observed_status = str(observed_output.get("status", "")).strip().lower()
         plan_payload = observation.get("plan_proposal") if isinstance(observation.get("plan_proposal"), dict) else {}
         verification_ctx = observation.get("verification_context") if isinstance(observation.get("verification_context"), dict) else {}
         missing_fields = verification_ctx.get("verification_missing_fields") if isinstance(verification_ctx.get("verification_missing_fields"), list) else []
@@ -121,14 +124,45 @@ class CollectionReflectNode(ReflectNode):
             selected_next = str(plan_payload.get("plan_tree_update", {}).get("selected_next_node_id", "")).strip().lower()
 
         asks_verification = (
-            "ask_for_verification" in next_actions
+            "verify_identity" in next_actions
             or "verification" in selected_next
+            or "verify_identity" == selected_next
             or "missing verification" in lowered_reason
+            or "missing verification fields" in lowered_reason
+            or "request only missing verification fields" in lowered_reason
         )
 
         if (not identity_verified) and bool(missing_fields) and asks_verification and not complete:
             complete = True
             reason = "Plan correctly requests only missing verification fields for current stage."
+            failure_type = "none"
+        elif identity_verified and (not complete) and "verification is in progress" in lowered_reason:
+            complete = True
+            reason = "Verification is already complete in state; no plan retry needed."
+            failure_type = "none"
+        elif (
+            not complete
+            and ("clarify your request" in lowered_reason or "user input is a greeting" in lowered_reason)
+            and asks_verification
+        ):
+            # Reflection validates plan quality, not user verbosity.
+            complete = True
+            reason = "Plan is stage-correct; short greeting input does not require plan retry."
+            failure_type = "none"
+        elif (
+            not complete
+            and observed_tool in {"verify_dob", "verify_mobile"}
+            and observed_status in {"verified", "failed", "locked"}
+            and (
+                "verification evidence" in lowered_reason
+                or "required fields" in lowered_reason
+                or "plan is incomplete" in lowered_reason
+            )
+        ):
+            # For iterative verification tools, observation itself is valid progression input.
+            # PlanProposalNode should decide next step using updated verification state.
+            complete = True
+            reason = "Verification tool observation is valid; continue with updated verification state."
             failure_type = "none"
 
         if not complete:

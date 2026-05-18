@@ -26,5 +26,93 @@
     "case_id": "COLL-1001",
     "status": "locked",
     "created_at": "2026-05-17T20:38:36.912576+00:00"
+  },
+  {
+    "attempt_id": "VER-A69CFF6E1C",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "dob",
+    "status": "verified",
+    "created_at": "2026-05-18T12:18:27.292298+00:00"
+  },
+  {
+    "attempt_id": "VER-FABD1356A8",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "phone",
+    "status": "verified",
+    "created_at": "2026-05-18T12:18:27.293028+00:00"
+  },
+  {
+    "attempt_id": "VER-FC4B040AC0",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "dob",
+    "status": "verified",
+    "created_at": "2026-05-18T12:45:55.201967+00:00"
+  },
+  {
+    "attempt_id": "VER-96B904AC5B",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "dob",
+    "status": "verified",
+    "created_at": "2026-05-18T12:47:47.208275+00:00"
+  },
+  {
+    "attempt_id": "VER-8882868EF5",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "dob",
+    "status": "verified",
+    "created_at": "2026-05-18T12:49:05.080274+00:00"
+  },
+  {
+    "attempt_id": "VER-0858CF750F",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "dob",
+    "status": "verified",
+    "created_at": "2026-05-18T12:59:05.792742+00:00"
+  },
+  {
+    "attempt_id": "VER-7F1EE07F9B",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "dob",
+    "status": "verified",
+    "created_at": "2026-05-18T13:00:48.254055+00:00"
+  },
+  {
+    "attempt_id": "VER-6F47962494",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "phone",
+    "status": "verified",
+    "created_at": "2026-05-18T13:01:53.730138+00:00"
+  },
+  {
+    "attempt_id": "VER-AE6A648ECE",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "phone",
+    "status": "verified",
+    "created_at": "2026-05-18T14:01:36.192751+00:00"
+  },
+  {
+    "attempt_id": "VER-8B7D1543BD",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "dob",
+    "status": "verified",
+    "created_at": "2026-05-18T16:33:03.548872+00:00"
+  },
+  {
+    "attempt_id": "VER-EAD81D4731",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "phone",
+    "status": "verified",
+    "created_at": "2026-05-18T16:36:12.092663+00:00"
   }
 ]

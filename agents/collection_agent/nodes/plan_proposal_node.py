@@ -72,7 +72,7 @@ class PlanProposalNode(BaseGraphNode):
     classifier_user_prompt: str = ""
     strict_llm_mode: bool = True
     last_debug: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
-    max_json_chars: int = 1400
+    max_json_chars: int = 900
 
     def execute(self, state: AgentState) -> NodeUpdate:
         self._record_llm_usage(state, node_name="plan_proposal")
@@ -96,6 +96,24 @@ class PlanProposalNode(BaseGraphNode):
         output = observation.get("output", {}) if isinstance(observation, dict) else {}
         decision = state.get("decision")
         existing_plan = self._get_existing_conversation_plan(state=state, memory_state=memory_state)
+        verification_ctx = self._compute_effective_verification_context(
+            state=state,
+            memory_state=memory_state,
+            observation=(observation if isinstance(observation, dict) else None),
+        )
+        memory_state = dict(memory_state)
+        memory_state["identity_verified"] = bool(verification_ctx.get("identity_verified", False))
+        memory_state["verification_missing_fields"] = list(verification_ctx.get("verification_missing_fields", []))
+        memory_state["verification_verified_fields"] = list(verification_ctx.get("verification_verified_fields", []))
+        memory_state["verification_entities"] = dict(verification_ctx.get("verification_entities", {}))
+        if memory is not None:
+            memory.set_state(
+                identity_verified=bool(memory_state.get("identity_verified", False)),
+                verification_missing_fields=list(memory_state.get("verification_missing_fields", [])),
+                verification_verified_fields=list(memory_state.get("verification_verified_fields", [])),
+                verification_entities=dict(memory_state.get("verification_entities", {})),
+            )
+
         plan_signals = self._classify_plan_signals(
             user_input=user_input,
             mode=mode,
@@ -103,6 +121,19 @@ class PlanProposalNode(BaseGraphNode):
             existing_plan=existing_plan,
         )
         identity_verified = bool(memory_state.get("identity_verified", False))
+        required_fields = (
+            [str(x).strip() for x in memory_state.get("active_verification_required_fields", []) if str(x).strip()]
+            if isinstance(memory_state.get("active_verification_required_fields"), list)
+            else []
+        )
+        verification_entities = (
+            dict(memory_state.get("verification_entities", {}))
+            if isinstance(memory_state.get("verification_entities"), dict)
+            else {}
+        )
+        missing_required_fields = [
+            field for field in required_fields if not str(verification_entities.get(field, "")).strip()
+        ]
         suggested_mode = str(plan_signals.get("suggested_plan_mode", mode)).strip().lower()
         if suggested_mode in {"strict_collections", "hardship_negotiation"} and suggested_mode != mode:
             mode = suggested_mode
@@ -117,6 +148,10 @@ class PlanProposalNode(BaseGraphNode):
             return update
 
         def with_plan(update: NodeUpdate) -> NodeUpdate:
+            update["identity_verified"] = bool(memory_state.get("identity_verified", False))
+            update["verification_missing_fields"] = list(memory_state.get("verification_missing_fields", []))
+            update["verification_verified_fields"] = list(memory_state.get("verification_verified_fields", []))
+            update["verification_entities"] = dict(memory_state.get("verification_entities", {}))
             response_target = str(update.get("response_target", "customer")).strip().lower() or "customer"
             route = str(update.get("route", "continue")).strip().lower() or "continue"
             proposal = update.get("plan_proposal") if isinstance(update.get("plan_proposal"), dict) else {}
@@ -360,7 +395,7 @@ class PlanProposalNode(BaseGraphNode):
         )
         return with_plan(
             {
-                "route": "propose",
+                "route": "continue",
                 "decision": decision,
                 "response_target": "self",
                 "plan_proposal": {
@@ -741,9 +776,21 @@ class PlanProposalNode(BaseGraphNode):
         if not identity_verified and missing_fields:
             next_actions = patched.get("next_actions")
             next_actions_list = [str(x).strip() for x in next_actions if str(x).strip()] if isinstance(next_actions, list) else []
-            if "ask_for_verification" not in [x.lower() for x in next_actions_list]:
-                next_actions_list.insert(0, "ask_for_verification")
-                warnings.append("Inserted ask_for_verification into next_actions while identity_verified=false.")
+            normalized_actions: list[str] = []
+            for action in next_actions_list:
+                lowered = action.lower()
+                if lowered in {"ask_for_verification", "request_verification", "collect_verification"}:
+                    lowered = "verify_identity"
+                normalized_actions.append(lowered)
+            if "verify_identity" not in normalized_actions:
+                normalized_actions.insert(0, "verify_identity")
+                warnings.append("Inserted verify_identity into next_actions while identity_verified=false.")
+            # Keep verification as the leading actionable step until completion.
+            deduped_actions: list[str] = []
+            for action in normalized_actions:
+                if action not in deduped_actions:
+                    deduped_actions.append(action)
+            next_actions_list = ["verify_identity", *[a for a in deduped_actions if a != "verify_identity"]]
             patched["next_actions"] = next_actions_list
 
             tree_update = patched.get("plan_tree_update")
@@ -751,44 +798,136 @@ class PlanProposalNode(BaseGraphNode):
                 tree_update = {}
                 patched["plan_tree_update"] = tree_update
             selected_next = str(tree_update.get("selected_next_node_id", "")).strip().lower()
-            if "verification" not in selected_next:
-                tree_update["selected_next_node_id"] = "ask_for_verification"
-                warnings.append("Reset selected_next_node_id to ask_for_verification until verification completes.")
+            if selected_next not in {"verify_identity"}:
+                tree_update["selected_next_node_id"] = "verify_identity"
+                warnings.append("Reset selected_next_node_id to verify_identity until verification completes.")
+            tree_update["current_node_id"] = "verify_identity"
+            tree_update["operation"] = "advance"
+            tree_update["new_nodes"] = []
+            tree_update["remove_node_ids"] = []
 
             new_edges = tree_update.get("new_edges")
             edge_list = list(new_edges) if isinstance(new_edges, list) else []
-            found_verification_edge = False
-            for idx, raw in enumerate(edge_list):
+            canonical_nodes: set[str] = set()
+            convo_plan = state.get("conversation_plan")
+            if isinstance(convo_plan, dict) and isinstance(convo_plan.get("nodes"), list):
+                canonical_nodes = {
+                    str(node.get("id", "")).strip().lower()
+                    for node in convo_plan.get("nodes", [])
+                    if isinstance(node, dict) and str(node.get("id", "")).strip()
+                }
+            normalized_edges: list[dict[str, Any]] = []
+            for raw in edge_list:
                 if not isinstance(raw, dict):
                     continue
                 src = str(raw.get("from", "")).strip().lower()
                 dst = str(raw.get("to", "")).strip().lower()
-                if src == "verify_identity" and dst == "ask_for_verification":
-                    edge_list[idx] = {
-                        "from": "verify_identity",
-                        "to": "ask_for_verification",
-                        "condition": "identity_verified=false",
-                    }
-                    found_verification_edge = True
-                    warnings.append("Normalized verification edge condition to identity_verified=false.")
-            if not found_verification_edge:
-                edge_list.append(
+                if not src or not dst:
+                    continue
+                if canonical_nodes and (src not in canonical_nodes or dst not in canonical_nodes):
+                    continue
+                if src == dst:
+                    continue
+                normalized_edges.append(
                     {
-                        "from": "verify_identity",
-                        "to": "ask_for_verification",
-                        "condition": "identity_verified=false",
+                        "from": src,
+                        "to": dst,
+                        "condition": str(raw.get("condition", "")).strip(),
                     }
                 )
-                warnings.append("Added missing verification edge verify_identity -> ask_for_verification.")
-            tree_update["new_edges"] = edge_list
+            tree_update["new_edges"] = normalized_edges
 
             draft_response = str(patched.get("draft_response", "")).strip()
             if draft_response and re.search(r"\boverdue amount\b|\binr\b|\bemi\b", draft_response, re.IGNORECASE):
                 warnings.append("Draft response contains dues before verification completion; response node will guard this.")
+        elif identity_verified:
+            next_actions = patched.get("next_actions")
+            next_actions_list = [str(x).strip() for x in next_actions if str(x).strip()] if isinstance(next_actions, list) else []
+            patched["next_actions"] = [x for x in next_actions_list if x.lower() != "verify_identity"]
+            tree_update = patched.get("plan_tree_update")
+            if not isinstance(tree_update, dict):
+                tree_update = {}
+                patched["plan_tree_update"] = tree_update
+            selected_next = str(tree_update.get("selected_next_node_id", "")).strip().lower()
+            current_node = str(tree_update.get("current_node_id", "")).strip().lower()
+            if selected_next in {"", "verify_identity"}:
+                tree_update["selected_next_node_id"] = "explain_dues"
+            if current_node in {"", "verify_identity"}:
+                tree_update["current_node_id"] = "explain_dues"
+            mark_done = [str(x).strip() for x in tree_update.get("mark_done", []) if str(x).strip()]
+            if "verify_identity" not in mark_done:
+                mark_done.append("verify_identity")
+            tree_update["mark_done"] = mark_done
 
         if warnings:
             patched["plan_validation_warnings"] = warnings
         return patched
+
+    @staticmethod
+    def _verification_required_fields(memory_state: dict[str, Any]) -> list[str]:
+        required = memory_state.get("active_verification_required_fields")
+        required_fields = [str(x).strip().lower() for x in required if str(x).strip()] if isinstance(required, list) else []
+        if required_fields:
+            return sorted(set(required_fields))
+        return ["dob", "phone"]
+
+    def _compute_effective_verification_context(
+        self,
+        *,
+        state: AgentState,
+        memory_state: dict[str, Any],
+        observation: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        required_fields = self._verification_required_fields(memory_state)
+        verified_fields = (
+            [str(x).strip().lower() for x in memory_state.get("verification_verified_fields", []) if str(x).strip()]
+            if isinstance(memory_state.get("verification_verified_fields"), list)
+            else []
+        )
+        if isinstance(state.get("verification_verified_fields"), list):
+            verified_fields.extend([str(x).strip().lower() for x in state.get("verification_verified_fields", []) if str(x).strip()])
+        verified_set = set(verified_fields)
+
+        verification_entities = (
+            dict(memory_state.get("verification_entities", {}))
+            if isinstance(memory_state.get("verification_entities"), dict)
+            else {}
+        )
+        if isinstance(state.get("verification_entities"), dict):
+            verification_entities.update({k: v for k, v in state.get("verification_entities", {}).items() if str(v).strip()})
+
+        observed_tool = str(observation.get("tool_name", "")).strip().lower() if isinstance(observation, dict) else ""
+        observed_output = (
+            observation.get("output", {})
+            if isinstance(observation, dict) and isinstance(observation.get("output"), dict)
+            else {}
+        )
+        observed_status = str(observed_output.get("status", "")).strip().lower()
+        observed_field = str(observed_output.get("field", "")).strip().lower()
+        if not observed_field and observed_tool in {"verify_dob", "verify_mobile"}:
+            observed_field = "dob" if observed_tool == "verify_dob" else "phone"
+        if observed_field:
+            if observed_status == "verified":
+                verified_set.add(observed_field)
+            elif observed_status in {"failed", "locked"}:
+                verified_set.discard(observed_field)
+
+        verified_set = {field for field in verified_set if field in set(required_fields)}
+        missing_fields = sorted([field for field in required_fields if field not in verified_set])
+
+        # Backward compatibility: if older sessions only persisted `identity_verified`,
+        # preserve completion when required fields are unavailable.
+        legacy_identity = bool(memory_state.get("identity_verified", False)) or bool(state.get("identity_verified", False))
+        identity_verified = (not bool(missing_fields)) if required_fields else legacy_identity
+        if legacy_identity and not required_fields:
+            identity_verified = True
+
+        return {
+            "identity_verified": bool(identity_verified),
+            "verification_missing_fields": missing_fields,
+            "verification_verified_fields": sorted(verified_set),
+            "verification_entities": verification_entities,
+        }
 
     @staticmethod
     def _render_prompt_template(template: str, values: dict[str, Any]) -> str:
@@ -800,14 +939,14 @@ class PlanProposalNode(BaseGraphNode):
     @staticmethod
     def _derive_next_actions(*, user_input: str, mode: str, observed_tool: str) -> list[str]:
         lowered = user_input.lower()
-        actions: list[str] = ["confirm_identity", "confirm_dues", "collect_payment_intent"]
+        actions: list[str] = ["verify_identity", "explain_dues", "collect_payment_intent"]
         if "pay now" in lowered or "payment link" in lowered:
             actions.append("complete_payment_flow")
         if mode == "hardship_negotiation":
             actions.append("evaluate_assistance_options")
         if observed_tool:
             actions.append("interpret_tool_observation")
-        actions.append("capture_next_commitment")
+        actions.append("resolve_outcome")
         return actions
 
     @staticmethod
@@ -1375,11 +1514,7 @@ class PlanProposalNode(BaseGraphNode):
         if verify_state != "done":
             return
 
-        verified_now = (
-            str(observed_tool).strip().lower() == "customer_verify"
-            and str((observed_output or {}).get("status", "")).strip().lower() == "verified"
-        )
-        if memory_identity_verified or verified_now:
+        if memory_identity_verified:
             return
 
         verify_raw["state"] = "pending"
@@ -1457,14 +1592,9 @@ class PlanProposalNode(BaseGraphNode):
         if node_id == str(plan.get("root_node_id", "open_and_context")).strip():
             return True
         if node_id == "verify_identity":
-            # Identity can only be completed after an explicit successful
-            # verification state.
-            if memory_identity_verified:
-                return True
-            if observed_tool != "customer_verify":
-                return False
-            verify_status = str(observed_output.get("status", "")).strip().lower()
-            return verify_status == "verified"
+            # Identity completion is gated by effective verification state,
+            # not by single-tool success in isolation.
+            return bool(memory_identity_verified)
         if observed_tool:
             tool_status = str(observed_output.get("status", "")).strip().lower()
             if tool_status in {"failed", "locked", "error", "rejected", "denied", "invalid"}:
@@ -1619,14 +1749,10 @@ class PlanProposalNode(BaseGraphNode):
         if self.strict_llm_mode:
             if proposal_intent == "conversation_termination" or self._is_conversation_termination(user_input):
                 return "resolve_outcome"
-            if route == "propose":
-                return "evaluate_assistance"
             return str(previous_current or "").strip()
         if proposal_intent == "conversation_termination" or self._is_conversation_termination(user_input):
             return "resolve_outcome"
-        if route == "propose":
-            return "evaluate_assistance"
-        if observed_tool in {"customer_verify"} or "verify" in lowered:
+        if observed_tool in {"verify_dob", "verify_mobile"} or "verify" in lowered:
             return "verify_identity"
         if observed_tool in {"dues_explain_build", "loan_policy_lookup"} or any(
             token in lowered for token in ["dues", "overdue", "emi", "policy", "amount due"]
@@ -1687,6 +1813,18 @@ class PlanProposalNode(BaseGraphNode):
             for token in ["confirm your identity", "verify customer identity", "identity verification"]
         )
         hardship_signal = bool(plan_signals.get("hardship_signal", False))
+
+        # Guardrail: while identity is incomplete, keep customer proposal pinned
+        # to verification path and prevent unrelated plan branches.
+        if (not identity_verified) and current_node_id in {"verify_identity", ""}:
+            aligned["intent"] = "verify_identity"
+            aligned["plan_outline"] = "Request only remaining verification fields to complete identity verification."
+            aligned["next_actions"] = ["verify_identity"]
+            tree = aligned.get("plan_tree_update") if isinstance(aligned.get("plan_tree_update"), dict) else {}
+            tree["selected_next_node_id"] = "verify_identity"
+            tree["current_node_id"] = "verify_identity"
+            tree["new_edges"] = []
+            aligned["plan_tree_update"] = tree
 
         if identity_verified and current_node_id == "explain_dues":
             if intent in {"verify_identity", "verification_required_before_discount"} or verification_language:
