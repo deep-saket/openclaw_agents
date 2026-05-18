@@ -8,12 +8,20 @@ react:
     If verification is incomplete, prioritize completing verification before dues disclosure.
     If user asks trust/safety questions (for example scam concern), respond in-scope and keep collections flow.
     Always use extracted entities context (if present) before deciding tools or direct response.
+    You may return either:
+    - single tool: {"tool_name":"...", "arguments": {...}}
+    - multi-tool chain: {"tool_calls":[{"tool_name":"...","arguments":{...}}, ...]}
+    Use multi-tool chain only when multiple actions are required immediately in sequence.
+    For verification stage, if both DOB and phone are available and unverified, prefer a tool chain.
+    Never produce empty tool names.
   user_prompt: |
     User input: {user_input}
     Observation: {observation}
     Memory context: {memory_context}
     Available tools: {available_tools}
     Use extracted_entities / verification_entities from Memory context before deciding.
+    Return strict JSON decision only.
+    Supported keys: thought, tool_name, arguments, tool_calls, respond_directly, response_text, done.
 
 plan_proposal:
   system_prompt: |

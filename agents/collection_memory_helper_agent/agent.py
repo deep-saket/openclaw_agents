@@ -10,15 +10,14 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from agents.collection_memory_helper_agent.nodes import CollectionMemoryHelperReflectNode
-from agents.collection_memory_helper_agent.planner import CollectionMemoryHelperPlanner
 from agents.collection_memory_helper_agent.prompts import (
     load_collection_memory_helper_prompts,
     render_collection_memory_helper_tool_catalog_yaml,
 )
+from agents.collection_memory_helper_agent.react_node import CollectionMemoryHelperReactNode
 from agents.collection_memory_helper_agent.repository import CollectionMemoryRepository
 from agents.collection_memory_helper_agent.tools import UpdateKeyEventMemoryTool
 from src.agents.base_agent import BaseAgent
-from src.nodes.react_node import ReactNode
 from src.nodes.response_node import ResponseNode
 from src.nodes.tool_execution_node import ToolExecutionNode
 from src.nodes.types import AgentState
@@ -46,9 +45,7 @@ class CollectionMemoryHelperAgent(BaseAgent):
         registry.register(UpdateKeyEventMemoryTool(repository=self.repository))
         executor = ToolExecutor(registry=registry, repository=None, memory_store=None, memory_policy=None)
 
-        planner = CollectionMemoryHelperPlanner(llm=self.llm)
-        self.react_node = ReactNode(
-            planner=planner,
+        self.react_node = CollectionMemoryHelperReactNode(
             llm=self.llm,
             system_prompt=str(react_prompts.get("system_prompt", "")),
             user_prompt=str(react_prompts.get("user_prompt", "{user_input}")),

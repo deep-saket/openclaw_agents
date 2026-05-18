@@ -6,6 +6,7 @@ from agents.collection_agent.nodes.execution_path_intent_node import ExecutionPa
 from agents.collection_agent.nodes.post_memory_plan_intent_node import PostMemoryPlanIntentNode
 from agents.collection_agent.nodes.pre_plan_intent_node import PrePlanIntentNode
 from agents.collection_agent.nodes.collection_reflect_node import CollectionReflectNode
+from agents.collection_agent.nodes.collection_react_node import CollectionReactNode
 from agents.collection_agent.nodes.collection_response_node import CollectionResponseNode
 from agents.collection_agent.nodes.plan_proposal_node import PlanProposalNode
 from agents.collection_agent.nodes.relevance_intent_node import RelevanceIntentNode
@@ -19,5 +20,6 @@ __all__ = [
     "PostMemoryPlanIntentNode",
     "PlanProposalNode",
     "CollectionReflectNode",
+    "CollectionReactNode",
     "CollectionResponseNode",
 ]

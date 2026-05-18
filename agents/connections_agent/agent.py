@@ -10,18 +10,17 @@ from uuid import uuid4
 from langgraph.graph import END, START, StateGraph
 
 from agents.connections_agent.nodes import ConnectionsReflectNode
-from agents.connections_agent.planner import ConnectionsRulePlanner
 from agents.connections_agent.prompts import (
     load_connections_agent_prompts,
     render_connections_tool_catalog_yaml,
 )
+from agents.connections_agent.react_node import ConnectionsReactNode
 from agents.connections_agent.repository import ConnectionsRepository
 from agents.connections_agent.tools import ConnectionsDataStore, build_offline_toolset
 from src.agents.base_agent import BaseAgent
 from src.memory.session_store import SessionStore
 from src.memory.types import WorkingMemory
 from src.nodes import AgentState, MemoryRetrieveNode, ResponseNode, ToolExecutionNode
-from src.nodes.react_node import ReactNode
 from src.platform_logging.tracing import ExecutionTrace, trace_turn
 from src.tools.executor import ToolExecutor
 from src.tools.registry import ToolRegistry
@@ -37,7 +36,6 @@ class ConnectionsAgent(BaseAgent):
     session_store: SessionStore | None = None
     tool_registry: ToolRegistry | None = None
     tool_executor: ToolExecutor | None = None
-    planner: ConnectionsRulePlanner | None = None
     logger: Any | None = None
     trace_sink: Any | None = None
     agent_name: str = "connections_agent"
@@ -63,13 +61,11 @@ class ConnectionsAgent(BaseAgent):
             memory_store=None,
             memory_policy=None,
         )
-        self.planner = self.planner or ConnectionsRulePlanner()
         self.memory_retrieve_node = MemoryRetrieveNode(
             tool_registry=self.tool_registry,
             memories=[WorkingMemory],
         )
-        self.react_node = ReactNode(
-            planner=self.planner,
+        self.react_node = ConnectionsReactNode(
             llm=self.llm,
             system_prompt=str(react_prompts.get("system_prompt", "")),
             user_prompt=str(react_prompts.get("user_prompt", "{user_input}")),

@@ -1,14 +1,14 @@
 {
-  "trace_id": "d6f9287f-76f8-45ee-8b5b-80c1dba8111a",
+  "trace_id": "68000390-7474-4907-84c0-505f7bfda26e",
   "agent_name": "collection_agent",
   "session_id": "collection-user_a-cli",
-  "user_input": "My DoB ius 1991-08-19",
+  "user_input": "Hi Alex!! This is Aditi.",
   "status": "completed",
-  "started_at": "2026-05-18T16:28:35.385837+00:00",
-  "finished_at": "2026-05-18T16:35:01.375639+00:00",
+  "started_at": "2026-05-18T19:44:55.094306+00:00",
+  "finished_at": "2026-05-18T19:47:11.979131+00:00",
   "error": null,
   "summary": {
-    "trace_id": "d6f9287f-76f8-45ee-8b5b-80c1dba8111a",
+    "trace_id": "68000390-7474-4907-84c0-505f7bfda26e",
     "agent_name": "collection_agent",
     "session_id": "collection-user_a-cli",
     "status": "completed",
@@ -16,19 +16,13 @@
       "relevance_intent",
       "entity_extract",
       "pre_plan_intent",
-      "execution_path_intent",
-      "react",
-      "tool_execution",
-      "react",
-      "plan_proposal",
-      "reflect",
       "plan_proposal",
       "reflect",
       "relevant_response"
     ],
-    "node_count": 12,
-    "llm_call_count": 11,
-    "tool_call_count": 1,
+    "node_count": 6,
+    "llm_call_count": 9,
+    "tool_call_count": 0,
     "models": [
       "llama-3.1-8b-instant"
     ],
@@ -41,243 +35,161 @@
     {
       "node_name": "relevance_intent",
       "status": "completed",
-      "started_at": "2026-05-18T16:28:36.748407+00:00",
-      "finished_at": "2026-05-18T16:28:40.735158+00:00",
-      "duration_ms": 3986.751,
+      "started_at": "2026-05-18T19:45:00.017189+00:00",
+      "finished_at": "2026-05-18T19:45:06.324729+00:00",
+      "duration_ms": 6307.54,
       "error": null
     },
     {
       "node_name": "entity_extract",
       "status": "completed",
-      "started_at": "2026-05-18T16:28:40.737164+00:00",
-      "finished_at": "2026-05-18T16:28:43.560568+00:00",
-      "duration_ms": 2823.404,
+      "started_at": "2026-05-18T19:45:11.473679+00:00",
+      "finished_at": "2026-05-18T19:45:25.324828+00:00",
+      "duration_ms": 13851.149,
       "error": null
     },
     {
       "node_name": "pre_plan_intent",
       "status": "completed",
-      "started_at": "2026-05-18T16:28:43.561206+00:00",
-      "finished_at": "2026-05-18T16:29:49.798830+00:00",
-      "duration_ms": 66237.624,
-      "error": null
-    },
-    {
-      "node_name": "execution_path_intent",
-      "status": "completed",
-      "started_at": "2026-05-18T16:29:49.801306+00:00",
-      "finished_at": "2026-05-18T16:30:17.493176+00:00",
-      "duration_ms": 27691.87,
-      "error": null
-    },
-    {
-      "node_name": "react",
-      "status": "completed",
-      "started_at": "2026-05-18T16:30:17.495064+00:00",
-      "finished_at": "2026-05-18T16:30:59.629533+00:00",
-      "duration_ms": 42134.469,
-      "error": null
-    },
-    {
-      "node_name": "tool_execution",
-      "status": "completed",
-      "started_at": "2026-05-18T16:33:03.546535+00:00",
-      "finished_at": "2026-05-18T16:33:04.071504+00:00",
-      "duration_ms": 524.969,
-      "error": null
-    },
-    {
-      "node_name": "react",
-      "status": "completed",
-      "started_at": "2026-05-18T16:33:10.347254+00:00",
-      "finished_at": "2026-05-18T16:33:38.704232+00:00",
-      "duration_ms": 28356.978,
+      "started_at": "2026-05-18T19:45:25.326828+00:00",
+      "finished_at": "2026-05-18T19:45:41.345216+00:00",
+      "duration_ms": 16018.388,
       "error": null
     },
     {
       "node_name": "plan_proposal",
       "status": "completed",
-      "started_at": "2026-05-18T16:33:38.705647+00:00",
-      "finished_at": "2026-05-18T16:33:51.327709+00:00",
-      "duration_ms": 12622.062,
+      "started_at": "2026-05-18T19:45:41.353584+00:00",
+      "finished_at": "2026-05-18T19:46:36.948836+00:00",
+      "duration_ms": 55595.252,
       "error": null
     },
     {
       "node_name": "reflect",
       "status": "completed",
-      "started_at": "2026-05-18T16:33:51.329862+00:00",
-      "finished_at": "2026-05-18T16:33:52.884416+00:00",
-      "duration_ms": 1554.554,
-      "error": null
-    },
-    {
-      "node_name": "plan_proposal",
-      "status": "completed",
-      "started_at": "2026-05-18T16:33:52.887039+00:00",
-      "finished_at": "2026-05-18T16:34:12.420998+00:00",
-      "duration_ms": 19533.959,
-      "error": null
-    },
-    {
-      "node_name": "reflect",
-      "status": "completed",
-      "started_at": "2026-05-18T16:34:12.423043+00:00",
-      "finished_at": "2026-05-18T16:34:25.814817+00:00",
-      "duration_ms": 13391.774,
+      "started_at": "2026-05-18T19:46:36.951641+00:00",
+      "finished_at": "2026-05-18T19:46:37.818216+00:00",
+      "duration_ms": 866.575,
       "error": null
     },
     {
       "node_name": "relevant_response",
       "status": "completed",
-      "started_at": "2026-05-18T16:34:25.817458+00:00",
-      "finished_at": "2026-05-18T16:34:47.855557+00:00",
-      "duration_ms": 22038.099,
+      "started_at": "2026-05-18T19:46:37.820385+00:00",
+      "finished_at": "2026-05-18T19:46:59.878916+00:00",
+      "duration_ms": 22058.531,
       "error": null
     }
   ],
   "llm_calls": [
     {
-      "call_id": "6786d141-5970-44c4-ac21-c1e78f67fddc",
+      "call_id": "6266e2db-9473-4cd3-abf4-b0bdd6ea0375",
       "node_name": "relevance_intent",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-18T16:28:40.734711+00:00",
-      "finished_at": "2026-05-18T16:28:40.734711+00:00",
-      "duration_ms": 244.069
+      "started_at": "2026-05-18T19:45:06.324053+00:00",
+      "finished_at": "2026-05-18T19:45:06.324053+00:00",
+      "duration_ms": 1531.049
     },
     {
-      "call_id": "08cb5d30-1af1-4e38-9781-b34d42b0502b",
+      "call_id": "bc90768b-1db1-4d96-876a-6929080e9c44",
       "node_name": "entity_extract",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-18T16:28:42.608566+00:00",
-      "finished_at": "2026-05-18T16:28:42.608566+00:00",
-      "duration_ms": 311.493
+      "started_at": "2026-05-18T19:45:24.396552+00:00",
+      "finished_at": "2026-05-18T19:45:24.396552+00:00",
+      "duration_ms": 404.638
     },
     {
-      "call_id": "eeba309a-4769-4a33-b6ff-a68e1565cacf",
+      "call_id": "7d89f13e-97b9-402d-81db-d2ad41bda619",
+      "node_name": "pre_plan_intent",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-18T19:45:41.344750+00:00",
+      "finished_at": "2026-05-18T19:45:41.344750+00:00",
+      "duration_ms": 356.84
+    },
+    {
+      "call_id": "f7773913-d847-4cec-9c1e-4187a53e5b80",
       "node_name": "plan_proposal",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-18T16:33:48.806011+00:00",
-      "finished_at": "2026-05-18T16:33:48.806011+00:00",
-      "duration_ms": 347.059
+      "started_at": "2026-05-18T19:46:34.079613+00:00",
+      "finished_at": "2026-05-18T19:46:34.079613+00:00",
+      "duration_ms": 254.028
     },
     {
-      "call_id": "df895362-71f5-44a4-9543-a2e0828de6e1",
+      "call_id": "ff5d7772-759a-4194-b7d6-85ead67643f5",
       "node_name": "plan_proposal",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-18T16:33:49.392154+00:00",
-      "finished_at": "2026-05-18T16:33:49.392154+00:00",
-      "duration_ms": 585.655
+      "started_at": "2026-05-18T19:46:34.950581+00:00",
+      "finished_at": "2026-05-18T19:46:34.950581+00:00",
+      "duration_ms": 870.18
     },
     {
-      "call_id": "aedfa995-98fd-439c-9da8-13c8b0434891",
+      "call_id": "4727c5c8-ae90-4e77-88d8-e6eccc42db5e",
       "node_name": "plan_proposal",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-18T16:33:49.811849+00:00",
-      "finished_at": "2026-05-18T16:33:49.811849+00:00",
-      "duration_ms": 419.129
+      "started_at": "2026-05-18T19:46:35.769422+00:00",
+      "finished_at": "2026-05-18T19:46:35.769422+00:00",
+      "duration_ms": 817.757
     },
     {
-      "call_id": "ca78ba00-5fb4-45e4-a4ae-9c4238e1948f",
+      "call_id": "8058ebcc-babf-4eca-a7e5-b184a1f7df1c",
       "node_name": "plan_proposal",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-18T16:33:50.836952+00:00",
-      "finished_at": "2026-05-18T16:33:50.836952+00:00",
-      "duration_ms": 1024.237
+      "started_at": "2026-05-18T19:46:36.464639+00:00",
+      "finished_at": "2026-05-18T19:46:36.464639+00:00",
+      "duration_ms": 694.362
     },
     {
-      "call_id": "a9a4e01d-e271-4aef-ae20-1f5292457cc2",
+      "call_id": "6fa22655-2816-4f99-894c-bb03e70812ce",
       "node_name": "reflect",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-18T16:33:52.883575+00:00",
-      "finished_at": "2026-05-18T16:33:52.883575+00:00",
-      "duration_ms": 1092.5
+      "started_at": "2026-05-18T19:46:37.817864+00:00",
+      "finished_at": "2026-05-18T19:46:37.817864+00:00",
+      "duration_ms": 406.28
     },
     {
-      "call_id": "5f9232fb-b033-4655-ba92-1ee678cf3a73",
-      "node_name": "plan_proposal",
-      "model_name": "llama-3.1-8b-instant",
-      "call_kind": "generate",
-      "prompt_tokens": null,
-      "completion_tokens": null,
-      "total_tokens": null,
-      "started_at": "2026-05-18T16:34:05.582908+00:00",
-      "finished_at": "2026-05-18T16:34:05.582908+00:00",
-      "duration_ms": 344.519
-    },
-    {
-      "call_id": "8efb2e2d-7a31-4872-8be3-54965220d07a",
-      "node_name": "plan_proposal",
-      "model_name": "llama-3.1-8b-instant",
-      "call_kind": "generate",
-      "prompt_tokens": null,
-      "completion_tokens": null,
-      "total_tokens": null,
-      "started_at": "2026-05-18T16:34:11.932083+00:00",
-      "finished_at": "2026-05-18T16:34:11.932083+00:00",
-      "duration_ms": 6348.255
-    },
-    {
-      "call_id": "e06714bc-6492-4eb3-89be-52b69512f3b3",
-      "node_name": "reflect",
-      "model_name": "llama-3.1-8b-instant",
-      "call_kind": "generate",
-      "prompt_tokens": null,
-      "completion_tokens": null,
-      "total_tokens": null,
-      "started_at": "2026-05-18T16:34:25.814495+00:00",
-      "finished_at": "2026-05-18T16:34:25.814495+00:00",
-      "duration_ms": 12924.757
-    },
-    {
-      "call_id": "367919b4-753d-4f13-a946-d3cf25800392",
+      "call_id": "03c243c4-42b0-4fae-995e-259150944e1b",
       "node_name": "relevant_response",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-18T16:34:47.362047+00:00",
-      "finished_at": "2026-05-18T16:34:47.362047+00:00",
-      "duration_ms": 21540.964
+      "started_at": "2026-05-18T19:46:59.384833+00:00",
+      "finished_at": "2026-05-18T19:46:59.384833+00:00",
+      "duration_ms": 21562.332
     }
   ],
-  "tool_calls": [
-    {
-      "tool_name": "verify_dob",
-      "node_name": "tool_execution",
-      "status": "completed",
-      "started_at": "2026-05-18T16:33:03.603295+00:00",
-      "finished_at": "2026-05-18T16:33:03.603295+00:00",
-      "duration_ms": 55.206,
-      "error": null
-    }
-  ]
+  "tool_calls": []
 }

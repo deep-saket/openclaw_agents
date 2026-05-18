@@ -23,29 +23,27 @@ class GraphAgent(BaseAgent):
 
     This is the shared runnable agent abstraction for the platform. It is
     intentionally neutral about reasoning style. The current default graph uses
-    `PlannerNode`, `ToolExecutionNode`, `ReflectNode`, and `ResponseNode`, but
+    `ReactNode`, `ToolExecutionNode`, `ReflectNode`, and `ResponseNode`, but
     future agents can compose different graphs from the same node vocabulary.
 
     The important architectural distinction is:
 
     - nodes contain reusable step logic
     - `GraphAgent` assembles and runs a graph of those nodes
-    - concrete agents supply the planner, tools, memory, and storage bindings
+    - concrete agents supply the tools, memory, and storage bindings
 
     So the platform no longer treats "ReAct agent" as the main abstraction.
     ReAct is just one node pattern inside a general graph runner.
 
-    This runtime does not require an LLM. If the supplied planner is purely
-    rule-based, the graph still works because the planner remains the component
-    responsible for producing decisions. The LLM is only one possible input to
-    planning, not a hard dependency of the graph runner itself.
+    This runtime does not require an LLM. React routing can still run with
+    deterministic fallbacks where configured.
     """
 
     def __init__(
         self,
         *,
         llm: Any,
-        planner: Any,
+        planner: Any | None = None,
         tool_registry: Any,
         memory: Any,
         storage: Any,
@@ -61,8 +59,8 @@ class GraphAgent(BaseAgent):
 
         Args:
             llm: Optional LLM adapter available to the concrete agent.
-            planner: Planner responsible for selecting the next step.
-            tool_registry: Registry of tools the planner may use.
+            planner: Deprecated planner dependency (ignored; kept for compatibility).
+            tool_registry: Registry of tools the react node may use.
             memory: Optional working-memory dependency placeholder kept for
                 compatibility with the base agent shape.
             storage: Durable operational store owned by the concrete agent.
@@ -100,7 +98,7 @@ class GraphAgent(BaseAgent):
             llm=self.llm,
             memory_retriever=self.memory_retriever,
         )
-        self._planner_node = ReactNode(planner=self.planner, llm=self.llm)
+        self._planner_node = ReactNode(llm=self.llm)
         self._tool_execution_node = ToolExecutionNode(executor=self.tool_executor, llm=self.llm)
         self._reflect_node = ReflectNode(memory_store=self.memory_store, agent_name=self.agent_name, llm=self.llm)
         self._response_node = ResponseNode(llm=self.llm)
@@ -108,7 +106,6 @@ class GraphAgent(BaseAgent):
         self.log_info(
             "Graph agent initialized",
             agent_name=self.agent_name,
-            planner_type=type(self.planner).__name__,
             llm_enabled=self.llm is not None,
             tool_count=len(self.tool_registry.list_tools()) if hasattr(self.tool_registry, "list_tools") else "unknown",
         )
@@ -120,7 +117,6 @@ class GraphAgent(BaseAgent):
             "Starting graph agent turn",
             agent_name=self.agent_name,
             session_id=session_key,
-            planner_type=type(self.planner).__name__,
             llm_enabled=self.llm is not None,
         )
         memory = self.session_store.load(session_key)

@@ -104,6 +104,7 @@ class AgentState(TypedDict, total=False):
     handoff_payload: dict[str, Any]
     additional_targets: list[str]
     memory_helper_trigger: dict[str, Any]
+    pending_tool_calls: list[dict[str, Any]]
 
 
 class NodeUpdate(TypedDict, total=False):
@@ -146,6 +147,7 @@ class NodeUpdate(TypedDict, total=False):
     handoff_payload: dict[str, Any]
     additional_targets: list[str]
     memory_helper_trigger: dict[str, Any]
+    pending_tool_calls: list[dict[str, Any]]
 
 
 ReActState = AgentState

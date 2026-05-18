@@ -17,6 +17,7 @@ from agents.collection_memory_helper_agent.repository import CollectionMemoryRep
 from agents.collection_agent.nodes import (
     CollectionEntityExtractNode,
     CollectionReflectNode,
+    CollectionReactNode,
     CollectionResponseNode,
     ExecutionPathIntentNode,
     PostMemoryPlanIntentNode,
@@ -24,7 +25,6 @@ from agents.collection_agent.nodes import (
     PlanProposalNode,
     RelevanceIntentNode,
 )
-from agents.collection_agent.planner import CollectionPlanner
 from agents.collection_agent.prompts import load_collection_agent_prompts, render_collection_tool_catalog_yaml
 from agents.collection_agent.repository import CollectionRepository
 from agents.collection_agent.state import CollectionGraphState
@@ -53,7 +53,6 @@ from src.agents.base_agent import BaseAgent
 from src.memory.session_store import SessionStore
 from src.memory.types import WorkingMemory
 from src.nodes.memory_retrieve_node import MemoryRetrieveNode
-from src.nodes.react_node import ReactNode
 from src.nodes.tool_execution_node import ToolExecutionNode
 from src.nodes.types import AgentState
 from src.platform_logging.tracing import ExecutionTrace, emit_trace_event, trace_node, trace_turn
@@ -72,7 +71,6 @@ class CollectionAgent(BaseAgent):
     session_store: SessionStore | None = None
     tool_registry: ToolRegistry | None = None
     tool_executor: ToolExecutor | None = None
-    planner: CollectionPlanner | None = None
     logger: Any | None = None
     trace_sink: Any | None = None
     trace_output_dir: Path | None = None
@@ -159,14 +157,6 @@ class CollectionAgent(BaseAgent):
         self.verification_entity_extract_tool = self.verification_entity_extract_tool or VerificationEntityExtractTool()
         self.verification_memory_verify_tool = self.verification_memory_verify_tool or VerificationMemoryVerifyTool()
         deterministic_fallback_enabled = bool(self.allow_deterministic_fallback and not self.strict_llm_mode)
-        self.planner = self.planner or CollectionPlanner(
-            llm=self.llm,
-            intent_system_prompt=str(intent_prompts.get("system_prompt", "")),
-            intent_user_prompt=str(intent_prompts.get("user_prompt", "")),
-            require_llm=not deterministic_fallback_enabled,
-            allow_rule_fallback=deterministic_fallback_enabled,
-        )
-
         self.memory_retrieve_node = MemoryRetrieveNode(tool_registry=self.tool_registry, memories=[WorkingMemory])
         self.relevance_intent_node = RelevanceIntentNode(
             llm=self.llm,
@@ -193,8 +183,7 @@ class CollectionAgent(BaseAgent):
             system_prompt=str(intent_prompts.get("post_memory_plan_system_prompt", "")),
             user_prompt=str(intent_prompts.get("post_memory_plan_user_prompt", "")),
         )
-        self.react_node = ReactNode(
-            planner=self.planner,
+        self.react_node = CollectionReactNode(
             llm=self.llm,
             system_prompt=str(react_prompts.get("system_prompt", "")),
             user_prompt=str(react_prompts.get("user_prompt", "{user_input}")),
