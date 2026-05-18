@@ -461,10 +461,28 @@ class PlanProposalNode(BaseGraphNode):
             existing_plan=existing_plan,
         )
         if llm_proposal is not None:
-            return llm_proposal
+            return self._validate_and_repair_proposal(
+                proposal=llm_proposal,
+                state=state,
+                memory_state=memory_state,
+            )
         if self.strict_llm_mode:
+            llm_error = str(self.last_debug.get("llm_error", "")).strip()
+            lowered = llm_error.lower()
+            if (
+                "rate limit" in lowered
+                or "rate_limit_exceeded" in lowered
+                or "error code: 429" in lowered
+                or "tokens per day" in lowered
+                or "tpm" in lowered
+            ):
+                raise RuntimeError(
+                    "PlanProposalNode rate-limited by provider while strict_llm_mode is enabled. "
+                    f"Underlying error: {llm_error}"
+                )
             raise RuntimeError(
-                "PlanProposalNode failed to produce LLM structured output while strict_llm_mode is enabled."
+                "PlanProposalNode failed to produce LLM structured output while strict_llm_mode is enabled. "
+                f"Underlying error: {llm_error or 'unknown'}"
             )
 
         decision_text = str(getattr(decision, "response_text", "") or "").strip()
@@ -487,7 +505,7 @@ class PlanProposalNode(BaseGraphNode):
                 "and request one concrete next action."
             )
 
-        return {
+        fallback = {
             "target": target,
             "intent": "generic_plan",
             "plan_outline": plan_outline,
@@ -503,6 +521,11 @@ class PlanProposalNode(BaseGraphNode):
             },
             "next_actions": self._derive_next_actions(user_input=user_input, mode=mode, observed_tool=observed_tool),
         }
+        return self._validate_and_repair_proposal(
+            proposal=fallback,
+            state=state,
+            memory_state=memory_state,
+        )
 
     def _build_plan_proposal_with_llm(
         self,
@@ -532,8 +555,19 @@ class PlanProposalNode(BaseGraphNode):
                 "arguments": getattr(getattr(decision, "tool_call", None), "arguments", {}) or {},
             },
         }
-        obs_tool = str(observation.get("tool_name", "")) if isinstance(observation, dict) else ""
-        obs_output = observation.get("output", {}) if isinstance(observation, dict) else {}
+        obs_tool = ""
+        obs_output: dict[str, Any] = {}
+        reflection_feedback: dict[str, Any] = {}
+        if isinstance(observation, dict):
+            if isinstance(observation.get("tool_phase"), dict):
+                tool_phase = observation.get("tool_phase", {})
+                obs_tool = str(tool_phase.get("tool_name", "") or "").strip()
+                obs_output = tool_phase.get("output", {}) if isinstance(tool_phase.get("output"), dict) else {}
+            else:
+                obs_tool = str(observation.get("tool_name", "") or "").strip()
+                obs_output = observation.get("output", {}) if isinstance(observation.get("output"), dict) else {}
+            if isinstance(observation.get("reflection_feedback"), dict):
+                reflection_feedback = dict(observation.get("reflection_feedback", {}))
 
         customer_context_json = json.dumps(
             {
@@ -575,6 +609,7 @@ class PlanProposalNode(BaseGraphNode):
             "decision_payload_json": json.dumps(decision_payload, ensure_ascii=True, default=str),
             "obs_tool": obs_tool,
             "obs_output_json": self._json_compact(obs_output, max_chars=900),
+            "reflection_feedback_json": self._json_compact(reflection_feedback, max_chars=700),
             "customer_context_json": customer_context_json,
             "verification_context_json": verification_context_json,
             "entities_context_json": entities_context_json,
@@ -624,6 +659,7 @@ class PlanProposalNode(BaseGraphNode):
                     },
                     max_chars=350,
                 ),
+                "reflection_feedback_json": self._json_compact(reflection_feedback, max_chars=500),
                 "customer_context_json": customer_context_json,
                 "verification_context_json": verification_context_json,
                 "entities_context_json": self._json_compact(
@@ -673,7 +709,86 @@ class PlanProposalNode(BaseGraphNode):
             proposal["next_actions"] = self._derive_next_actions(
                 user_input=user_input, mode=mode, observed_tool=obs_tool
             )
-        return proposal
+        return self._validate_and_repair_proposal(
+            proposal=proposal,
+            state=state,
+            memory_state=memory_state,
+        )
+
+    def _validate_and_repair_proposal(
+        self,
+        *,
+        proposal: dict[str, Any],
+        state: AgentState,
+        memory_state: dict[str, Any],
+    ) -> dict[str, Any]:
+        patched = dict(proposal) if isinstance(proposal, dict) else {}
+        warnings: list[str] = []
+        identity_verified = bool(memory_state.get("identity_verified", False))
+        verification_entities = (
+            state.get("verification_entities")
+            if isinstance(state.get("verification_entities"), dict)
+            else {}
+        )
+        missing_fields_state = state.get("verification_missing_fields")
+        if isinstance(missing_fields_state, list):
+            missing_fields = [str(x).strip() for x in missing_fields_state if str(x).strip()]
+        else:
+            required = memory_state.get("active_verification_required_fields")
+            required_fields = [str(x).strip() for x in required if str(x).strip()] if isinstance(required, list) else []
+            missing_fields = [f for f in required_fields if not str(verification_entities.get(f, "")).strip()]
+
+        if not identity_verified and missing_fields:
+            next_actions = patched.get("next_actions")
+            next_actions_list = [str(x).strip() for x in next_actions if str(x).strip()] if isinstance(next_actions, list) else []
+            if "ask_for_verification" not in [x.lower() for x in next_actions_list]:
+                next_actions_list.insert(0, "ask_for_verification")
+                warnings.append("Inserted ask_for_verification into next_actions while identity_verified=false.")
+            patched["next_actions"] = next_actions_list
+
+            tree_update = patched.get("plan_tree_update")
+            if not isinstance(tree_update, dict):
+                tree_update = {}
+                patched["plan_tree_update"] = tree_update
+            selected_next = str(tree_update.get("selected_next_node_id", "")).strip().lower()
+            if "verification" not in selected_next:
+                tree_update["selected_next_node_id"] = "ask_for_verification"
+                warnings.append("Reset selected_next_node_id to ask_for_verification until verification completes.")
+
+            new_edges = tree_update.get("new_edges")
+            edge_list = list(new_edges) if isinstance(new_edges, list) else []
+            found_verification_edge = False
+            for idx, raw in enumerate(edge_list):
+                if not isinstance(raw, dict):
+                    continue
+                src = str(raw.get("from", "")).strip().lower()
+                dst = str(raw.get("to", "")).strip().lower()
+                if src == "verify_identity" and dst == "ask_for_verification":
+                    edge_list[idx] = {
+                        "from": "verify_identity",
+                        "to": "ask_for_verification",
+                        "condition": "identity_verified=false",
+                    }
+                    found_verification_edge = True
+                    warnings.append("Normalized verification edge condition to identity_verified=false.")
+            if not found_verification_edge:
+                edge_list.append(
+                    {
+                        "from": "verify_identity",
+                        "to": "ask_for_verification",
+                        "condition": "identity_verified=false",
+                    }
+                )
+                warnings.append("Added missing verification edge verify_identity -> ask_for_verification.")
+            tree_update["new_edges"] = edge_list
+
+            draft_response = str(patched.get("draft_response", "")).strip()
+            if draft_response and re.search(r"\boverdue amount\b|\binr\b|\bemi\b", draft_response, re.IGNORECASE):
+                warnings.append("Draft response contains dues before verification completion; response node will guard this.")
+
+        if warnings:
+            patched["plan_validation_warnings"] = warnings
+        return patched
 
     @staticmethod
     def _render_prompt_template(template: str, values: dict[str, Any]) -> str:

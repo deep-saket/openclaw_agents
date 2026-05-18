@@ -732,6 +732,15 @@ function pickFirstNonEmptyString(values) {
   return "";
 }
 
+function pickFirstPresentValue(values) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string" && !value.trim()) continue;
+    return value;
+  }
+  return null;
+}
+
 function extractNodePromptResponse(entry) {
   const raw = (entry && entry.output && typeof entry.output === "object") ? entry.output : {};
   const before = (entry && entry.state_before && typeof entry.state_before === "object") ? entry.state_before : {};
@@ -764,7 +773,7 @@ function extractNodePromptResponse(entry) {
     after.response,
   ]);
 
-  const llmResponse = pickFirstNonEmptyString([
+  const llmResponse = pickFirstPresentValue([
     update.llm_response,
     raw.raw_response,
     raw.llm_response,
@@ -778,6 +787,15 @@ function extractNodePromptResponse(entry) {
     after.llm_error,
   ]);
 
+  const llmStatus = (() => {
+    const source = String(update.entity_extraction_source || "").trim().toLowerCase();
+    if (llmError) return "error";
+    if (llmResponse !== null) return "used_structured_output";
+    if (source === "callback_fallback") return "skipped_callback_fallback";
+    if (prompt || systemPrompt) return "prompt_rendered_no_output";
+    return "not_applicable";
+  })();
+
   const messages = Array.isArray(raw.messages) ? raw.messages : [];
   const toolCalls = Array.isArray(raw.tool_calls) ? raw.tool_calls : [];
 
@@ -787,8 +805,9 @@ function extractNodePromptResponse(entry) {
     prompt: prompt || null,
     system_prompt: systemPrompt || null,
     response: response || null,
-    llm_response: llmResponse || null,
+    llm_response: llmResponse,
     llm_error: llmError || null,
+    llm_status: llmStatus,
     messages: messages.length ? messages : null,
     tool_calls: toolCalls.length ? toolCalls : null,
   };

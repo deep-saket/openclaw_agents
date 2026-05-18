@@ -119,7 +119,6 @@ class CollectionAgent(BaseAgent):
             "continue": "reflect",
         },
         "reflect": {
-            "retry_react": "react",
             "retry_plan_proposal": "plan_proposal",
             "complete": "relevant_response",
         },
@@ -261,6 +260,7 @@ class CollectionAgent(BaseAgent):
         self.reflect_node = CollectionReflectNode(
             llm=self.llm,
             system_prompt=str(reflect_prompts.get("system_prompt", "")),
+            user_prompt=str(reflect_prompts.get("user_prompt", "")),
             complete_route="complete",
             incomplete_route="incomplete",
             merge_feedback_into_observation=True,
@@ -296,8 +296,9 @@ class CollectionAgent(BaseAgent):
             llm=self.llm,
             extract_callback=self._capture_verification_evidence,
             reconcile_callback=self._reconcile_verification_from_collected,
-            # Strict LLM-first path; deterministic callback remains disabled by default.
-            allow_callback_fallback=False,
+            # LLM-first extraction; if required verification fields are still missing,
+            # deterministic extractor backfills only to prevent verification dead-ends.
+            allow_callback_fallback=True,
             system_prompt=str(entity_extract_prompts.get("system_prompt", "")),
             user_prompt=str(entity_extract_prompts.get("user_prompt", "")),
         )
@@ -394,7 +395,6 @@ class CollectionAgent(BaseAgent):
             "reflect",
             self.reflect_node.route,
             {
-                "retry_react": "react",
                 "retry_plan_proposal": "plan_proposal",
                 "complete": "relevant_response",
             },

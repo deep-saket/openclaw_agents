@@ -40,6 +40,14 @@ class CollectionGraphState(AgentState, total=False):
     verification_entities: dict[str, Any]
     verification_missing_fields: list[str]
     identity_verified: bool
+    reflection_retry_count: int
+    reflection_plan_retry_count: int
+    reflection_feedback: dict[str, Any]
+    reflection_complete: bool
+    failure_type: str
+    correction_hints: list[str]
+    retry_target: str
+    plan_validation_warnings: list[str]
 
 
 CollectionNodeUpdate = CollectionGraphState

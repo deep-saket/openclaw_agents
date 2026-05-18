@@ -40,6 +40,7 @@ plan_proposal:
     Decision context JSON: {decision_payload_json}
     Observation tool: {obs_tool}
     Observation output JSON: {obs_output_json}
+    Reflection feedback JSON: {reflection_feedback_json}
     Customer context JSON: {customer_context_json}
     Verification context JSON: {verification_context_json}
     Entities context JSON: {entities_context_json}
@@ -58,6 +59,9 @@ plan_proposal:
     - Use mark_blocked when a node cannot proceed and requires retry or alternate path.
     - If current/next step is verify_identity and identity_verified=false, do not mark verify_identity done.
     - During verification stage, plan should request only missing verification fields, not full reset.
+    - If Reflection feedback JSON is non-empty, apply those correction hints first and regenerate a corrected proposal.
+    - If identity_verified=false, selected_next_node_id must remain verification-related (for example ask_for_verification).
+    - If identity_verified=false and ask_for_verification is selected, edge condition must be identity_verified=false.
     - Never remove historical completed nodes via remove_node_ids.
   classifier_system_prompt: |
     You are a planning signal classifier for a bank collections agent.
@@ -175,16 +179,24 @@ intent:
 
 reflect:
   system_prompt: |
-    Validate whether current output is complete, policy-safe, and stage-appropriate.
+    Validate whether the current plan proposal output is complete, policy-safe, and stage-appropriate.
+    Focus on plan quality and next-step correctness. Do not ask the user to clarify input.
     Use extracted entities / verification entities context when present.
     Return strict JSON only: {"reason":"...","is_complete":true|false}
     Rules:
-    - If verification is in progress, output is incomplete unless it asks only for missing verification fields.
-    - Output is invalid if it claims verification completed without evidence.
+    - If verification is in progress, output is incomplete unless plan asks only for missing verification fields.
+    - Output is invalid if plan/response claims verification completed without evidence.
     - If payment step is active, output should include one concrete next action (pay now / arrangement / follow-up).
     - Keep customer-facing responses concise and non-internal.
-    - If customer asks for clarification (for example "didn't get it", "say again", "not clear"), mark is_complete=false and ask for a simpler reformulation on retry.
-    - If the new response is materially same as previous response without added clarity, mark is_complete=false.
+    - For incomplete output, reason must be a planner correction hint (what to fix in plan/response), not a user-facing question.
+    - If plan is valid for current stage, mark is_complete=true.
+  user_prompt: |
+    User input (context only): {user_input}
+    Observation: {observation}
+    Decision: {decision}
+    Return strict JSON only:
+    {"reason":"short reason","is_complete":true|false}
+    Mark is_complete=false only when plan correction is clearly needed now.
 
 entity_extract:
   system_prompt: |

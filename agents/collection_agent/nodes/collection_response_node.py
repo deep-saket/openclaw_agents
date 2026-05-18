@@ -60,6 +60,8 @@ class CollectionResponseNode(ResponseNode):
         update["system_prompt"] = self.last_render_debug.get("system_prompt")
         update["llm_response"] = self.last_render_debug.get("llm_response")
         update["llm_error"] = self.last_render_debug.get("llm_error")
+        if self.last_render_debug.get("fallback_reason"):
+            update["fallback_reason"] = self.last_render_debug.get("fallback_reason")
         return update
 
     def route(self, state: AgentState) -> str:
@@ -212,7 +214,11 @@ class CollectionResponseNode(ResponseNode):
             )
             self.last_render_debug["llm_response"] = payload.model_dump(mode="json")
         except Exception as exc:
-            self.last_render_debug["llm_error"] = str(exc)
+            err_text = str(exc)
+            self.last_render_debug["llm_error"] = err_text
+            if self._is_provider_rate_limit_error(err_text):
+                self.last_render_debug["fallback_reason"] = "provider_rate_limit"
+                return None
             if self.strict_llm_mode:
                 raise RuntimeError(
                     f"Structured response generation failed: {exc}"
@@ -630,6 +636,17 @@ class CollectionResponseNode(ResponseNode):
             ).strip()
 
         return rendered
+
+    @staticmethod
+    def _is_provider_rate_limit_error(error_text: str) -> bool:
+        lowered = str(error_text or "").lower()
+        return (
+            "rate limit" in lowered
+            or "rate_limit_exceeded" in lowered
+            or "error code: 429" in lowered
+            or "tokens per day" in lowered
+            or "tpm" in lowered
+        )
 
     @staticmethod
     def _truncate_text(text: str, max_chars: int) -> str:

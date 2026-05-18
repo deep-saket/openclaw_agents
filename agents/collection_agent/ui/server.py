@@ -21,6 +21,7 @@ from typing import Any, Callable
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from agents.collection_agent.agent import CollectionAgent
@@ -351,20 +352,50 @@ class CollectionDebugRuntime:
             "Do not disclose overdue amount, dues details, or payment options before verification."
         )
 
-        turn = self.run_turn(
-            RunTurnRequest(
-                message=opener_input,
-                session_id=session_id,
-                soft_cap=request.soft_cap,
-                hard_cap=request.hard_cap,
-            )
+        # Keep demo initialization deterministic and fast. The opening pitch is
+        # rendered statically here; subsequent turns use full agent execution.
+        opener_message = (
+            f"Hello {str(matched['customer']['name'])}, this is Alex from the bank's collections team. "
+            "I am calling regarding your loan account dues. "
+            "Before I share details, please confirm your date of birth (YYYY-MM-DD) "
+            "and your registered phone number."
         )
-        return {
+        memory.set_state(last_agent_response=opener_message, last_response_target="customer", turn_index=1)
+        turn = {
+            "session_id": session_id,
+            "final_response": opener_message,
+            "final_target": "customer",
+            "hops": [
+                {
+                    "hop": 1,
+                    "input": opener_input,
+                    "response": opener_message,
+                    "response_target": "customer",
+                    "elapsed_ms": 0.0,
+                    "node_history": [],
+                    "conversation_phase": "demo_init",
+                    "thinking": ["demo-init: static opener returned (LLM not invoked)."],
+                    "events": [],
+                    "trace_summary": {},
+                    "state": {},
+                    "working_memory_state": self._memory_state(session_id=session_id),
+                }
+            ],
+            "final_state": {
+                "demo_init": {
+                    "mode": "static_opener",
+                    "llm_invoked": False,
+                }
+            },
+            "final_working_memory_state": self._memory_state(session_id=session_id),
+            "llm": self._llm_meta(),
+        }
+        return _json_safe({
             "session_id": session_id,
             "user": _json_safe(matched),
             "opener_input": opener_input,
             "turn": turn,
-        }
+        })
 
     def reset_conversation(self, request: ResetConversationRequest) -> dict[str, Any]:
         user_code = request.user_code.strip().lower()
@@ -877,7 +908,7 @@ def create_router(runtime: CollectionDebugRuntime) -> APIRouter:
 
     @router.post("/run-turn")
     async def run_turn(body: RunTurnRequest) -> dict[str, Any]:
-        return runtime.run_turn(body)
+        return await run_in_threadpool(runtime.run_turn, body)
 
     @router.get("/run-turn-stream")
     async def run_turn_stream(
@@ -909,21 +940,21 @@ def create_router(runtime: CollectionDebugRuntime) -> APIRouter:
     @router.post("/start-conversation")
     async def start_conversation(body: StartConversationRequest) -> dict[str, Any]:
         try:
-            return runtime.start_conversation(body)
+            return await run_in_threadpool(runtime.start_conversation, body)
         except Exception as exc:
             return {"error": str(exc), "users": runtime.list_demo_users()}
 
     @router.post("/reset-conversation")
     async def reset_conversation(body: ResetConversationRequest) -> dict[str, Any]:
         try:
-            return runtime.reset_conversation(body)
+            return await run_in_threadpool(runtime.reset_conversation, body)
         except Exception as exc:
             return {"error": str(exc), "users": runtime.list_demo_users()}
 
     @router.post("/start-call")
     async def start_call(body: StartVoiceCallRequest) -> dict[str, Any]:
         try:
-            return runtime.start_voice_call(body)
+            return await run_in_threadpool(runtime.start_voice_call, body)
         except Exception as exc:
             return {"error": str(exc), "users": runtime.list_demo_users()}
 
@@ -933,7 +964,7 @@ def create_router(runtime: CollectionDebugRuntime) -> APIRouter:
 
     @router.post("/voice/stop")
     async def stop_voice(body: StopVoiceCallRequest) -> dict[str, Any]:
-        return runtime.stop_voice_call(force=bool(body.force))
+        return await run_in_threadpool(runtime.stop_voice_call, force=bool(body.force))
 
     @router.get("/session/{session_id}/messages")
     async def session_messages(session_id: str, limit: int = 120) -> dict[str, Any]:

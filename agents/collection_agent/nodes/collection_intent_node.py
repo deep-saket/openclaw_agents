@@ -25,6 +25,7 @@ class CollectionIntentNode(IntentNode):
 
     output_key: str = "intent"
     allow_deterministic_fallback: bool = False
+    allow_rate_limit_fallback: bool = True
     enable_relevance_guard: bool = True
 
     def classify(
@@ -76,7 +77,18 @@ class CollectionIntentNode(IntentNode):
                 "_debug": debug_payload,
             }
         except Exception as exc:
-            debug_payload["llm_error"] = str(exc)
+            error_text = str(exc)
+            debug_payload["llm_error"] = error_text
+            if self.allow_rate_limit_fallback and self._is_provider_rate_limit_error(error_text):
+                return {
+                    "intent": self.default_intent,
+                    "confidence": 0.0,
+                    "reason": "LLM provider rate limit hit; using default route-safe intent fallback.",
+                    "_debug": {
+                        **debug_payload,
+                        "fallback_reason": "provider_rate_limit",
+                    },
+                }
             if not self.allow_deterministic_fallback:
                 raise RuntimeError(
                     "CollectionIntentNode failed to produce structured LLM intent output. "
@@ -119,6 +131,8 @@ class CollectionIntentNode(IntentNode):
             "llm_response": debug_payload.get("llm_response"),
             "llm_error": debug_payload.get("llm_error"),
         }
+        if isinstance(debug_payload, dict) and debug_payload.get("fallback_reason"):
+            update["fallback_reason"] = debug_payload.get("fallback_reason")
         intent_name = self._normalize_intent_name(intent.get("intent") if isinstance(intent, dict) else None)
         mapped_response = self._lookup_mapped_value(self.response_map, intent_name)
         if mapped_response is not None:
@@ -257,3 +271,15 @@ class CollectionIntentNode(IntentNode):
             r"\b\d{4}\b",
         )
         return any(re.search(pattern, normalized) for pattern in patterns)
+
+    @staticmethod
+    def _is_provider_rate_limit_error(error_text: str) -> bool:
+        lowered = str(error_text or "").lower()
+        return (
+            "rate limit" in lowered
+            or "rate_limit_exceeded" in lowered
+            or "error code: 429" in lowered
+            or "tokens per day" in lowered
+            or "tpm" in lowered
+            or "requests per minute" in lowered
+        )

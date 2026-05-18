@@ -1,27 +1,25 @@
 {
-  "trace_id": "43c832da-fb9d-48dc-9ed6-f7d0702eadb5",
+  "trace_id": "b438ebe4-ed8a-4b5a-8339-f26e08674eb4",
   "agent_name": "collection_agent",
   "session_id": "collection-user_a",
-  "user_input": "Start outbound collections call now. Customer=Aditi Sharma customer_id=CUST-2001 case_id=COLL-1001 overdue_amount=12500 Generate the first call pitch by introducing yourself and requesting identity verification only. Do not disclose overdue amount, dues details, or payment options before verification.",
-  "status": "completed",
-  "started_at": "2026-05-17T21:27:27.763211+00:00",
-  "finished_at": "2026-05-17T21:27:51.362791+00:00",
-  "error": null,
+  "user_input": "Hii Alex!! This is Aditi",
+  "status": "failed",
+  "started_at": "2026-05-18T04:24:45.475976+00:00",
+  "finished_at": "2026-05-18T04:25:40.884461+00:00",
+  "error": "PlanProposalNode failed to produce LLM structured output while strict_llm_mode is enabled.",
   "summary": {
-    "trace_id": "43c832da-fb9d-48dc-9ed6-f7d0702eadb5",
+    "trace_id": "b438ebe4-ed8a-4b5a-8339-f26e08674eb4",
     "agent_name": "collection_agent",
     "session_id": "collection-user_a",
-    "status": "completed",
+    "status": "failed",
     "node_hits": [
       "relevance_intent",
       "entity_extract",
       "pre_plan_intent",
-      "plan_proposal",
-      "reflect",
-      "relevant_response"
+      "plan_proposal"
     ],
-    "node_count": 6,
-    "llm_call_count": 6,
+    "node_count": 4,
+    "llm_call_count": 5,
     "tool_call_count": 0,
     "models": [
       "llama-3.1-8b-instant"
@@ -29,130 +27,102 @@
     "prompt_tokens": 0,
     "completion_tokens": 0,
     "total_tokens": 0,
-    "error": null
+    "error": "PlanProposalNode failed to produce LLM structured output while strict_llm_mode is enabled."
   },
   "nodes": [
     {
       "node_name": "relevance_intent",
       "status": "completed",
-      "started_at": "2026-05-17T21:27:27.763550+00:00",
-      "finished_at": "2026-05-17T21:27:27.999056+00:00",
-      "duration_ms": 235.506,
+      "started_at": "2026-05-18T04:24:45.477180+00:00",
+      "finished_at": "2026-05-18T04:24:46.096231+00:00",
+      "duration_ms": 619.051,
       "error": null
     },
     {
       "node_name": "entity_extract",
       "status": "completed",
-      "started_at": "2026-05-17T21:27:28.002255+00:00",
-      "finished_at": "2026-05-17T21:27:28.462771+00:00",
-      "duration_ms": 460.516,
+      "started_at": "2026-05-18T04:24:46.097067+00:00",
+      "finished_at": "2026-05-18T04:24:46.639970+00:00",
+      "duration_ms": 542.903,
       "error": null
     },
     {
       "node_name": "pre_plan_intent",
       "status": "completed",
-      "started_at": "2026-05-17T21:27:28.463126+00:00",
-      "finished_at": "2026-05-17T21:27:28.675143+00:00",
-      "duration_ms": 212.017,
+      "started_at": "2026-05-18T04:24:46.640303+00:00",
+      "finished_at": "2026-05-18T04:24:47.216330+00:00",
+      "duration_ms": 576.027,
       "error": null
     },
     {
       "node_name": "plan_proposal",
-      "status": "completed",
-      "started_at": "2026-05-17T21:27:28.676445+00:00",
-      "finished_at": "2026-05-17T21:27:29.869491+00:00",
-      "duration_ms": 1193.046,
-      "error": null
-    },
-    {
-      "node_name": "reflect",
-      "status": "completed",
-      "started_at": "2026-05-17T21:27:29.869946+00:00",
-      "finished_at": "2026-05-17T21:27:29.883445+00:00",
-      "duration_ms": 13.499,
-      "error": null
-    },
-    {
-      "node_name": "relevant_response",
-      "status": "completed",
-      "started_at": "2026-05-17T21:27:29.883743+00:00",
-      "finished_at": "2026-05-17T21:27:51.347056+00:00",
-      "duration_ms": 21463.313,
-      "error": null
+      "status": "failed",
+      "started_at": "2026-05-18T04:24:47.217089+00:00",
+      "finished_at": "2026-05-18T04:25:40.883856+00:00",
+      "duration_ms": 53666.767,
+      "error": "PlanProposalNode failed to produce LLM structured output while strict_llm_mode is enabled."
     }
   ],
   "llm_calls": [
     {
-      "call_id": "217bc5cb-e1ec-4f25-84ca-cae7eeb2b816",
+      "call_id": "bbd7d58a-0eb0-4f0e-ba55-d87a7bddc1f0",
       "node_name": "relevance_intent",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:27:27.998799+00:00",
-      "finished_at": "2026-05-17T21:27:27.998799+00:00",
-      "duration_ms": 226.412
+      "started_at": "2026-05-18T04:24:46.095924+00:00",
+      "finished_at": "2026-05-18T04:24:46.095924+00:00",
+      "duration_ms": 606.801
     },
     {
-      "call_id": "60c45a02-1dab-4756-b944-6ced91445dd4",
+      "call_id": "443d4aba-bbe6-49ee-8e16-c6f070951550",
       "node_name": "entity_extract",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:27:28.426985+00:00",
-      "finished_at": "2026-05-17T21:27:28.426985+00:00",
-      "duration_ms": 424.627
+      "started_at": "2026-05-18T04:24:46.570586+00:00",
+      "finished_at": "2026-05-18T04:24:46.570586+00:00",
+      "duration_ms": 473.415
     },
     {
-      "call_id": "1ba4369e-4fcf-47e9-b565-eafe55cc3cf7",
+      "call_id": "8571a328-a989-42bb-8028-2d72b465c547",
       "node_name": "pre_plan_intent",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:27:28.674932+00:00",
-      "finished_at": "2026-05-17T21:27:28.674932+00:00",
-      "duration_ms": 200.081
+      "started_at": "2026-05-18T04:24:47.216168+00:00",
+      "finished_at": "2026-05-18T04:24:47.216168+00:00",
+      "duration_ms": 564.085
     },
     {
-      "call_id": "83f98ed9-4cbc-4872-a0aa-1af95b0e56b6",
+      "call_id": "69a9714e-7656-4e95-baa9-f336c70cedc7",
       "node_name": "plan_proposal",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:27:29.201224+00:00",
-      "finished_at": "2026-05-17T21:27:29.201224+00:00",
-      "duration_ms": 504.685
+      "started_at": "2026-05-18T04:24:47.727082+00:00",
+      "finished_at": "2026-05-18T04:24:47.727082+00:00",
+      "duration_ms": 487.772
     },
     {
-      "call_id": "841033b4-4898-4191-af70-764ab0660278",
+      "call_id": "2b0dec66-0bba-459c-920e-08dd90a264b9",
       "node_name": "plan_proposal",
       "model_name": "llama-3.1-8b-instant",
       "call_kind": "generate",
       "prompt_tokens": null,
       "completion_tokens": null,
       "total_tokens": null,
-      "started_at": "2026-05-17T21:27:29.851282+00:00",
-      "finished_at": "2026-05-17T21:27:29.851282+00:00",
-      "duration_ms": 649.63
-    },
-    {
-      "call_id": "2fe99b54-65aa-43bd-8274-031003ca94c9",
-      "node_name": "relevant_response",
-      "model_name": "llama-3.1-8b-instant",
-      "call_kind": "generate",
-      "prompt_tokens": null,
-      "completion_tokens": null,
-      "total_tokens": null,
-      "started_at": "2026-05-17T21:27:51.346929+00:00",
-      "finished_at": "2026-05-17T21:27:51.346929+00:00",
-      "duration_ms": 21462.774
+      "started_at": "2026-05-18T04:25:39.668219+00:00",
+      "finished_at": "2026-05-18T04:25:39.668219+00:00",
+      "duration_ms": 51854.391
     }
   ],
   "tool_calls": []
