@@ -55,8 +55,9 @@ Keys:
 
 Interpretation:
 
-- `challenge` values are the source-of-truth for `customer_verify` checks
-- tools compare provided `challenge_answers` against this object
+- `challenge` values are the source-of-truth for iterative verification checks
+- `verify_dob` compares provided DOB against `challenge.dob`
+- `verify_mobile` compares provided phone against `challenge.phone`
 
 ## `policies.json`
 

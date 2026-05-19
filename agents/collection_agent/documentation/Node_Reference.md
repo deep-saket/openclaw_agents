@@ -78,18 +78,16 @@
   - `response_target`
   - `route`
 - Route map:
-  - `propose` -> `tool_execution`
   - `continue` -> `reflect`
 - Critical logic:
   - plan tree update, marker reconciliation, node progression
-  - strict verification marker gate (`verify_identity` requires `customer_verify.status=verified`)
+  - strict verification marker gate (`verify_identity` requires `verify_dob` + `verify_mobile` success for required fields)
 
 ### 10) `reflect`
 
 - Type: `CollectionReflectNode`
 - Output: `reflection_feedback`, completion route
 - Route map:
-  - `retry_react` -> `react`
   - `retry_plan_proposal` -> `plan_proposal`
   - `complete` -> `relevant_response`
 

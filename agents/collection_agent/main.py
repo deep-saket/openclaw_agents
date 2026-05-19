@@ -253,6 +253,17 @@ def _route_internal_turn(
             )
             return str(guard_state.get("response", response))
 
+        if target == "discount_planning_agent":
+            handoff_payload = state.get("handoff_payload") if isinstance(state.get("handoff_payload"), dict) else {}
+            recommendation = discount_agent.run(handoff_payload)
+            memory.set_state(
+                discount_recommendation=recommendation,
+                last_tool_used="discount_planning_handoff",
+            )
+            current_input = "Discount recommendation ready. Continue and respond to customer."
+            current_sender = "self"
+            continue
+
         if target == "self":
             current_input = response
             current_sender = "self"
@@ -390,6 +401,10 @@ def main() -> None:
         repository=CollectionRepository(runtime_dir=base_dir / "runtime"),
         data_store=CollectionDataStore(base_dir=base_dir),
         llm=llm,
+        verification_policy=(config.get("verification", {}) if isinstance(config.get("verification"), dict) else {}),
+        strict_llm_mode=bool(
+            (config.get("agent", {}) if isinstance(config.get("agent"), dict) else {}).get("strict_llm_mode", True)
+        ),
         trace_sink=trace_sink,
         trace_output_dir=base_dir / "runtime" / "traces",
     )

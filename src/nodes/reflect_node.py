@@ -47,24 +47,48 @@ class ReflectNode(BaseGraphNode):
     def execute(self, state: AgentState) -> NodeUpdate:
         """Runs reflection for the current graph state."""
         self._record_llm_usage(state, node_name="reflect")
-        observation = state.get("observation")
+        observations = list(state.get("observations", [])) if isinstance(state.get("observations"), list) else []
+        if not observations and isinstance(state.get("observation"), dict):
+            observations = [dict(state.get("observation", {}))]
+        observation = None
+        for item in reversed(observations):
+            if isinstance(item, dict):
+                observation = item
+                break
         decision = state.get("decision")
         self._store_reflection_log(observation=observation, decision=decision)
 
-        feedback = self._reflect(
+        reflection_result = self._reflect(
             user_input=state.get("user_input", ""),
             observation=observation,
             decision=decision,
         )
+        feedback = (
+            reflection_result.get("feedback")
+            if isinstance(reflection_result.get("feedback"), dict)
+            else {
+                "reason": self.default_reason,
+                "is_complete": self.default_is_complete,
+            }
+        )
         result: NodeUpdate = {
             "reflection_feedback": feedback,
             "reflection_complete": bool(feedback.get("is_complete", self.default_is_complete)),
+            "prompt": reflection_result.get("prompt"),
+            "system_prompt": reflection_result.get("system_prompt"),
+            "llm_response": reflection_result.get("llm_response"),
+            "llm_error": reflection_result.get("llm_error"),
+            "observations": observations,
         }
         if self.merge_feedback_into_observation:
-            result["observation"] = {
+            merged_observation = {
                 "tool_phase": observation,
                 "reflection_feedback": feedback,
             }
+            result["observation"] = merged_observation
+            merged_observations = [item for item in observations if isinstance(item, dict)]
+            merged_observations.append(merged_observation)
+            result["observations"] = merged_observations
         if self.emit_memory_update:
             result["memory_updates"] = [self._build_memory_update(state, feedback)]
         return result
@@ -105,8 +129,14 @@ class ReflectNode(BaseGraphNode):
         """Builds structured reflection output for the current graph state."""
         if self.llm is None:
             return {
-                "reason": self.default_reason if observation or decision else "No reflection context was available.",
-                "is_complete": self.default_is_complete,
+                "feedback": {
+                    "reason": self.default_reason if observation or decision else "No reflection context was available.",
+                    "is_complete": self.default_is_complete,
+                },
+                "prompt": None,
+                "system_prompt": self.system_prompt or "",
+                "llm_response": None,
+                "llm_error": None,
             }
         rendered_user_prompt = self._render_user_prompt(
             user_prompt=self.user_prompt
@@ -116,11 +146,38 @@ class ReflectNode(BaseGraphNode):
             observation=observation,
             decision=decision,
         )
-        raw = self.llm.generate(self.system_prompt or "", rendered_user_prompt).strip()
-        return self._parse_payload(raw)
+        system_prompt = self.system_prompt or ""
+        try:
+            raw = self.llm.generate(system_prompt, rendered_user_prompt).strip()
+            return {
+                "feedback": self._parse_payload(raw),
+                "prompt": rendered_user_prompt,
+                "system_prompt": system_prompt,
+                "llm_response": raw,
+                "llm_error": None,
+            }
+        except Exception as exc:
+            return {
+                "feedback": {
+                    "reason": f"Reflect LLM call failed: {str(exc).strip() or 'unknown_error'}",
+                    "is_complete": self.default_is_complete,
+                },
+                "prompt": rendered_user_prompt,
+                "system_prompt": system_prompt,
+                "llm_response": None,
+                "llm_error": str(exc),
+            }
 
     def _build_memory_update(self, state: AgentState, feedback: dict[str, Any]) -> dict[str, Any]:
         """Builds a reflection-memory update for a later MemoryNode."""
+        observations = list(state.get("observations", [])) if isinstance(state.get("observations"), list) else []
+        if not observations and isinstance(state.get("observation"), dict):
+            observations = [dict(state.get("observation", {}))]
+        latest_observation = None
+        for item in reversed(observations):
+            if isinstance(item, dict):
+                latest_observation = item
+                break
         return {
             "target": "reflection",
             "operation": "store",
@@ -130,7 +187,7 @@ class ReflectNode(BaseGraphNode):
                 "reasoning": {
                     "user_input": state.get("user_input", ""),
                     "decision": self._stringify(state.get("decision")),
-                    "observation": self._stringify(state.get("observation")),
+                    "observation": self._stringify(latest_observation),
                     "is_complete": bool(feedback.get("is_complete", self.default_is_complete)),
                 },
             },
@@ -149,7 +206,20 @@ class ReflectNode(BaseGraphNode):
                 "reason": raw or self.default_reason,
                 "is_complete": self.default_is_complete,
             }
-        payload = json.loads(match.group(0))
+        try:
+            payload = json.loads(match.group(0))
+        except Exception:
+            # Do not fail the graph on imperfect model JSON; recover heuristically.
+            lowered = str(raw or "").lower()
+            inferred_complete = self.default_is_complete
+            if re.search(r'"?is_complete"?\s*:\s*false', lowered):
+                inferred_complete = False
+            elif re.search(r'"?is_complete"?\s*:\s*true', lowered):
+                inferred_complete = True
+            return {
+                "reason": str(raw or self.default_reason).strip() or self.default_reason,
+                "is_complete": inferred_complete,
+            }
         return {
             "reason": str(payload.get("reason", "")).strip() or self.default_reason,
             "is_complete": bool(payload.get("is_complete", self.default_is_complete)),

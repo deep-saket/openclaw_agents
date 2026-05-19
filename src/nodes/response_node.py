@@ -73,15 +73,27 @@ class ResponseNode(BaseGraphNode):
             A partial state update containing the textual response.
         """
         self._record_llm_usage(state, node_name="response")
+        observations = list(state.get("observations", [])) if isinstance(state.get("observations"), list) else []
+        if not observations and isinstance(state.get("observation"), dict):
+            observations = [dict(state.get("observation", {}))]
+        latest_observation = None
+        for item in reversed(observations):
+            if isinstance(item, dict):
+                latest_observation = item
+                break
         decision = state.get("decision")
         response = self.plan(
             user_input=state["user_input"],
-            observation=state.get("observation"),
+            observation=latest_observation,
             response=(getattr(decision, "response_text", None) if decision is not None else None) or state.get("response"),
             system_prompt=self.system_prompt,
             user_prompt=self.user_prompt,
         )
-        return {"response": response}
+        return {
+            "response": response,
+            "observation": latest_observation,
+            "observations": observations,
+        }
 
     @staticmethod
     def _render_user_prompt(

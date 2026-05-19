@@ -95,41 +95,118 @@ Expected response:
 
 ## Collection Graph State Contract
 
-Collection agent now uses a dedicated state schema (`agents/collection_agent/state.py`) layered on top of the shared framework state.
+Collection Agent uses:
 
-### Collection-specific keys
+- Graph state (per turn/pass): `agents/collection_agent/state.py`
+- Session memory (persistent across turns): `memory.state` in `SessionStore`
 
-| Key | Purpose | First writer |
+Important: Graph state is rebuilt each run; session memory survives across turns.
+
+### 1) Turn lifecycle and baseline graph state
+
+`CollectionAgent.run_turn()` initializes baseline graph state before the graph starts:
+
+- `session_id`, `turn_id`, `user_input`
+- `message_source` (`customer`/`admin`/`self`)
+- `user_id`, `case_id`, `channel`
+- `memory` (session object)
+- `conversation_history` (copied from memory for this turn)
+- `observation=None`, `steps=0`
+- `node_history=[]`, `conversation_phase="turn_started"`
+- `tool_errors=[]`
+- `conversation_plan` (copied from `memory.state.active_conversation_plan` when present)
+- `turn_index`
+
+### 2) Graph-state keys you will see during execution
+
+| Key | Meaning | Typical writer |
 | --- | --- | --- |
-| `user_id` | Active customer id for this turn | `CollectionAgent.run_turn` |
-| `case_id` | Active case id for this turn | `CollectionAgent.run_turn` |
-| `channel` | Active communication channel | `CollectionAgent.run_turn` |
-| `relevance_intent` | Output of relevance gate | `relevance_intent` node |
-| `pre_plan_intent` | Output of pre-plan router | `pre_plan_intent` node |
-| `execution_path_intent` | Output of execution path router | `execution_path_intent` node |
-| `post_memory_plan_intent` | Output of post-memory router | `post_memory_plan_intent` node |
-| `node_history` | Per-turn node traversal list | wrapper in `CollectionAgent._wrap_node` |
-| `previous_node` | Last executed node before current node | wrapper in `CollectionAgent._wrap_node` |
-| `next_node` | Routed next node (or possible next nodes if route unresolved) | wrapper in `CollectionAgent._wrap_node` |
-| `conversation_phase` | Current processing phase label | wrapper in `CollectionAgent._wrap_node` |
-| `tool_errors` | Structured tool failure records | reserved (future hardening) |
-| `response_metadata` | Extra response controls/labels | reserved (future hardening) |
+| `relevance_intent` | Relevance classification payload (`intent`, `confidence`, `reason`) | `relevance_intent` |
+| `pre_plan_intent` | Pre-plan route intent (`plan`/`decide`) | `pre_plan_intent` |
+| `execution_path_intent` | Decide execution route (`need_memory`/`need_tool`) | `execution_path_intent` |
+| `post_memory_plan_intent` | Post-memory route intent (`plan`/`react`) | `post_memory_plan_intent` |
+| `intent` | Compatibility mirror of current intent payload | each intent node |
+| `route` | Current routing decision for the node | inferred in node wrapper |
+| `node_history` | Exact node traversal order for this run | node wrapper |
+| `previous_node` | Previous node in this run | node wrapper |
+| `next_node` | Resolved next node (or candidates) | node wrapper |
+| `conversation_phase` | Phase label (`entity_extraction`, `plan_proposal`, etc.) | node wrapper |
+| `decision` | ReAct decision object (tool call or direct response intent) | `react` |
+| `observation` | Tool execution observation payload | `tool_execution` |
+| `extracted_entities` | Session-level merged extracted entities | `entity_extract` |
+| `extracted_entities_turn` | Entities extracted in current turn only | `entity_extract` |
+| `extracted_entity_descriptions` | Descriptions/schema hints for extracted fields | `entity_extract` |
+| `extracted_entities_updated_fields` | Fields changed vs previous memory snapshot | `entity_extract` |
+| `verification_entities` | Verification-focused entity map (name/dob/phone, etc.) | `entity_extract`, `plan_proposal` |
+| `verification_missing_fields` | Verification fields still missing | `entity_extract`, `plan_proposal` |
+| `verification_verified_fields` | Verified verification fields | `plan_proposal` |
+| `identity_verified` | Whether verification is complete | `entity_extract`, `plan_proposal` |
+| `plan_proposal` | Planner proposal payload (target, outline, next actions, tree update) | `plan_proposal` |
+| `conversation_plan` | Current plan tree snapshot for this run | `plan_proposal` |
+| `routing_context.plan_origin` | Origin of planner invocation (`pre_plan_intent`, `post_memory_plan_intent`, `react`) | node wrapper |
+| `reflection_feedback` | Reflect validation payload (`reason`, `is_complete`) | `reflect` |
+| `reflection_complete` | Whether reflection accepted current proposal | `reflect` |
+| `reflection_retry_count` | Retry counter used by reflect loop guard | `reflect` |
+| `reflection_plan_retry_count` | Plan-specific retry counter | `reflect` |
+| `failure_type` | Reflection failure class (`none`, `plan_correction_needed`, etc.) | `reflect` |
+| `correction_hints` | Reflect hints for planner retry | `reflect` |
+| `retry_target` | Retry destination (`plan_proposal` or `none`) | `reflect` |
+| `response` | Final customer/system response text for this pass | `relevant_response` / `irrelevant_response` |
+| `response_target` | Routing target after graph (`customer`, `self`, `discount_planning_agent`) | `plan_proposal`, normalized in response/finalizer |
+| `additional_targets` | Optional extra recipients (for example memory helper) | `plan_proposal` |
+| `handoff_payload` | Payload for cross-agent handoff | `plan_proposal` |
+| `memory_helper_trigger` | Trigger payload for memory-helper follow-up | `plan_proposal` |
+| `conversation_history` | Bounded history also returned in output state | `relevant_response` |
+| `prompt` | Rendered prompt for the current node (debug) | node-specific |
+| `system_prompt` | Effective system prompt for the current node (debug) | node-specific |
+| `llm_response` | Structured/raw LLM output captured for debugging | node-specific |
+| `llm_error` | LLM exception text if generation failed | node-specific |
+| `llm_status` | `used_llm`, `llm_error`, `prompt_rendered_no_output`, or fallback markers | node wrapper / node-specific |
+| `fallback_reason` | Explicit fallback reason (for example provider rate-limit) | intent/response nodes |
 
-### Cross-node update ownership (active today)
+### 3) Node ownership map (who updates what)
 
-| State key(s) | Updated by |
+| Node | Primary graph-state updates |
 | --- | --- |
-| `relevance_intent`, `intent` | `relevance_intent` node (`CollectionIntentNode`) |
-| `pre_plan_intent`, `intent` | `pre_plan_intent` node (`CollectionIntentNode`) |
-| `execution_path_intent`, `intent` | `execution_path_intent` node (`CollectionIntentNode`) |
-| `post_memory_plan_intent`, `intent` | `post_memory_plan_intent` node (`CollectionIntentNode`) |
-| `memory_context`, `memory_retrievals` | `memory_retrieve` node |
-| `decision`, `steps` | `react` node |
-| `observation` | `tool_execution` node, then merged in `reflect` |
-| `route`, `response_target`, `handoff_payload`, `additional_targets`, `memory_helper_trigger` | `plan_proposal` node |
-| `reflection_feedback`, `reflection_complete` | `reflect` node |
-| `response`, `response_target` normalization | `relevant_response` / `irrelevant_response` nodes |
-| `node_history`, `previous_node`, `next_node`, `conversation_phase` | Node wrapper in `CollectionAgent._wrap_node` |
+| `relevance_intent` | `relevance_intent`, `intent`, debug keys (`prompt`, `llm_*`) |
+| `entity_extract` | `extracted_entities`, `extracted_entities_turn`, `extracted_entity_descriptions`, `verification_entities`, `verification_missing_fields`, `identity_verified`, `memory_context`, debug keys |
+| `pre_plan_intent` | `pre_plan_intent`, `intent`, debug keys |
+| `execution_path_intent` | `execution_path_intent`, `intent`, debug keys |
+| `memory_retrieve` | `memory_context`, `memory_retrievals` |
+| `post_memory_plan_intent` | `post_memory_plan_intent`, `intent`, debug keys |
+| `react` | `decision`, `steps` (+ debug keys when available) |
+| `tool_execution` | `observation` (+ writes session `tool_observations_history` via wrapper side-effect) |
+| `plan_proposal` | `plan_proposal`, `conversation_plan`, `route`, `response_target`, verification state mirrors, optional `handoff_payload`/`additional_targets` |
+| `reflect` | `reflection_feedback`, `reflection_complete`, retry/failure keys |
+| `relevant_response` | `response`, `response_target`, `conversation_history`, debug keys |
+| `irrelevant_response` | static `response`, `response_target` |
+| wrapper (`_wrap_node`) | `node_history`, `previous_node`, `next_node`, default `conversation_phase`, inferred `route`, computed `llm_status` |
+
+### 4) Persistent session memory keys (cross-turn)
+
+These are not graph-state-only, but they drive graph behavior every turn:
+
+- `active_user_id`, `active_case_id`, `active_channel`
+- `active_customer_name`, `active_overdue_amount`, `active_emi_amount`, `active_late_fee`, `active_dpd`
+- `active_verification_required_fields`, `active_verification_challenge`
+- `verification_entities`, `verification_collected`
+- `verification_verified_fields`, `verification_missing_fields`, `verification_last_status`
+- `identity_verified`
+- `active_conversation_plan`
+- `conversation_history` (bounded, currently last 40 entries)
+- `tool_observations_history` (bounded, currently last 40 entries)
+- `last_user_input`, `last_agent_response`, `last_response_target`, `turn_index`
+
+### 5) Quick debug checks
+
+When behavior looks wrong, inspect these first in order:
+
+1. `node_history` (did graph visit expected nodes?)
+2. `route`, `next_node`, `conversation_phase` (was routing correct?)
+3. `verification_entities`, `verification_missing_fields`, `identity_verified` (verification stage truth)
+4. `plan_proposal` + `conversation_plan.current_node_id` (planner stage)
+5. `reflection_feedback` + `reflection_complete` (retry loop reason)
+6. `response` + `response_target` (final output contract)
 
 ## Graph (single-pass)
 
@@ -139,7 +216,8 @@ flowchart TD
   IN -->|irrelevant/empty| IR["IrrelevantResponseNode\n- static response"]
   IR --> End["END"]
 
-  IN -->|relevant| PG["IntentNode (Pre-Plan Gate)\n- plan | decide"]
+  IN -->|relevant| EN["CollectionEntityExtractNode\n- LLM entity extraction\n- verification entity sync"]
+  EN --> PG["IntentNode (Pre-Plan Gate)\n- plan | decide"]
   PG -->|plan| PP["PlanProposalNode\n- plan advance / next action"]
   PG -->|decide| XP["IntentNode (Execution Path)\n- need_memory | need_tool"]
 
@@ -179,6 +257,11 @@ Graph assets:
 
 - Produces static out-of-scope response.
 - Terminates current graph pass.
+
+### `CollectionEntityExtractNode`
+
+- Runs immediately after relevance pass for in-scope turns.
+- Extracts entities (LLM-first), syncs verification entities, and updates verification state context before planning/routing.
 
 ### `IntentNode (Pre-Plan Gate)`
 
@@ -239,24 +322,28 @@ Implementation note:
 
 ## Tool Table
 
-| Tool | Description | Typical Inputs | Typical Output |
-| --- | --- | --- | --- |
-| `case_fetch` | Retrieves borrower case records with DPD, overdue amount, risk band, and loan linkage so the agent can anchor all downstream decisions in case facts. | `case_id?`, `customer_id?`, `portfolio_id?` | `cases[]`, `total` |
-| `case_prioritize` | Scores and orders delinquent cases so collections effort starts with highest-risk and highest-recovery opportunities. | `case_ids?`, `portfolio_id?` | `queue[]`, `total` |
-| `contact_attempt` | Logs outreach attempts across channels and preserves reachability history for follow-up strategy and compliance traceability. | `case_id`, `channel?`, `reached?` | `attempt_id`, `status` |
-| `customer_verify` | Performs challenge-based identity verification before exposing sensitive dues/policy/account details. | `case_id?`, `customer_id?`, `challenge_answers?` | `status`, `failed_attempts` |
-| `loan_policy_lookup` | Fetches policy constraints (waiver/restructure/promise windows) that govern which offers can legally be proposed. | `case_id?`, `loan_id?` | policy object |
-| `dues_explain_build` | Builds a borrower-friendly dues explanation that summarizes principal overdue, fees, and total payable amount. | `case_id` | `explanation`, `total_due` |
-| `offer_eligibility` | Checks baseline concession eligibility and produces initial direction (`waiver`, `restructure`, or `none`) under policy rules. | `case_id`, `hardship_flag?`, `requested_waiver_pct?` | `allowed`, `offer_type`, `approved_waiver_pct` |
-| `plan_propose` | Generates or revises repayment plan options (tenure + EMI) for hardship negotiation flows. | `case_id`, `revision_index?`, `max_installment_amount?` | `plan_id`, `monthly_amount`, `first_due_date`, `status` |
-| `payment_link_create` | Creates a payment link for borrowers ready to pay now on digital channels. | `case_id`, `amount`, `channel?` | `payment_reference_id`, `payment_url` |
-| `pay_by_phone_collect` | Simulates assisted payment collection over voice where borrower pays during the call. | `case_id`, `amount`, `consent_confirmed?` | `payment_id`, `status`, `receipt_reference` |
-| `payment_status_check` | Verifies whether initiated payment is completed/pending/failed and whether more action is required. | `payment_reference_id` | `status`, `needs_additional_action` |
-| `promise_capture` | Persists promise-to-pay commitments (amount/date/channel) for accountability and future tracking. | `case_id`, `promised_date`, `promised_amount` | `promise_id`, `status` |
-| `followup_schedule` | Creates reminder/callback tasks when immediate payment is not possible. | `case_id`, `scheduled_for`, `preferred_channel?` | `schedule_id` |
-| `disposition_update` | Writes final interaction disposition and notes for audit, reporting, and queue progression. | `case_id`, `disposition_code`, `notes` | `audit_id`, `updated_at` |
-| `channel_switch` | Moves conversation to requested channel (voice/sms/email/whatsapp) while retaining interaction context. | `case_id`, `from_channel?`, `to_channel?` | `switch_id`, `carried_context_summary` |
-| `human_escalation` | Escalates exceptional cases (fraud/legal/dispute/sensitive) to human specialist queues. | `case_id`, `reason` | `escalation_id`, `queue`, `priority` |
+| Tool | Description | Typical Inputs | Typical Output | Removed |
+| --- | --- | --- | --- | --- |
+| `case_fetch` | Retrieves borrower case records with DPD, overdue amount, risk band, and loan linkage so the agent can anchor all downstream decisions in case facts. | `case_id?`, `customer_id?`, `portfolio_id?` | `cases[]`, `total` | `yes` |
+| `case_prioritize` | Scores and orders delinquent cases so collections effort starts with highest-risk and highest-recovery opportunities. | `case_ids?`, `portfolio_id?` | `queue[]`, `total` | `yes` |
+| `contact_attempt` | Logs outreach attempts across channels and preserves reachability history for follow-up strategy and compliance traceability. | `case_id`, `channel?`, `reached?` | `attempt_id`, `status` | `yes` |
+| `verify_dob` | Verifies customer DOB against case-linked challenge record before sensitive dues disclosure. | `case_id?`, `customer_id?`, `dob` | `status`, `field=dob`, `failed_attempts` | `no` |
+| `verify_mobile` | Verifies customer mobile number against case-linked challenge record before sensitive dues disclosure. | `case_id?`, `customer_id?`, `phone` | `status`, `field=phone`, `failed_attempts` | `no` |
+| `entity_extract` | Extracts generic entities from raw input text (IDs, DOB, phone, PAN-last4, ZIP, name) for downstream orchestration/state updates. | `text` | `entities`, `entity_keys` | `no` |
+| `verification_entity_extract` | Filters raw text down to verification-relevant entities required for identity checks. | `text`, `required_fields`, `include_name?` | `entities`, `detected_fields`, `missing_fields` | `no` |
+| `verification_memory_verify` | Verifies extracted verification entities against expected challenge values cached in memory state. | `entities`, `expected_challenge`, `required_fields` | `status`, `matched`, `missing_fields`, `mismatched_fields` | `no` |
+| `loan_policy_lookup` | Fetches policy constraints (waiver/restructure/promise windows) that govern which offers can legally be proposed. | `case_id?`, `loan_id?` | policy object | `no` |
+| `dues_explain_build` | Builds a borrower-friendly dues explanation that summarizes principal overdue, fees, and total payable amount. | `case_id` | `explanation`, `total_due` | `yes` |
+| `offer_eligibility` | Checks baseline concession eligibility and produces initial direction (`waiver`, `restructure`, or `none`) under policy rules. | `case_id`, `hardship_flag?`, `requested_waiver_pct?` | `allowed`, `offer_type`, `approved_waiver_pct` | `no` |
+| `plan_propose` | Generates or revises repayment plan options (tenure + EMI) for hardship negotiation flows. | `case_id`, `revision_index?`, `max_installment_amount?` | `plan_id`, `monthly_amount`, `first_due_date`, `status` | `no` |
+| `payment_link_create` | Creates a payment link for borrowers ready to pay now on digital channels. | `case_id`, `amount`, `channel?` | `payment_reference_id`, `payment_url` | `no` |
+| `pay_by_phone_collect` | Simulates assisted payment collection over voice where borrower pays during the call. | `case_id`, `amount`, `consent_confirmed?` | `payment_id`, `status`, `receipt_reference` | `yes` |
+| `payment_status_check` | Verifies whether initiated payment is completed/pending/failed and whether more action is required. | `payment_reference_id` | `status`, `needs_additional_action` | `yes` |
+| `promise_capture` | Persists promise-to-pay commitments (amount/date/channel) for accountability and future tracking. | `case_id`, `promised_date`, `promised_amount` | `promise_id`, `status` | `no` |
+| `followup_schedule` | Creates reminder/callback tasks when immediate payment is not possible. | `case_id`, `scheduled_for`, `preferred_channel?` | `schedule_id` | `yes` |
+| `disposition_update` | Writes final interaction disposition and notes for audit, reporting, and queue progression. | `case_id`, `disposition_code`, `notes` | `audit_id`, `updated_at` | `yes` |
+| `channel_switch` | Moves conversation to requested channel (voice/sms/email/whatsapp) while retaining interaction context. | `case_id`, `from_channel?`, `to_channel?` | `switch_id`, `carried_context_summary` | `yes` |
+| `human_escalation` | Escalates exceptional cases (fraud/legal/dispute/sensitive) to human specialist queues. | `case_id`, `reason` | `escalation_id`, `queue`, `priority` | `no` |
 
 ## Specialist agent used outside graph
 
@@ -289,6 +376,19 @@ Defined in `agents/collection_agent/config.yml` under `voice_runtime`:
 - `pipecat.vad_enabled`
 - `pipecat.audio_in_sample_rate`
 - `pipecat.audio_out_sample_rate`
+
+### Verification pipeline config
+
+Defined in `agents/collection_agent/config.yml` under `verification`:
+
+- `required_fields`: which fields must match for verification (example: `dob`, `phone`)
+- `require_field_in_challenge`: enforce only fields available in challenge payload
+- `auto_verify_from_memory_evidence`: allow pre-graph memory verification to set `identity_verified`
+- `require_name_match_for_auto_verify`: require extracted name match with active customer
+- `tool_only_verification`: disable memory verification success; only `verify_dob`/`verify_mobile` can verify
+- `prefer_memory_verify`: verify against cached memory challenge first
+- `fallback_to_database_verify`: if memory verify is insufficient/failed, call database-backed `verify_dob`/`verify_mobile`
+- `fallback_on_insufficient_entities`: if `false`, skip DB verify when required entities are still missing
 
 ### Run
 

@@ -188,6 +188,9 @@ function resolveConversationPlan(state) {
   if (state.conversation_plan && typeof state.conversation_plan === "object") {
     return state.conversation_plan;
   }
+  if (state.active_conversation_plan && typeof state.active_conversation_plan === "object") {
+    return state.active_conversation_plan;
+  }
   if (state.plan_proposal && typeof state.plan_proposal === "object") {
     const embedded = state.plan_proposal.conversation_plan;
     if (embedded && typeof embedded === "object") return embedded;
@@ -195,7 +198,41 @@ function resolveConversationPlan(state) {
   return null;
 }
 
+function extractPlanSnapshotsFromConversationPlan(plan) {
+  if (!plan || typeof plan !== "object") return [];
+  const raw = Array.isArray(plan.timeline_snapshots) ? plan.timeline_snapshots : [];
+  const snapshots = [];
+  for (let idx = 0; idx < raw.length; idx += 1) {
+    const item = raw[idx];
+    if (!item || typeof item !== "object") continue;
+    const snapshotPlan = item.plan && typeof item.plan === "object" ? item.plan : null;
+    if (!snapshotPlan) continue;
+    const version = Number(item.version || snapshotPlan.version || 1);
+    const currentNode = String(item.current_node_id || snapshotPlan.current_node_id || "").trim();
+    const atUtc = String(item.at_utc || "").trim();
+    const update = item.update && typeof item.update === "object" ? item.update : {};
+    const origin = String(update.origin || "").trim();
+    const labelSuffix = origin ? ` (${origin})` : "";
+    const label = `Turn ${idx + 1} | v${version}${labelSuffix}`;
+    snapshots.push({
+      id: `timeline-${idx + 1}-${version}`,
+      label,
+      at_utc: atUtc,
+      current_node_id: currentNode,
+      plan: snapshotPlan,
+      response_target: String(snapshotPlan.last_response_target || ""),
+    });
+  }
+  return snapshots;
+}
+
 function extractPlanSnapshots(hops, finalState) {
+  const finalPlan = resolveConversationPlan(finalState);
+  const timelineSnapshots = extractPlanSnapshotsFromConversationPlan(finalPlan);
+  if (timelineSnapshots.length) {
+    return timelineSnapshots;
+  }
+
   const snapshots = [];
   for (const hop of hops || []) {
     const state = hop && typeof hop === "object" ? hop.state || {} : {};
@@ -208,7 +245,6 @@ function extractPlanSnapshots(hops, finalState) {
       response_target: String(hop.response_target || ""),
     });
   }
-  const finalPlan = resolveConversationPlan(finalState);
   if (finalPlan && typeof finalPlan === "object") {
     snapshots.push({
       id: "final",
@@ -218,6 +254,37 @@ function extractPlanSnapshots(hops, finalState) {
     });
   }
   return snapshots;
+}
+
+function snapshotFingerprint(snapshot) {
+  const plan = snapshot && typeof snapshot === "object" ? snapshot.plan || {} : {};
+  const version = Number(plan.version || snapshot.version || 0);
+  const status = String(plan.status || snapshot.status || "").trim();
+  const current = String(plan.current_node_id || snapshot.current_node_id || "").trim();
+  const nodeSig = Array.isArray(plan.nodes)
+    ? plan.nodes
+        .map((node) => `${String((node && node.id) || "")}:${String((node && node.status) || "")}`)
+        .join("|")
+    : "";
+  const ts = String(snapshot.at_utc || "").trim();
+  return `${version}::${status}::${current}::${nodeSig}::${ts}`;
+}
+
+function mergePlanSnapshots(existing, incoming) {
+  const base = Array.isArray(existing) ? existing : [];
+  const next = Array.isArray(incoming) ? incoming : [];
+  if (!next.length) return base;
+
+  const out = [];
+  const seen = new Set();
+  for (const item of [...base, ...next]) {
+    if (!item || typeof item !== "object") continue;
+    const fp = snapshotFingerprint(item);
+    if (seen.has(fp)) continue;
+    seen.add(fp);
+    out.push(item);
+  }
+  return out;
 }
 
 function normalizeStatus(value) {
@@ -665,6 +732,15 @@ function pickFirstNonEmptyString(values) {
   return "";
 }
 
+function pickFirstPresentValue(values) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string" && !value.trim()) continue;
+    return value;
+  }
+  return null;
+}
+
 function extractNodePromptResponse(entry) {
   const raw = (entry && entry.output && typeof entry.output === "object") ? entry.output : {};
   const before = (entry && entry.state_before && typeof entry.state_before === "object") ? entry.state_before : {};
@@ -672,6 +748,7 @@ function extractNodePromptResponse(entry) {
   const update = (entry && entry.state_update && typeof entry.state_update === "object") ? entry.state_update : {};
 
   const prompt = pickFirstNonEmptyString([
+    update.prompt,
     raw.prompt,
     raw.user_prompt,
     raw.input_prompt,
@@ -682,6 +759,7 @@ function extractNodePromptResponse(entry) {
   ]);
 
   const systemPrompt = pickFirstNonEmptyString([
+    update.system_prompt,
     raw.system_prompt,
     before.system_prompt,
     after.system_prompt,
@@ -695,13 +773,28 @@ function extractNodePromptResponse(entry) {
     after.response,
   ]);
 
-  const llmResponse = pickFirstNonEmptyString([
+  const llmResponse = pickFirstPresentValue([
+    update.llm_response,
     raw.raw_response,
     raw.llm_response,
     raw.generated_text,
     update.generated_text,
     after.generated_text,
   ]);
+  const llmError = pickFirstNonEmptyString([
+    update.llm_error,
+    raw.llm_error,
+    after.llm_error,
+  ]);
+
+  const llmStatus = (() => {
+    const source = String(update.entity_extraction_source || "").trim().toLowerCase();
+    if (llmError) return "error";
+    if (llmResponse !== null) return "used_structured_output";
+    if (source === "callback_fallback") return "skipped_callback_fallback";
+    if (prompt || systemPrompt) return "prompt_rendered_no_output";
+    return "not_applicable";
+  })();
 
   const messages = Array.isArray(raw.messages) ? raw.messages : [];
   const toolCalls = Array.isArray(raw.tool_calls) ? raw.tool_calls : [];
@@ -712,7 +805,9 @@ function extractNodePromptResponse(entry) {
     prompt: prompt || null,
     system_prompt: systemPrompt || null,
     response: response || null,
-    llm_response: llmResponse || null,
+    llm_response: llmResponse,
+    llm_error: llmError || null,
+    llm_status: llmStatus,
     messages: messages.length ? messages : null,
     tool_calls: toolCalls.length ? toolCalls : null,
   };
@@ -1011,7 +1106,8 @@ function renderTurnPayload(payload) {
   renderExecutionChart(payload.hops || []);
   renderExecutionNarrative(payload.hops || []);
   renderThinking(payload.hops || []);
-  viewState.planSnapshots = extractPlanSnapshots(payload.hops || [], payload.final_state || {});
+  const turnSnapshots = extractPlanSnapshots(payload.hops || [], payload.final_state || {});
+  viewState.planSnapshots = mergePlanSnapshots(viewState.planSnapshots, turnSnapshots);
   viewState.planSnapshotIndex = Math.max(0, viewState.planSnapshots.length - 1);
   renderPlanTree();
   renderNodeExplorer(payload.hops || []);
@@ -1021,6 +1117,26 @@ function renderTurnPayload(payload) {
     payload.final_working_memory_state || {},
   );
   updateLlmStatus(payload.llm || null);
+}
+
+async function syncPlanTimelineFromSession(sessionId) {
+  const sid = String(sessionId || "").trim();
+  if (!sid) return;
+  try {
+    const response = await fetch(`/api/session/${encodeURIComponent(sid)}`);
+    if (!response.ok) return;
+    const payload = await response.json();
+    const conversationState = payload && typeof payload === "object" ? payload.conversation_state || {} : {};
+    const plan = resolveConversationPlan(conversationState);
+    if (!plan || typeof plan !== "object") return;
+    const snapshots = extractPlanSnapshots([], { active_conversation_plan: plan, conversation_plan: plan });
+    if (!snapshots.length) return;
+    viewState.planSnapshots = snapshots;
+    viewState.planSnapshotIndex = Math.max(0, snapshots.length - 1);
+    renderPlanTree();
+  } catch (_error) {
+    // Keep UI resilient; stream payload rendering already happened.
+  }
 }
 
 function createLiveHop(hop, input) {
@@ -1054,8 +1170,11 @@ function refreshLivePanels() {
   renderExecutionChart(viewState.liveHops);
   renderExecutionNarrative(viewState.liveHops);
   renderThinking(viewState.liveHops);
-  viewState.planSnapshots = extractPlanSnapshots(viewState.liveHops, {});
-  viewState.planSnapshotIndex = Math.max(0, viewState.planSnapshots.length - 1);
+  const liveSnapshots = extractPlanSnapshots(viewState.liveHops, {});
+  if (liveSnapshots.length) {
+    viewState.planSnapshots = mergePlanSnapshots(viewState.planSnapshots, liveSnapshots);
+    viewState.planSnapshotIndex = Math.max(0, viewState.planSnapshots.length - 1);
+  }
   renderPlanTree();
   renderNodeExplorer(viewState.liveHops);
   renderSnapshots(viewState.liveHops, {}, {});
@@ -1119,6 +1238,7 @@ async function runUserTurn(message) {
       source.close();
       addBubble("agent", payload.final_response || "No response generated.");
       renderTurnPayload(payload);
+      syncPlanTimelineFromSession(String(payload.session_id || sessionId));
       setBusy(false);
       resolve();
     });
@@ -1204,6 +1324,8 @@ async function startDemoConversation(userEntry) {
   const sessionId = `collection-${userEntry.user_code}`;
   sessionIdInput.value = sessionId;
   setBusy(true);
+  viewState.planSnapshots = [];
+  viewState.planSnapshotIndex = 0;
 
   try {
     const response = await fetch("/api/start-conversation", {
@@ -1233,6 +1355,7 @@ async function startDemoConversation(userEntry) {
     const turn = payload.turn || {};
     addBubble("agent", turn.final_response || "No opener generated.");
     renderTurnPayload(turn);
+    syncPlanTimelineFromSession(sessionId);
   } catch (error) {
     addBubble("agent", `Error starting demo conversation: ${String(error)}`);
   } finally {
@@ -1320,6 +1443,7 @@ async function startDemoCall(userEntry) {
     if (payload.turn && payload.turn.final_response) {
       addBubble("agent", String(payload.turn.final_response));
       renderTurnPayload(payload.turn);
+      syncPlanTimelineFromSession(sessionId);
     }
 
     const voice = payload.voice || {};

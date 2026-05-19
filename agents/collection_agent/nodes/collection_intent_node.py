@@ -21,10 +21,29 @@ class _IntentPayload(BaseModel):
 
 @dataclass(slots=True)
 class CollectionIntentNode(IntentNode):
-    """Writes and routes intent payloads using a dedicated state key."""
+    """Writes and routes intent payloads using a dedicated state key.
+
+    State Keys Read:
+    - `user_input`
+    - `memory` (for `memory.state` hydration inside `_get_memory_state`)
+    - node-specific context keys returned by `_build_context_for_intent`
+
+    State Keys Write:
+    - `intent` (compatibility key)
+    - `<output_key>` (for example `relevance_intent`, `pre_plan_intent`, etc.)
+    - `prompt`
+    - `system_prompt`
+    - `llm_response`
+    - `llm_error`
+    - `llm_status`
+    - `fallback_reason` (optional)
+    - `response` (optional via `response_map`)
+    """
 
     output_key: str = "intent"
     allow_deterministic_fallback: bool = False
+    allow_rate_limit_fallback: bool = True
+    enable_relevance_guard: bool = True
 
     def classify(
         self,
@@ -45,9 +64,19 @@ class CollectionIntentNode(IntentNode):
         context_block = self._build_intent_context_block(context or {})
         if context_block:
             rendered_user_prompt = f"{rendered_user_prompt}\n\n{context_block}"
+        debug_payload: dict[str, Any] = {
+            "prompt": rendered_user_prompt,
+            "system_prompt": rendered_system_prompt or None,
+            "llm_response": None,
+            "llm_error": None,
+            "llm_status": "not_called",
+        }
 
         if self.llm is None:
-            return self._deterministic_classify(user_input=user_input, labels=labels)
+            deterministic = self._deterministic_classify(user_input=user_input, labels=labels)
+            debug_payload["llm_status"] = "fallback_no_llm"
+            deterministic["_debug"] = debug_payload
+            return deterministic
 
         try:
             runner = StructuredOutputRunner(self.llm, max_retries=2)
@@ -56,6 +85,8 @@ class CollectionIntentNode(IntentNode):
                 user_prompt=rendered_user_prompt,
                 schema=_IntentPayload,
             )
+            debug_payload["llm_status"] = "used_structured_output"
+            debug_payload["llm_response"] = payload.model_dump(mode="json")
             intent_name = self._normalize_intent_name(payload.intent)
             if labels and intent_name not in {self._normalize_intent_name(v) for v in labels}:
                 raise ValueError(f"Intent `{payload.intent}` is not in allowed labels: {labels}")
@@ -63,14 +94,37 @@ class CollectionIntentNode(IntentNode):
                 "intent": intent_name or self.default_intent,
                 "confidence": float(payload.confidence),
                 "reason": payload.reason,
+                "_debug": debug_payload,
             }
         except Exception as exc:
+            error_text = str(exc)
+            debug_payload["llm_error"] = error_text
+            is_rate_limit = self._is_provider_rate_limit_error(error_text)
+            if self.allow_rate_limit_fallback and is_rate_limit:
+                debug_payload["llm_status"] = "fallback_rate_limit_default"
+                return {
+                    "intent": self.default_intent,
+                    "confidence": 0.0,
+                    "reason": "LLM provider rate limit hit; using default route-safe intent fallback.",
+                    "_debug": {
+                        **debug_payload,
+                        "fallback_reason": "provider_rate_limit",
+                    },
+                }
+            if is_rate_limit and not self.allow_rate_limit_fallback:
+                raise RuntimeError(
+                    "CollectionIntentNode was rate-limited by provider and rate-limit fallback is disabled. "
+                    f"Underlying error: {exc}"
+                ) from exc
             if not self.allow_deterministic_fallback:
                 raise RuntimeError(
                     "CollectionIntentNode failed to produce structured LLM intent output. "
                     f"Fallback disabled. Error: {exc}"
                 ) from exc
-            return self._deterministic_classify(user_input=user_input, labels=labels)
+            deterministic = self._deterministic_classify(user_input=user_input, labels=labels)
+            debug_payload["llm_status"] = "fallback_deterministic_after_error"
+            deterministic["_debug"] = debug_payload
+            return deterministic
 
     def execute(self, state: AgentState) -> NodeUpdate:
         self._record_llm_usage(state, node_name="intent")
@@ -80,23 +134,55 @@ class CollectionIntentNode(IntentNode):
                 "Deterministic intent fallback is disabled for collection agent."
             )
         context = self._build_context_for_intent(state)
-        intent = self.classify(
-            user_input=state["user_input"],
-            system_prompt=self.system_prompt,
-            user_prompt=self.user_prompt,
-            context=context,
-        )
+        pre_rule = self._apply_node_specific_pre_rule(state=state, context=context)
+        if pre_rule is None:
+            pre_rule = {}
+        if not isinstance(pre_rule, dict):
+            raise TypeError("_apply_node_specific_pre_rule must return dict or None.")
+
+        if pre_rule.get("context_updates") and isinstance(pre_rule.get("context_updates"), dict):
+            context = {**context, **dict(pre_rule["context_updates"])}
+
+        if pre_rule.get("skip_llm", False) and isinstance(pre_rule.get("intent"), dict):
+            intent = dict(pre_rule["intent"])
+            intent["_debug"] = {
+                "prompt": None,
+                "system_prompt": None,
+                "llm_response": None,
+                "llm_error": None,
+                "llm_status": "skipped_by_pre_rule",
+                "pre_rule_reason": pre_rule.get("reason"),
+            }
+        else:
+            intent = self.classify(
+                user_input=state["user_input"],
+                system_prompt=self.system_prompt,
+                user_prompt=self.user_prompt,
+                context=context,
+            )
+        intent = self._apply_node_specific_intent_override(intent=intent, state=state, context=context)
+        pre_guard_debug = intent.get("_debug") if isinstance(intent, dict) else {}
         intent = self._apply_relevance_guard(
             intent=intent,
             user_input=str(state.get("user_input", "")),
             context=context,
         )
+        if isinstance(intent, dict) and "_debug" not in intent and isinstance(pre_guard_debug, dict):
+            intent["_debug"] = pre_guard_debug
+        debug_payload = intent.pop("_debug", {}) if isinstance(intent, dict) else {}
         update: NodeUpdate = {
             self.output_key: intent,
             # Compatibility channel for shared routing assumptions in existing
             # graph/runtime reducers. This can be removed after full migration.
             "intent": intent,
+            "prompt": debug_payload.get("prompt"),
+            "system_prompt": debug_payload.get("system_prompt"),
+            "llm_response": debug_payload.get("llm_response"),
+            "llm_error": debug_payload.get("llm_error"),
+            "llm_status": debug_payload.get("llm_status"),
         }
+        if isinstance(debug_payload, dict) and debug_payload.get("fallback_reason"):
+            update["fallback_reason"] = debug_payload.get("fallback_reason")
         intent_name = self._normalize_intent_name(intent.get("intent") if isinstance(intent, dict) else None)
         mapped_response = self._lookup_mapped_value(self.response_map, intent_name)
         if mapped_response is not None:
@@ -116,18 +202,10 @@ class CollectionIntentNode(IntentNode):
 
     @staticmethod
     def _build_intent_context_block(context: dict[str, Any]) -> str:
-        items = []
-        for key in (
-            "message_source",
-            "conversation_phase",
-            "active_case_id",
-            "active_user_id",
-            "active_customer_name",
-            "last_response_target",
-            "plan_current_node_id",
-            "plan_current_node_label",
-            "last_agent_response",
-        ):
+        if not context:
+            return ""
+        items: list[str] = []
+        for key in sorted(context.keys()):
             value = context.get(key)
             if value is None:
                 continue
@@ -139,32 +217,37 @@ class CollectionIntentNode(IntentNode):
             return ""
         return "Conversation context:\n" + "\n".join(items)
 
-    def _build_context_for_intent(self, state: AgentState) -> dict[str, Any]:
+    def _get_memory_state(self, state: AgentState) -> dict[str, Any]:
         memory = state.get("memory")
-        memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
-        plan = memory_state.get("active_conversation_plan")
-        if not isinstance(plan, dict):
-            plan = state.get("conversation_plan") if isinstance(state.get("conversation_plan"), dict) else {}
+        return dict(getattr(memory, "state", {})) if memory is not None else {}
 
-        current_node_id = str(plan.get("current_node_id", "")).strip() if isinstance(plan, dict) else ""
-        current_node_label = ""
-        if current_node_id and isinstance(plan, dict):
-            for node in plan.get("nodes", []):
-                if isinstance(node, dict) and str(node.get("id", "")).strip() == current_node_id:
-                    current_node_label = str(node.get("label", "")).strip()
-                    break
+    def _apply_node_specific_pre_rule(
+        self,
+        *,
+        state: AgentState,
+        context: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """
+        Optional node-specific rule stage executed after context gathering and before LLM classify.
 
-        return {
-            "message_source": state.get("message_source") or memory_state.get("last_message_source"),
-            "conversation_phase": state.get("conversation_phase"),
-            "active_case_id": state.get("case_id") or memory_state.get("active_case_id"),
-            "active_user_id": state.get("user_id") or memory_state.get("active_user_id"),
-            "active_customer_name": memory_state.get("active_customer_name"),
-            "last_response_target": memory_state.get("last_response_target"),
-            "last_agent_response": memory_state.get("last_agent_response"),
-            "plan_current_node_id": current_node_id,
-            "plan_current_node_label": current_node_label,
+        Return schema:
+        {
+          "skip_llm": bool,
+          "reason": str,
+          "intent": {"intent": "...", "confidence": 0.x, "reason": "..."},
+          "context_updates": {...}
         }
+        """
+        return None
+
+    def _apply_node_specific_intent_override(
+        self,
+        *,
+        intent: dict[str, Any],
+        state: AgentState,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        return intent
 
     def _apply_relevance_guard(
         self,
@@ -173,6 +256,8 @@ class CollectionIntentNode(IntentNode):
         user_input: str,
         context: dict[str, Any],
     ) -> dict[str, Any]:
+        if not self.enable_relevance_guard:
+            return intent
         if self.output_key != "relevance_intent":
             return intent
         current_intent = self._normalize_intent_name(intent.get("intent"))
@@ -221,3 +306,15 @@ class CollectionIntentNode(IntentNode):
             r"\b\d{4}\b",
         )
         return any(re.search(pattern, normalized) for pattern in patterns)
+
+    @staticmethod
+    def _is_provider_rate_limit_error(error_text: str) -> bool:
+        lowered = str(error_text or "").lower()
+        return (
+            "rate limit" in lowered
+            or "rate_limit_exceeded" in lowered
+            or "error code: 429" in lowered
+            or "tokens per day" in lowered
+            or "tpm" in lowered
+            or "requests per minute" in lowered
+        )

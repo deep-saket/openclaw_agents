@@ -77,6 +77,15 @@ class WhatsAppNode(BaseGraphNode):
         """Sends the current message over WhatsApp and updates graph state."""
 
         self._record_llm_usage(state, node_name="whatsapp")
+        observation = None
+        observations = state.get("observations")
+        if isinstance(observations, list):
+            for item in reversed(observations):
+                if isinstance(item, dict):
+                    observation = item
+                    break
+        if observation is None:
+            observation = state.get("observation")
         session_id = state.get("session_id") or getattr(state.get("memory"), "session_id", None)
         if not session_id:
             raise ValueError("WhatsAppNode requires `session_id` in state or on working memory.")
@@ -84,7 +93,7 @@ class WhatsAppNode(BaseGraphNode):
         message = self.plan(
             user_input=state.get("user_input", ""),
             response=state.get("response"),
-            observation=state.get("observation"),
+            observation=observation,
             system_prompt=self.system_prompt,
             user_prompt=self.user_prompt,
         )

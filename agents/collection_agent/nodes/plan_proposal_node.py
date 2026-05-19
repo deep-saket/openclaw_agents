@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -51,21 +51,84 @@ class _PlanProposalPayload(BaseModel):
     plan_tree_update: _PlanTreeUpdate | None = None
 
 
+class _PlanSignalPayload(BaseModel):
+    needs_discount_specialist: bool = False
+    is_plan_request: bool = False
+    is_plan_rejection: bool = False
+    hardship_signal: bool = False
+    hardship_reason: str = "income_reduction"
+    suggested_plan_mode: str = "strict_collections"
+    reason: str | None = None
+
+
 @dataclass(slots=True)
 class PlanProposalNode(BaseGraphNode):
-    """Builds conversation plan proposals and updates a per-session plan tree."""
+    """Builds conversation plan proposals and updates a per-session plan tree.
+
+    State Keys Read:
+    - `user_input`
+    - `routing_context`
+    - `observations`
+    - `observation` (latest compatibility mirror)
+    - `decision`
+    - `response_target`
+    - `route`
+    - `plan_proposal`
+    - `conversation_plan`
+    - `verification_*` keys from state/memory
+    - `memory` (reads and updates `memory.state` for plan mode, plan revision, active plan, etc.)
+
+    State Keys Write:
+    - `route`
+    - `response`
+    - `response_target`
+    - `plan_proposal`
+    - `conversation_plan`
+    - `additional_targets` (optional)
+    - `memory_helper_trigger` (optional)
+    - `handoff_payload` (optional)
+    - `prompt`
+    - `system_prompt`
+    - `llm_response`
+    - `llm_error`
+    """
 
     llm: Any | None = None
+    system_prompt: str = ""
+    user_prompt: str = ""
+    classifier_system_prompt: str = ""
+    classifier_user_prompt: str = ""
+    strict_llm_mode: bool = True
+    last_debug: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
+    max_json_chars: int = 900
 
     def execute(self, state: AgentState) -> NodeUpdate:
         self._record_llm_usage(state, node_name="plan_proposal")
+        self.last_debug = {
+            "prompt": None,
+            "system_prompt": None,
+            "llm_response": None,
+            "llm_error": None,
+        }
         memory = state.get("memory")
         memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
         mode = str(memory_state.get("mode", "strict_collections"))
         routing_context = state.get("routing_context") if isinstance(state.get("routing_context"), dict) else {}
         plan_origin = str(routing_context.get("plan_origin", "react"))
-        observation = state.get("observation")
+        observation = None
+        observations = state.get("observations")
+        if isinstance(observations, list):
+            for item in reversed(observations):
+                if isinstance(item, dict):
+                    observation = item
+                    break
+        if observation is None:
+            observation = state.get("observation")
         user_input = str(state.get("user_input", ""))
+        memory_state = self._overlay_verification_state_from_graph(
+            state=state,
+            memory_state=memory_state,
+        )
 
         if isinstance(observation, dict) and isinstance(observation.get("tool_phase"), dict):
             observation = observation.get("tool_phase")
@@ -73,6 +136,26 @@ class PlanProposalNode(BaseGraphNode):
         output = observation.get("output", {}) if isinstance(observation, dict) else {}
         decision = state.get("decision")
         existing_plan = self._get_existing_conversation_plan(state=state, memory_state=memory_state)
+
+        plan_signals = self._classify_plan_signals(
+            user_input=user_input,
+            mode=mode,
+            memory_state=memory_state,
+            existing_plan=existing_plan,
+        )
+        identity_verified = bool(memory_state.get("identity_verified", False))
+        suggested_mode = str(plan_signals.get("suggested_plan_mode", mode)).strip().lower()
+        if suggested_mode in {"strict_collections", "hardship_negotiation"} and suggested_mode != mode:
+            mode = suggested_mode
+            if memory is not None:
+                memory.set_state(mode=mode)
+
+        def with_debug(update: NodeUpdate) -> NodeUpdate:
+            update.setdefault("prompt", self.last_debug.get("prompt"))
+            update.setdefault("system_prompt", self.last_debug.get("system_prompt"))
+            update.setdefault("llm_response", self.last_debug.get("llm_response"))
+            update.setdefault("llm_error", self.last_debug.get("llm_error"))
+            return update
 
         def with_plan(update: NodeUpdate) -> NodeUpdate:
             response_target = str(update.get("response_target", "customer")).strip().lower() or "customer"
@@ -88,9 +171,16 @@ class PlanProposalNode(BaseGraphNode):
                 route=route,
                 observed_tool=observed_tool,
                 proposal=proposal,
+                plan_signals=plan_signals,
             )
             update["conversation_plan"] = plan
             if proposal:
+                proposal = self._align_customer_proposal_with_plan(
+                    proposal=proposal,
+                    plan=plan,
+                    memory_state=memory_state,
+                    plan_signals=plan_signals,
+                )
                 current_id = str(plan.get("current_node_id", ""))
                 proposal["conversation_plan_id"] = plan.get("plan_id")
                 proposal["conversation_plan_version"] = plan.get("version")
@@ -100,7 +190,7 @@ class PlanProposalNode(BaseGraphNode):
                 update["plan_proposal"] = proposal
             if memory is not None:
                 memory.set_state(active_conversation_plan=plan)
-            return update
+            return with_debug(update)
 
         if bool(memory_state.get("agent_loop_blocked", False)):
             if memory is not None:
@@ -165,28 +255,58 @@ class PlanProposalNode(BaseGraphNode):
             )
 
         revision_index = int(memory_state.get("plan_revision_index", 0))
-        hardship_reason = str(memory_state.get("hardship_reason", "income_reduction"))
+        hardship_reason = str(plan_signals.get("hardship_reason") or memory_state.get("hardship_reason", "income_reduction"))
         case_id = str(memory_state.get("active_case_id", "COLL-1001"))
 
-        if self._needs_discount_specialist(user_input) and case_id:
+        if bool(plan_signals.get("needs_discount_specialist")) and case_id:
+            if not identity_verified:
+                return with_plan(
+                    {
+                        "route": "continue",
+                        "response_target": "customer",
+                        "plan_proposal": {
+                            "target": "customer",
+                            "intent": "verification_required_before_discount",
+                            "plan_outline": "Complete identity verification before evaluating discount/restructure options.",
+                            "next_actions": ["complete_identity_verification", "then_evaluate_assistance"],
+                        },
+                    }
+                )
+            if memory is not None and hardship_reason:
+                memory.set_state(hardship_reason=hardship_reason)
             return with_plan(
                 {
                     "route": "continue",
-                    "response": (
-                        "Need internal assistance-path planning. "
-                        "Gather eligibility and revised repayment options before responding to customer."
-                    ),
-                    "response_target": "self",
+                    "response": "Trigger discount planning specialist for hardship assistance recommendation.",
+                    "response_target": "discount_planning_agent",
+                    "handoff_payload": {
+                        "case_id": case_id,
+                        "customer_id": str(memory_state.get("active_user_id", "")).strip(),
+                        "hardship_reason": hardship_reason,
+                        "user_message": user_input,
+                        "requested_by": "collection_agent",
+                    },
+                    "plan_proposal": {
+                        "target": "discount_planning_agent",
+                        "intent": "discount_specialist_handoff",
+                        "plan_outline": "Escalate to discount planning specialist and return with recommendation.",
+                        "next_actions": ["run_discount_specialist", "apply_recommendation", "respond_to_customer"],
+                    },
                 }
             )
 
         if mode != "hardship_negotiation":
             plan_proposal = self._build_plan_proposal(
+                state=state,
                 user_input=user_input,
                 memory_state=memory_state,
                 observation=(observation if isinstance(observation, dict) else None),
                 decision=decision,
-                default_plan=self._build_generic_plan_outline(user_input=user_input, memory_state=memory_state),
+                default_plan=self._build_generic_plan_outline(
+                    user_input=user_input,
+                    memory_state=memory_state,
+                    plan_signals=plan_signals,
+                ),
                 plan_origin=plan_origin,
                 mode=mode,
                 existing_plan=existing_plan,
@@ -203,11 +323,16 @@ class PlanProposalNode(BaseGraphNode):
             if memory is not None and isinstance(output, dict):
                 memory.set_state(current_plan=output, plan_revision_index=int(memory_state.get("plan_revision_index", 0)))
             plan_proposal = self._build_plan_proposal(
+                state=state,
                 user_input=user_input,
                 memory_state=memory_state,
                 observation=(observation if isinstance(observation, dict) else None),
                 decision=decision,
-                default_plan=self._build_generic_plan_outline(user_input=user_input, memory_state=memory_state),
+                default_plan=self._build_generic_plan_outline(
+                    user_input=user_input,
+                    memory_state=memory_state,
+                    plan_signals=plan_signals,
+                ),
                 plan_origin=plan_origin,
                 mode=mode,
                 existing_plan=existing_plan,
@@ -225,19 +350,24 @@ class PlanProposalNode(BaseGraphNode):
             should_propose = True
         if observed_tool == "channel_switch" and not memory_state.get("current_plan"):
             should_propose = True
-        if self._is_plan_rejection(user_input) and memory_state.get("current_plan"):
+        if bool(plan_signals.get("is_plan_rejection")) and memory_state.get("current_plan"):
             should_propose = True
             revision_index += 1
-        if self._is_plan_request(user_input) and case_id:
+        if bool(plan_signals.get("is_plan_request")) and case_id:
             should_propose = True
 
         if not should_propose:
             plan_proposal = self._build_plan_proposal(
+                state=state,
                 user_input=user_input,
                 memory_state=memory_state,
                 observation=(observation if isinstance(observation, dict) else None),
                 decision=decision,
-                default_plan=self._build_generic_plan_outline(user_input=user_input, memory_state=memory_state),
+                default_plan=self._build_generic_plan_outline(
+                    user_input=user_input,
+                    memory_state=memory_state,
+                    plan_signals=plan_signals,
+                ),
                 plan_origin=plan_origin,
                 mode=mode,
                 existing_plan=existing_plan,
@@ -271,7 +401,7 @@ class PlanProposalNode(BaseGraphNode):
         )
         return with_plan(
             {
-                "route": "propose",
+                "route": "continue",
                 "decision": decision,
                 "response_target": "self",
                 "plan_proposal": {
@@ -321,16 +451,23 @@ class PlanProposalNode(BaseGraphNode):
         ]
         return any(keyword in lowered for keyword in keywords)
 
-    @staticmethod
-    def _build_generic_plan_outline(*, user_input: str, memory_state: dict[str, Any]) -> str:
+    def _build_generic_plan_outline(
+        self,
+        *,
+        user_input: str,
+        memory_state: dict[str, Any],
+        plan_signals: dict[str, Any] | None = None,
+    ) -> str:
         case_id = str(memory_state.get("active_case_id", "COLL-1001"))
+        signals = plan_signals or {}
+        hardship_signal = bool(signals.get("hardship_signal", False))
         lowered = user_input.lower()
         if any(token in lowered for token in ["pay now", "payment link", "link", "proceed with payment"]):
             return (
                 f"Plan for {case_id}: confirm customer identity and dues context, complete immediate payment flow, "
                 "and confirm closure after payment acknowledgment."
             )
-        if any(token in lowered for token in ["cannot pay", "hardship", "discount", "settlement", "waiver", "emi"]):
+        if hardship_signal or any(token in lowered for token in ["cannot pay", "hardship", "discount", "settlement", "waiver", "emi"]):
             return (
                 f"Plan for {case_id}: validate hardship constraints, determine eligible assistance options, "
                 "propose revised repayment path, and capture next commitment with follow-up."
@@ -343,6 +480,7 @@ class PlanProposalNode(BaseGraphNode):
     def _build_plan_proposal(
         self,
         *,
+        state: AgentState,
         user_input: str,
         memory_state: dict[str, Any],
         observation: dict[str, Any] | None,
@@ -353,6 +491,7 @@ class PlanProposalNode(BaseGraphNode):
         existing_plan: dict[str, Any],
     ) -> dict[str, Any]:
         llm_proposal = self._build_plan_proposal_with_llm(
+            state=state,
             user_input=user_input,
             memory_state=memory_state,
             observation=observation,
@@ -363,7 +502,29 @@ class PlanProposalNode(BaseGraphNode):
             existing_plan=existing_plan,
         )
         if llm_proposal is not None:
-            return llm_proposal
+            return self._validate_and_repair_proposal(
+                proposal=llm_proposal,
+                state=state,
+                memory_state=memory_state,
+            )
+        if self.strict_llm_mode:
+            llm_error = str(self.last_debug.get("llm_error", "")).strip()
+            lowered = llm_error.lower()
+            if (
+                "rate limit" in lowered
+                or "rate_limit_exceeded" in lowered
+                or "error code: 429" in lowered
+                or "tokens per day" in lowered
+                or "tpm" in lowered
+            ):
+                raise RuntimeError(
+                    "PlanProposalNode rate-limited by provider while strict_llm_mode is enabled. "
+                    f"Underlying error: {llm_error}"
+                )
+            raise RuntimeError(
+                "PlanProposalNode failed to produce LLM structured output while strict_llm_mode is enabled. "
+                f"Underlying error: {llm_error or 'unknown'}"
+            )
 
         decision_text = str(getattr(decision, "response_text", "") or "").strip()
         decision_target = str(getattr(decision, "response_target", "") or "").strip().lower()
@@ -385,7 +546,7 @@ class PlanProposalNode(BaseGraphNode):
                 "and request one concrete next action."
             )
 
-        return {
+        fallback = {
             "target": target,
             "intent": "generic_plan",
             "plan_outline": plan_outline,
@@ -401,10 +562,16 @@ class PlanProposalNode(BaseGraphNode):
             },
             "next_actions": self._derive_next_actions(user_input=user_input, mode=mode, observed_tool=observed_tool),
         }
+        return self._validate_and_repair_proposal(
+            proposal=fallback,
+            state=state,
+            memory_state=memory_state,
+        )
 
     def _build_plan_proposal_with_llm(
         self,
         *,
+        state: AgentState,
         user_input: str,
         memory_state: dict[str, Any],
         observation: dict[str, Any] | None,
@@ -416,6 +583,10 @@ class PlanProposalNode(BaseGraphNode):
     ) -> dict[str, Any] | None:
         if self.llm is None:
             return None
+        if not self.system_prompt.strip():
+            raise ValueError("Missing required prompt: plan_proposal.system_prompt")
+        if not self.user_prompt.strip():
+            raise ValueError("Missing required prompt: plan_proposal.user_prompt")
 
         decision_payload = {
             "response_text": str(getattr(decision, "response_text", "") or "").strip(),
@@ -425,54 +596,143 @@ class PlanProposalNode(BaseGraphNode):
                 "arguments": getattr(getattr(decision, "tool_call", None), "arguments", {}) or {},
             },
         }
-        obs_tool = str(observation.get("tool_name", "")) if isinstance(observation, dict) else ""
-        obs_output = observation.get("output", {}) if isinstance(observation, dict) else {}
+        obs_tool = ""
+        obs_output: dict[str, Any] = {}
+        reflection_feedback: dict[str, Any] = {}
+        if isinstance(observation, dict):
+            if isinstance(observation.get("tool_phase"), dict):
+                tool_phase = observation.get("tool_phase", {})
+                obs_tool = str(tool_phase.get("tool_name", "") or "").strip()
+                obs_output = tool_phase.get("output", {}) if isinstance(tool_phase.get("output"), dict) else {}
+            else:
+                obs_tool = str(observation.get("tool_name", "") or "").strip()
+                obs_output = observation.get("output", {}) if isinstance(observation.get("output"), dict) else {}
+            if isinstance(observation.get("reflection_feedback"), dict):
+                reflection_feedback = dict(observation.get("reflection_feedback", {}))
 
-        system_prompt = (
-            "You are the plan proposal node for a bank collections agent. "
-            "Produce strict JSON only. "
-            "Output should propose/update a branching conversation plan tree and choose the current/next node. "
-            "Allowed `target`: customer or self. "
-            "No placeholders. Keep plan_outline concise and action-oriented. "
-            "Never advance identity verification steps without verification evidence."
+        customer_context_json = json.dumps(
+            {
+                "case_id": str(memory_state.get("active_case_id", "COLL-1001")),
+                "customer_name": str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer",
+                "overdue_amount": float(memory_state.get("active_overdue_amount", 0.0) or 0.0),
+            },
+            ensure_ascii=True,
         )
-        user_prompt = (
-            f"User input: {user_input}\n"
-            f"Plan origin: {plan_origin}\n"
-            f"Mode: {mode}\n"
-            f"Default plan outline: {default_plan}\n"
-            f"Existing plan tree JSON: {json.dumps(existing_plan, ensure_ascii=True, default=str)}\n"
-            f"Decision context JSON: {json.dumps(decision_payload, ensure_ascii=True, default=str)}\n"
-            f"Observation tool: {obs_tool}\n"
-            f"Observation output JSON: {json.dumps(obs_output, ensure_ascii=True, default=str)}\n"
-            f"Customer context JSON: {json.dumps({'case_id': str(memory_state.get('active_case_id', 'COLL-1001')), 'customer_name': str(memory_state.get('active_customer_name', 'Customer')).strip() or 'Customer', 'overdue_amount': float(memory_state.get('active_overdue_amount', 0.0) or 0.0)}, ensure_ascii=True)}\n"
-            f"Verification context JSON: {json.dumps({'identity_verified': bool(memory_state.get('identity_verified', False)), 'verification_collected': memory_state.get('verification_collected', {}), 'required_fields': memory_state.get('active_verification_required_fields', [])}, ensure_ascii=True, default=str)}\n"
-            "Return JSON with keys:\n"
-            "- target: customer|self\n"
-            "- intent: short snake_case intent\n"
-            "- plan_outline: concise plan summary\n"
-            "- draft_response: optional message draft\n"
-            "- next_actions: array of next action ids\n"
-            "- plan_tree_update: object with operation, current_node_id, selected_next_node_id, "
-            "new_nodes (array of {id,label,owner,status}), new_edges (array of {from,to,condition}), "
-            "remove_node_ids, mark_done, mark_skipped, mark_blocked, status\n"
-            "Use operation=insert or branch when user direction changes. "
-            "Use remove_node_ids for obsolete path pruning.\n"
-            "Critical marker rules:\n"
-            "- Each node advances only when predecessor node markers are done or skipped.\n"
-            "- Before selecting a child node, mark the current node done or skipped explicitly.\n"
-            "- Use mark_blocked when a node cannot proceed and requires retry or alternate path.\n"
-            "- If current/next step is verify_identity and identity_verified=false, do not mark verify_identity done.\n"
-            "- During verification stage, plan should request only missing verification fields, not full reset."
+        verification_context_json = json.dumps(
+            {
+                "identity_verified": bool(memory_state.get("identity_verified", False)),
+                "required_fields": memory_state.get("active_verification_required_fields", []),
+                "verification_missing_fields": memory_state.get("verification_missing_fields", []),
+                "verification_verified_fields": memory_state.get("verification_verified_fields", []),
+                "verification_entities": memory_state.get("verification_entities", {}),
+            },
+            ensure_ascii=True,
+            default=str,
         )
+        entities_context_json = json.dumps(
+            {
+                "extracted_entities": state.get("extracted_entities", {}),
+                "extracted_entity_descriptions": state.get("extracted_entity_descriptions", {}),
+                "verification_entities": state.get("verification_entities", {}),
+                "verification_missing_fields": state.get("verification_missing_fields", []),
+                "identity_verified": bool(memory_state.get("identity_verified", False)),
+            },
+            ensure_ascii=True,
+            default=str,
+        )
+        template_vars = {
+            "user_input": user_input,
+            "plan_origin": plan_origin,
+            "mode": mode,
+            "default_plan": default_plan,
+            "existing_plan_json": self._json_compact(
+                self._compact_existing_plan_for_prompt(existing_plan),
+                max_chars=self.max_json_chars,
+            ),
+            "decision_payload_json": json.dumps(decision_payload, ensure_ascii=True, default=str),
+            "obs_tool": obs_tool,
+            "obs_output_json": self._json_compact(obs_output, max_chars=900),
+            "reflection_feedback_json": self._json_compact(reflection_feedback, max_chars=700),
+            "customer_context_json": customer_context_json,
+            "verification_context_json": verification_context_json,
+            "entities_context_json": entities_context_json,
+        }
+        system_prompt = self._render_prompt_template(self.system_prompt, template_vars)
+        user_prompt = self._render_prompt_template(self.user_prompt, template_vars)
+        self.last_debug["prompt"] = user_prompt
+        self.last_debug["system_prompt"] = system_prompt or None
+        self.last_debug["llm_error"] = None
         try:
             payload = StructuredOutputRunner(self.llm, max_retries=2).run(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 schema=_PlanProposalPayload,
             )
-        except Exception:
-            return None
+            prior = self.last_debug.get("llm_response")
+            merged = dict(prior) if isinstance(prior, dict) else {}
+            merged["proposal"] = payload.model_dump(mode="json", by_alias=True)
+            self.last_debug["llm_response"] = merged
+        except Exception as exc:
+            self.last_debug["llm_error"] = str(exc)
+            minimal_template_vars = {
+                "user_input": self._truncate_text(user_input, 280),
+                "plan_origin": plan_origin,
+                "mode": mode,
+                "default_plan": self._truncate_text(default_plan, 220),
+                "existing_plan_json": self._json_compact(
+                    self._compact_existing_plan_for_prompt(existing_plan, minimal=True),
+                    max_chars=900,
+                ),
+                "decision_payload_json": self._json_compact(
+                    {
+                        "response_text": str(decision_payload.get("response_text", ""))[:180],
+                        "respond_directly": bool(decision_payload.get("respond_directly", False)),
+                        "tool_name": str(((decision_payload.get("tool_call") or {}).get("tool_name", ""))),
+                    },
+                    max_chars=500,
+                ),
+                "obs_tool": obs_tool,
+                "obs_output_json": self._json_compact(
+                    {
+                        "status": (obs_output or {}).get("status") if isinstance(obs_output, dict) else None,
+                        "needs_additional_action": bool((obs_output or {}).get("needs_additional_action", False))
+                        if isinstance(obs_output, dict)
+                        else False,
+                        "keys": sorted([str(k) for k in obs_output.keys()])[:8] if isinstance(obs_output, dict) else [],
+                    },
+                    max_chars=350,
+                ),
+                "reflection_feedback_json": self._json_compact(reflection_feedback, max_chars=500),
+                "customer_context_json": customer_context_json,
+                "verification_context_json": verification_context_json,
+                "entities_context_json": self._json_compact(
+                    {
+                        "verification_entities": state.get("verification_entities", {}),
+                        "verification_missing_fields": memory_state.get("verification_missing_fields", []),
+                        "identity_verified": bool(memory_state.get("identity_verified", False)),
+                    },
+                    max_chars=500,
+                ),
+            }
+            minimal_system_prompt = self._render_prompt_template(self.system_prompt, minimal_template_vars)
+            minimal_user_prompt = self._render_prompt_template(self.user_prompt, minimal_template_vars)
+            self.last_debug["prompt"] = minimal_user_prompt
+            self.last_debug["system_prompt"] = minimal_system_prompt or None
+            try:
+                payload = StructuredOutputRunner(self.llm, max_retries=4).run(
+                    system_prompt=minimal_system_prompt,
+                    user_prompt=minimal_user_prompt,
+                    schema=_PlanProposalPayload,
+                )
+                prior = self.last_debug.get("llm_response")
+                merged = dict(prior) if isinstance(prior, dict) else {}
+                merged["proposal"] = payload.model_dump(mode="json", by_alias=True)
+                merged["attempt"] = "minimal_recovery"
+                self.last_debug["llm_response"] = merged
+                self.last_debug["llm_error"] = None
+            except Exception as exc2:
+                self.last_debug["llm_error"] = f"primary={exc}; recovery={exc2}"
+                return None
 
         proposal = payload.model_dump(mode="json", by_alias=True)
         target = str(proposal.get("target", "customer")).strip().lower()
@@ -492,19 +752,161 @@ class PlanProposalNode(BaseGraphNode):
             proposal["next_actions"] = self._derive_next_actions(
                 user_input=user_input, mode=mode, observed_tool=obs_tool
             )
-        return proposal
+        return self._validate_and_repair_proposal(
+            proposal=proposal,
+            state=state,
+            memory_state=memory_state,
+        )
+
+    def _validate_and_repair_proposal(
+        self,
+        *,
+        proposal: dict[str, Any],
+        state: AgentState,
+        memory_state: dict[str, Any],
+    ) -> dict[str, Any]:
+        patched = dict(proposal) if isinstance(proposal, dict) else {}
+        warnings: list[str] = []
+        identity_verified = bool(memory_state.get("identity_verified", False))
+        if not identity_verified:
+            next_actions = patched.get("next_actions")
+            next_actions_list = [str(x).strip() for x in next_actions if str(x).strip()] if isinstance(next_actions, list) else []
+            normalized_actions: list[str] = []
+            for action in next_actions_list:
+                lowered = action.lower()
+                if lowered in {"ask_for_verification", "request_verification", "collect_verification"}:
+                    lowered = "verify_identity"
+                normalized_actions.append(lowered)
+            if "verify_identity" not in normalized_actions:
+                normalized_actions.insert(0, "verify_identity")
+                warnings.append("Inserted verify_identity into next_actions while identity_verified=false.")
+            # Keep verification as the leading actionable step until completion.
+            deduped_actions: list[str] = []
+            for action in normalized_actions:
+                if action not in deduped_actions:
+                    deduped_actions.append(action)
+            next_actions_list = ["verify_identity", *[a for a in deduped_actions if a != "verify_identity"]]
+            patched["next_actions"] = next_actions_list
+
+            tree_update = patched.get("plan_tree_update")
+            if not isinstance(tree_update, dict):
+                tree_update = {}
+                patched["plan_tree_update"] = tree_update
+            selected_next = str(tree_update.get("selected_next_node_id", "")).strip().lower()
+            if selected_next not in {"verify_identity"}:
+                tree_update["selected_next_node_id"] = "verify_identity"
+                warnings.append("Reset selected_next_node_id to verify_identity until verification completes.")
+            tree_update["current_node_id"] = "verify_identity"
+            tree_update["operation"] = "advance"
+            tree_update["new_nodes"] = []
+            tree_update["remove_node_ids"] = []
+
+            new_edges = tree_update.get("new_edges")
+            edge_list = list(new_edges) if isinstance(new_edges, list) else []
+            canonical_nodes: set[str] = set()
+            convo_plan = state.get("conversation_plan")
+            if isinstance(convo_plan, dict) and isinstance(convo_plan.get("nodes"), list):
+                canonical_nodes = {
+                    str(node.get("id", "")).strip().lower()
+                    for node in convo_plan.get("nodes", [])
+                    if isinstance(node, dict) and str(node.get("id", "")).strip()
+                }
+            normalized_edges: list[dict[str, Any]] = []
+            for raw in edge_list:
+                if not isinstance(raw, dict):
+                    continue
+                src = str(raw.get("from", "")).strip().lower()
+                dst = str(raw.get("to", "")).strip().lower()
+                if not src or not dst:
+                    continue
+                if canonical_nodes and (src not in canonical_nodes or dst not in canonical_nodes):
+                    continue
+                if src == dst:
+                    continue
+                normalized_edges.append(
+                    {
+                        "from": src,
+                        "to": dst,
+                        "condition": str(raw.get("condition", "")).strip(),
+                    }
+                )
+            tree_update["new_edges"] = normalized_edges
+
+            draft_response = str(patched.get("draft_response", "")).strip()
+            if draft_response and re.search(r"\boverdue amount\b|\binr\b|\bemi\b", draft_response, re.IGNORECASE):
+                warnings.append("Draft response contains dues before verification completion; response node will guard this.")
+        elif identity_verified:
+            next_actions = patched.get("next_actions")
+            next_actions_list = [str(x).strip() for x in next_actions if str(x).strip()] if isinstance(next_actions, list) else []
+            patched["next_actions"] = [x for x in next_actions_list if x.lower() != "verify_identity"]
+            tree_update = patched.get("plan_tree_update")
+            if not isinstance(tree_update, dict):
+                tree_update = {}
+                patched["plan_tree_update"] = tree_update
+            selected_next = str(tree_update.get("selected_next_node_id", "")).strip().lower()
+            current_node = str(tree_update.get("current_node_id", "")).strip().lower()
+            if selected_next in {"", "verify_identity"}:
+                tree_update["selected_next_node_id"] = "explain_dues"
+            if current_node in {"", "verify_identity"}:
+                tree_update["current_node_id"] = "explain_dues"
+            mark_done = [str(x).strip() for x in tree_update.get("mark_done", []) if str(x).strip()]
+            if "verify_identity" not in mark_done:
+                mark_done.append("verify_identity")
+            tree_update["mark_done"] = mark_done
+
+        if warnings:
+            patched["plan_validation_warnings"] = warnings
+        return patched
+
+    @staticmethod
+    def _verification_required_fields(memory_state: dict[str, Any]) -> list[str]:
+        required = memory_state.get("active_verification_required_fields")
+        required_fields = [str(x).strip().lower() for x in required if str(x).strip()] if isinstance(required, list) else []
+        if required_fields:
+            return sorted(set(required_fields))
+        return ["dob", "phone"]
+
+    def _overlay_verification_state_from_graph(
+        self,
+        *,
+        state: AgentState,
+        memory_state: dict[str, Any],
+    ) -> dict[str, Any]:
+        merged = dict(memory_state)
+        if isinstance(state.get("verification_entities"), dict):
+            merged["verification_entities"] = dict(state.get("verification_entities", {}))
+            merged["verification_collected"] = dict(state.get("verification_entities", {}))
+        if isinstance(state.get("verification_missing_fields"), list):
+            merged["verification_missing_fields"] = [
+                str(x).strip().lower() for x in state.get("verification_missing_fields", []) if str(x).strip()
+            ]
+        if isinstance(state.get("verification_verified_fields"), list):
+            merged["verification_verified_fields"] = [
+                str(x).strip().lower() for x in state.get("verification_verified_fields", []) if str(x).strip()
+            ]
+        for key in ("verified_dob", "verified_mobile", "identity_verified"):
+            if key in state:
+                merged[key] = bool(state.get(key))
+        return merged
+
+    @staticmethod
+    def _render_prompt_template(template: str, values: dict[str, Any]) -> str:
+        rendered = template
+        for key, value in values.items():
+            rendered = rendered.replace(f"{{{key}}}", str(value))
+        return rendered
 
     @staticmethod
     def _derive_next_actions(*, user_input: str, mode: str, observed_tool: str) -> list[str]:
         lowered = user_input.lower()
-        actions: list[str] = ["confirm_identity", "confirm_dues", "collect_payment_intent"]
+        actions: list[str] = ["verify_identity", "explain_dues", "collect_payment_intent"]
         if "pay now" in lowered or "payment link" in lowered:
             actions.append("complete_payment_flow")
         if mode == "hardship_negotiation":
             actions.append("evaluate_assistance_options")
         if observed_tool:
             actions.append("interpret_tool_observation")
-        actions.append("capture_next_commitment")
+        actions.append("resolve_outcome")
         return actions
 
     @staticmethod
@@ -547,6 +949,7 @@ class PlanProposalNode(BaseGraphNode):
         route: str,
         observed_tool: str,
         proposal: dict[str, Any],
+        plan_signals: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         plan = self._create_initial_plan_graph(memory_state=memory_state, mode=mode) if not existing_plan else dict(existing_plan)
         plan.setdefault("nodes", [])
@@ -575,6 +978,7 @@ class PlanProposalNode(BaseGraphNode):
             route=route,
             proposal=proposal,
             plan_update=plan_update,
+            previous_current=previous_current,
         )
         self._apply_plan_tree_update(plan=plan, plan_update=plan_update)
         markers = self._init_or_reconcile_step_markers(plan=plan)
@@ -587,6 +991,16 @@ class PlanProposalNode(BaseGraphNode):
             observed_tool=observed_tool,
             observed_output=(observed_output if isinstance(observed_output, dict) else {}),
             memory_identity_verified=bool(memory_state.get("identity_verified", False)),
+        )
+        self._enforce_verification_marker_consistency(
+            plan=plan,
+            memory_identity_verified=bool(memory_state.get("identity_verified", False)),
+            observed_tool=observed_tool,
+            observed_output=(observed_output if isinstance(observed_output, dict) else {}),
+        )
+        self._remove_verify_identity_node_if_verified(
+            plan=plan,
+            identity_verified=bool(memory_state.get("identity_verified", False)),
         )
         markers = self._init_or_reconcile_step_markers(plan=plan)
         next_current = self._resolve_next_current_node(
@@ -605,9 +1019,11 @@ class PlanProposalNode(BaseGraphNode):
         markers = self._init_or_reconcile_step_markers(plan=plan)
 
         lowered = user_input.lower()
+        signals = plan_signals or {}
         should_revise = (
-            self._is_plan_rejection(user_input)
-            or self._needs_discount_specialist(user_input)
+            bool(signals.get("is_plan_rejection", False))
+            or bool(signals.get("needs_discount_specialist", False))
+            or bool(signals.get("hardship_signal", False))
             or "hardship" in lowered
             or "cannot pay" in lowered
             or response_target != "customer"
@@ -648,9 +1064,47 @@ class PlanProposalNode(BaseGraphNode):
         )
         return plan
 
+    def _remove_verify_identity_node_if_verified(self, *, plan: dict[str, Any], identity_verified: bool) -> None:
+        if not identity_verified:
+            return
+        # Keep completed steps visible in topology: do not remove verify_identity.
+        nodes = [dict(node) for node in plan.get("nodes", []) if isinstance(node, dict)]
+        for node in nodes:
+            if str(node.get("id", "")).strip() == "verify_identity":
+                node["status"] = "done"
+        plan["nodes"] = nodes
+        markers = plan.get("step_markers")
+        if isinstance(markers, dict):
+            prior = markers.get("verify_identity") if isinstance(markers.get("verify_identity"), dict) else {}
+            markers["verify_identity"] = {
+                "state": "done",
+                "updated_at": datetime.now(UTC).isoformat(),
+                "source": "memory_identity_verified",
+                "reason": str(prior.get("reason", "identity_verified_in_memory")),
+            }
+            plan["step_markers"] = markers
+
     @staticmethod
     def _create_initial_plan_graph(*, memory_state: dict[str, Any], mode: str) -> dict[str, Any]:
         case_id = str(memory_state.get("active_case_id", "COLL-1001")).strip().upper() or "COLL-1001"
+        identity_verified = bool(memory_state.get("identity_verified", False))
+        nodes = [
+            {"id": "open_and_context", "label": "Initialize case context", "owner": "collection_agent", "status": "in_progress"},
+            {"id": "verify_identity", "label": "Verify customer identity", "owner": "customer", "status": ("done" if identity_verified else "pending")},
+            {"id": "explain_dues", "label": "Explain dues and policy options", "owner": "customer", "status": "pending"},
+            {"id": "collect_payment_intent", "label": "Collect payment intent", "owner": "customer", "status": "pending"},
+            {"id": "evaluate_assistance", "label": "Evaluate discount/restructure assistance", "owner": "collection_agent", "status": "pending"},
+            {"id": "resolve_outcome", "label": "Finalize payment, promise, or follow-up", "owner": "customer", "status": "pending"},
+        ]
+        edges = [
+            {"from": "open_and_context", "to": "verify_identity", "condition": "case_context_ready"},
+            {"from": "verify_identity", "to": "explain_dues", "condition": "identity_verified"},
+            {"from": "explain_dues", "to": "collect_payment_intent", "condition": "dues_explained"},
+            {"from": "collect_payment_intent", "to": "resolve_outcome", "condition": "pay_now"},
+            {"from": "collect_payment_intent", "to": "evaluate_assistance", "condition": "cannot_pay_full"},
+            {"from": "evaluate_assistance", "to": "resolve_outcome", "condition": "assistance_ready"},
+        ]
+        next_node_ids = ["verify_identity"] if not identity_verified else ["explain_dues"]
         return {
             "plan_id": f"plan-{case_id}",
             "version": 1,
@@ -660,23 +1114,9 @@ class PlanProposalNode(BaseGraphNode):
             "root_node_id": "open_and_context",
             "current_node_id": "open_and_context",
             "previous_node_id": None,
-            "next_node_ids": ["verify_identity"],
-            "nodes": [
-                {"id": "open_and_context", "label": "Open call and establish case context", "owner": "collection_agent", "status": "in_progress"},
-                {"id": "verify_identity", "label": "Verify customer identity", "owner": "customer", "status": "pending"},
-                {"id": "explain_dues", "label": "Explain dues and policy options", "owner": "customer", "status": "pending"},
-                {"id": "collect_payment_intent", "label": "Collect payment intent", "owner": "customer", "status": "pending"},
-                {"id": "evaluate_assistance", "label": "Evaluate discount/restructure assistance", "owner": "collection_agent", "status": "pending"},
-                {"id": "resolve_outcome", "label": "Finalize payment, promise, or follow-up", "owner": "customer", "status": "pending"},
-            ],
-            "edges": [
-                {"from": "open_and_context", "to": "verify_identity", "condition": "case_context_ready"},
-                {"from": "verify_identity", "to": "explain_dues", "condition": "identity_verified"},
-                {"from": "explain_dues", "to": "collect_payment_intent", "condition": "dues_explained"},
-                {"from": "collect_payment_intent", "to": "resolve_outcome", "condition": "pay_now"},
-                {"from": "collect_payment_intent", "to": "evaluate_assistance", "condition": "cannot_pay_full"},
-                {"from": "evaluate_assistance", "to": "resolve_outcome", "condition": "assistance_ready"},
-            ],
+            "next_node_ids": next_node_ids,
+            "nodes": nodes,
+            "edges": edges,
             "timeline": [],
             "revision_log": [],
             "updated_from": "initial",
@@ -689,11 +1129,15 @@ class PlanProposalNode(BaseGraphNode):
         nodes = [dict(node) for node in plan.get("nodes", []) if isinstance(node, dict)]
         edges = [dict(edge) for edge in plan.get("edges", []) if isinstance(edge, dict)]
         node_map = {str(node.get("id", "")): node for node in nodes if str(node.get("id", "")).strip()}
+        historical_ids = self._historical_node_ids(plan=plan)
 
         for node_id in [str(x).strip() for x in plan_update.get("remove_node_ids", []) if str(x).strip()]:
+            if node_id in historical_ids:
+                continue
             node_map.pop(node_id, None)
         if plan_update.get("remove_node_ids"):
             removed_ids = {str(x).strip() for x in plan_update.get("remove_node_ids", []) if str(x).strip()}
+            removed_ids = {node_id for node_id in removed_ids if node_id not in historical_ids}
             edges = [
                 edge
                 for edge in edges
@@ -763,6 +1207,29 @@ class PlanProposalNode(BaseGraphNode):
         node_ids = {str(node.get("id")) for node in plan.get("nodes", []) if isinstance(node, dict)}
         parent_map = self._parent_map(nodes=plan.get("edges", []))
 
+        def is_actionable(node_id: str) -> bool:
+            if node_id not in node_ids:
+                return False
+            if not self._is_node_unlocked(plan=plan, node_id=node_id, markers=markers):
+                return False
+            return self._marker_state(markers=markers, node_id=node_id) == "pending"
+
+        def first_actionable_descendant(start_node_id: str) -> str:
+            queue: list[str] = [start_node_id]
+            visited: set[str] = set()
+            while queue:
+                nid = queue.pop(0)
+                if not nid or nid in visited:
+                    continue
+                visited.add(nid)
+                if is_actionable(nid):
+                    return nid
+                children = self._next_nodes_from_edges(nodes=plan.get("edges", []), current_node_id=nid)
+                for child in children:
+                    if child not in visited:
+                        queue.append(child)
+            return ""
+
         def nearest_unlocked(node_id: str) -> str:
             cursor = node_id
             visited: set[str] = set()
@@ -780,6 +1247,11 @@ class PlanProposalNode(BaseGraphNode):
 
         if not previous_current or previous_current not in node_ids:
             root = str(plan.get("root_node_id", "open_and_context"))
+            if is_actionable(candidate):
+                return candidate
+            first = first_actionable_descendant(root)
+            if first:
+                return first
             if candidate in node_ids and self._is_node_unlocked(plan=plan, node_id=candidate, markers=markers):
                 return candidate
             return root if root in node_ids else candidate
@@ -787,17 +1259,26 @@ class PlanProposalNode(BaseGraphNode):
         previous_current = nearest_unlocked(previous_current)
         allowed_next = self._next_nodes_from_edges(nodes=plan.get("edges", []), current_node_id=previous_current)
         if not allowed_next:
+            if is_actionable(candidate):
+                return candidate
             if candidate in node_ids and self._is_node_unlocked(plan=plan, node_id=candidate, markers=markers):
                 return candidate
+            first = first_actionable_descendant(previous_current)
+            if first:
+                return first
             return previous_current
 
-        if candidate in allowed_next and self._is_node_unlocked(plan=plan, node_id=candidate, markers=markers):
+        if candidate in allowed_next and is_actionable(candidate):
             return candidate
 
         # Enforce sequential progression with marker gates.
         for node_id in allowed_next:
-            if self._is_node_unlocked(plan=plan, node_id=node_id, markers=markers):
+            if is_actionable(node_id):
                 return node_id
+        for node_id in allowed_next:
+            first = first_actionable_descendant(node_id)
+            if first:
+                return first
         return previous_current
 
     @staticmethod
@@ -875,11 +1356,11 @@ class PlanProposalNode(BaseGraphNode):
 
             if previous_state in {"done", "skipped", "blocked"}:
                 state = previous_state
-            elif (not has_existing_markers) and status in {"done", "skipped", "blocked"} and node_id == root_id:
-                # Bootstrap only the root marker from status for legacy sessions.
+            elif (not has_existing_markers) and status in {"done", "skipped", "blocked"}:
+                # Bootstrap marker states from node status for initial sessions.
                 state = status
             elif node_id == root_id and not existing:
-                state = "done"
+                state = "pending"
             else:
                 state = "pending"
 
@@ -939,7 +1420,15 @@ class PlanProposalNode(BaseGraphNode):
             ):
                 set_state(node_id, "done", "mark_done")
         for node_id in sorted(mark_skipped):
-            set_state(node_id, "skipped", "mark_skipped")
+            if self._can_accept_skip_marker(
+                plan=plan,
+                node_id=node_id,
+                previous_current=previous_current,
+                user_input=user_input,
+                memory_identity_verified=memory_identity_verified,
+                markers=markers,
+            ):
+                set_state(node_id, "skipped", "mark_skipped")
         for node_id in sorted(mark_blocked):
             set_state(node_id, "blocked", "mark_blocked")
 
@@ -947,6 +1436,16 @@ class PlanProposalNode(BaseGraphNode):
             # Deterministic safety: if identity is already verified in memory state,
             # keep the marker aligned even when the model omits mark_done.
             set_state("verify_identity", "done", "memory_identity_verified")
+
+        root_id = str(plan.get("root_node_id", "open_and_context")).strip() or "open_and_context"
+        if (
+            previous_current == root_id
+            and candidate
+            and candidate != root_id
+            and self._marker_state(markers=markers, node_id=root_id) == "pending"
+        ):
+            # Root step completes only when planner advances to next actionable step.
+            set_state(root_id, "done", "case_context_ready_transition")
 
         if (
             previous_current
@@ -957,6 +1456,32 @@ class PlanProposalNode(BaseGraphNode):
             # Require explicit completion/skip marker before moving from previous step.
             set_state(previous_current, "pending", "awaiting_completion_or_skip_marker")
 
+        plan["step_markers"] = markers
+
+    def _enforce_verification_marker_consistency(
+        self,
+        *,
+        plan: dict[str, Any],
+        memory_identity_verified: bool,
+        observed_tool: str,
+        observed_output: dict[str, Any],
+    ) -> None:
+        markers = plan.get("step_markers") if isinstance(plan.get("step_markers"), dict) else {}
+        verify_raw = markers.get("verify_identity")
+        if not isinstance(verify_raw, dict):
+            return
+        verify_state = str(verify_raw.get("state", "pending")).strip().lower()
+        if verify_state != "done":
+            return
+
+        if memory_identity_verified:
+            return
+
+        verify_raw["state"] = "pending"
+        verify_raw["source"] = "reconciler"
+        verify_raw["reason"] = "identity_not_verified_in_current_state"
+        verify_raw["updated_at"] = datetime.now(UTC).isoformat()
+        markers["verify_identity"] = verify_raw
         plan["step_markers"] = markers
 
     @staticmethod
@@ -1027,14 +1552,9 @@ class PlanProposalNode(BaseGraphNode):
         if node_id == str(plan.get("root_node_id", "open_and_context")).strip():
             return True
         if node_id == "verify_identity":
-            # Identity can only be completed after an explicit successful
-            # verification state.
-            if memory_identity_verified:
-                return True
-            if observed_tool != "customer_verify":
-                return False
-            verify_status = str(observed_output.get("status", "")).strip().lower()
-            return verify_status == "verified"
+            # Identity completion is gated by effective verification state,
+            # not by single-tool success in isolation.
+            return bool(memory_identity_verified)
         if observed_tool:
             tool_status = str(observed_output.get("status", "")).strip().lower()
             if tool_status in {"failed", "locked", "error", "rejected", "denied", "invalid"}:
@@ -1051,6 +1571,50 @@ class PlanProposalNode(BaseGraphNode):
             # Customer-owned steps must be grounded in an observed tool result.
             return False
         return True
+
+    def _can_accept_skip_marker(
+        self,
+        *,
+        plan: dict[str, Any],
+        node_id: str,
+        previous_current: str,
+        user_input: str,
+        memory_identity_verified: bool,
+        markers: dict[str, Any],
+    ) -> bool:
+        root_id = str(plan.get("root_node_id", "open_and_context")).strip() or "open_and_context"
+        if node_id == root_id:
+            return False
+        if node_id == "verify_identity" and not memory_identity_verified:
+            return False
+
+        lowered = str(user_input).lower()
+        explicit_skip = any(
+            token in lowered
+            for token in [
+                "skip",
+                "skipped",
+                "defer",
+                "later",
+                "not now",
+                "can't talk",
+                "cannot talk",
+                "call me later",
+            ]
+        )
+        if not explicit_skip:
+            return False
+
+        current = str(previous_current or "").strip()
+        if not current:
+            return False
+        if node_id == current:
+            return True
+
+        allowed_next = self._next_nodes_from_edges(nodes=plan.get("edges", []), current_node_id=current)
+        if node_id not in allowed_next:
+            return False
+        return self._is_node_unlocked(plan=plan, node_id=node_id, markers=markers)
 
     def _is_node_unlocked(self, *, plan: dict[str, Any], node_id: str, markers: dict[str, Any]) -> bool:
         parents: list[str] = []
@@ -1101,9 +1665,26 @@ class PlanProposalNode(BaseGraphNode):
                 if child not in reachable:
                     queue.append(child)
 
-        keep = set(reachable) | {kid for kid in keep_ids if kid in node_map}
+        historical_ids = self._historical_node_ids(plan=plan)
+        keep = set(reachable) | {kid for kid in keep_ids if kid in node_map} | {hid for hid in historical_ids if hid in node_map}
         plan["nodes"] = [node_map[node_id] for node_id in node_map if node_id in keep]
         plan["edges"] = [edge for edge in filtered_edges if edge["from"] in keep and edge["to"] in keep]
+
+    @staticmethod
+    def _historical_node_ids(*, plan: dict[str, Any]) -> set[str]:
+        markers = plan.get("step_markers") if isinstance(plan.get("step_markers"), dict) else {}
+        historical: set[str] = set()
+        for node_id, raw in markers.items():
+            node_key = str(node_id).strip()
+            if not node_key:
+                continue
+            if isinstance(raw, dict):
+                state = str(raw.get("state", "pending")).strip().lower()
+            else:
+                state = str(raw or "pending").strip().lower()
+            if state in {"done", "skipped", "blocked"}:
+                historical.add(node_key)
+        return historical
 
     def _infer_current_node_id(
         self,
@@ -1114,6 +1695,7 @@ class PlanProposalNode(BaseGraphNode):
         route: str,
         proposal: dict[str, Any],
         plan_update: dict[str, Any],
+        previous_current: str,
     ) -> str:
         selected_next = str(plan_update.get("selected_next_node_id", "")).strip()
         if selected_next:
@@ -1124,11 +1706,13 @@ class PlanProposalNode(BaseGraphNode):
 
         lowered = user_input.lower()
         proposal_intent = str(proposal.get("intent", "")).strip().lower() if isinstance(proposal, dict) else ""
+        if self.strict_llm_mode:
+            if proposal_intent == "conversation_termination" or self._is_conversation_termination(user_input):
+                return "resolve_outcome"
+            return str(previous_current or "").strip()
         if proposal_intent == "conversation_termination" or self._is_conversation_termination(user_input):
             return "resolve_outcome"
-        if route == "propose":
-            return "evaluate_assistance"
-        if observed_tool in {"customer_verify"} or "verify" in lowered:
+        if observed_tool in {"verify_dob", "verify_mobile"} or "verify" in lowered:
             return "verify_identity"
         if observed_tool in {"dues_explain_build", "loan_policy_lookup"} or any(
             token in lowered for token in ["dues", "overdue", "emi", "policy", "amount due"]
@@ -1167,12 +1751,78 @@ class PlanProposalNode(BaseGraphNode):
         return node_id
 
     @staticmethod
+    def _align_customer_proposal_with_plan(
+        *,
+        proposal: dict[str, Any],
+        plan: dict[str, Any],
+        memory_state: dict[str, Any],
+        plan_signals: dict[str, Any],
+    ) -> dict[str, Any]:
+        aligned = dict(proposal)
+        target = str(aligned.get("target", "customer")).strip().lower() or "customer"
+        if target != "customer":
+            return aligned
+
+        current_node_id = str(plan.get("current_node_id", "")).strip()
+        identity_verified = bool(memory_state.get("identity_verified", False))
+        intent = str(aligned.get("intent", "")).strip().lower()
+        draft_text = str(aligned.get("draft_response", "")).strip().lower()
+        outline_text = str(aligned.get("plan_outline", "")).strip().lower()
+        verification_language = any(
+            token in f"{draft_text} {outline_text}"
+            for token in ["confirm your identity", "verify customer identity", "identity verification"]
+        )
+        hardship_signal = bool(plan_signals.get("hardship_signal", False))
+
+        # Guardrail: while identity is incomplete, keep customer proposal pinned
+        # to verification path and prevent unrelated plan branches.
+        if (not identity_verified) and current_node_id in {"verify_identity", ""}:
+            aligned["intent"] = "verify_identity"
+            aligned["plan_outline"] = "Request only remaining verification fields to complete identity verification."
+            aligned["next_actions"] = ["verify_identity"]
+            tree = aligned.get("plan_tree_update") if isinstance(aligned.get("plan_tree_update"), dict) else {}
+            tree["selected_next_node_id"] = "verify_identity"
+            tree["current_node_id"] = "verify_identity"
+            tree["new_edges"] = []
+            aligned["plan_tree_update"] = tree
+
+        if identity_verified and current_node_id == "explain_dues":
+            if intent in {"verify_identity", "verification_required_before_discount"} or verification_language:
+                aligned["intent"] = "case_snapshot"
+                aligned["plan_outline"] = "Explain dues context and collect payment intent."
+                aligned["draft_response"] = ""
+                aligned["next_actions"] = ["collect_payment_intent"]
+                aligned["case_snapshot"] = {
+                    "customer_name": str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer",
+                    "case_id": str(memory_state.get("active_case_id", "COLL-1001")).strip() or "COLL-1001",
+                    "overdue_amount": float(memory_state.get("active_overdue_amount", 0.0) or 0.0),
+                    "emi_amount": float(memory_state.get("active_emi_amount", 0.0) or 0.0),
+                    "late_fee": float(memory_state.get("active_late_fee", 0.0) or 0.0),
+                    "dpd": int(memory_state.get("active_dpd", 0) or 0),
+                }
+            elif intent == "discount_recommendation" and not hardship_signal:
+                aligned["intent"] = "case_snapshot"
+                aligned["plan_outline"] = "Explain dues context and collect payment intent."
+                aligned["draft_response"] = ""
+                aligned["next_actions"] = ["collect_payment_intent"]
+                aligned["case_snapshot"] = {
+                    "customer_name": str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer",
+                    "case_id": str(memory_state.get("active_case_id", "COLL-1001")).strip() or "COLL-1001",
+                    "overdue_amount": float(memory_state.get("active_overdue_amount", 0.0) or 0.0),
+                    "emi_amount": float(memory_state.get("active_emi_amount", 0.0) or 0.0),
+                    "late_fee": float(memory_state.get("active_late_fee", 0.0) or 0.0),
+                    "dpd": int(memory_state.get("active_dpd", 0) or 0),
+                }
+        return aligned
+
+    @staticmethod
     def _append_timeline_snapshot(*, plan: dict[str, Any], update: dict[str, Any]) -> None:
         timeline = plan.get("timeline")
         entries = list(timeline) if isinstance(timeline, list) else []
+        timestamp = datetime.now(UTC).isoformat()
         entries.append(
             {
-                "at_utc": datetime.now(UTC).isoformat(),
+                "at_utc": timestamp,
                 "version": int(plan.get("version", 1)),
                 "status": str(plan.get("status", "active")),
                 "current_node_id": str(plan.get("current_node_id", "")),
@@ -1181,3 +1831,210 @@ class PlanProposalNode(BaseGraphNode):
             }
         )
         plan["timeline"] = entries[-40:]
+
+        # Persist full plan snapshots across turns so the UI can render a
+        # conversation-level plan timeline (prev/next over historical plan states).
+        snapshot_plan = {
+            "plan_id": str(plan.get("plan_id", "")),
+            "version": int(plan.get("version", 1)),
+            "status": str(plan.get("status", "active")),
+            "mode": str(plan.get("mode", "strict_collections")),
+            "objective": str(plan.get("objective", "")),
+            "root_node_id": str(plan.get("root_node_id", "")),
+            "current_node_id": str(plan.get("current_node_id", "")),
+            "previous_node_id": plan.get("previous_node_id"),
+            "next_node_ids": list(plan.get("next_node_ids", [])) if isinstance(plan.get("next_node_ids"), list) else [],
+            "nodes": [dict(node) for node in plan.get("nodes", []) if isinstance(node, dict)],
+            "edges": [dict(edge) for edge in plan.get("edges", []) if isinstance(edge, dict)],
+            "step_markers": dict(plan.get("step_markers", {})) if isinstance(plan.get("step_markers"), dict) else {},
+            "updated_from": str(plan.get("updated_from", "")),
+            "last_response_target": str(plan.get("last_response_target", "")),
+        }
+        snapshots_raw = plan.get("timeline_snapshots")
+        snapshots = list(snapshots_raw) if isinstance(snapshots_raw, list) else []
+        snapshots.append(
+            {
+                "at_utc": timestamp,
+                "version": int(plan.get("version", 1)),
+                "status": str(plan.get("status", "active")),
+                "current_node_id": str(plan.get("current_node_id", "")),
+                "update": dict(update) if isinstance(update, dict) else {},
+                "plan": snapshot_plan,
+            }
+        )
+        plan["timeline_snapshots"] = snapshots[-80:]
+
+    def _classify_plan_signals(
+        self,
+        *,
+        user_input: str,
+        mode: str,
+        memory_state: dict[str, Any],
+        existing_plan: dict[str, Any],
+    ) -> dict[str, Any]:
+        llm_payload = self._classify_plan_signals_with_llm(
+            user_input=user_input,
+            mode=mode,
+            memory_state=memory_state,
+            existing_plan=existing_plan,
+        )
+        if llm_payload is not None:
+            return llm_payload
+        if self.strict_llm_mode:
+            return {
+                "needs_discount_specialist": False,
+                "is_plan_request": False,
+                "is_plan_rejection": False,
+                "hardship_signal": False,
+                "hardship_reason": str(memory_state.get("hardship_reason", "income_reduction")),
+                "suggested_plan_mode": mode,
+                "reason": "strict_mode_no_classifier_fallback",
+            }
+        return {
+            "needs_discount_specialist": self._needs_discount_specialist(user_input),
+            "is_plan_request": self._is_plan_request(user_input),
+            "is_plan_rejection": self._is_plan_rejection(user_input),
+            "hardship_signal": any(token in user_input.lower() for token in ["cannot pay", "hardship", "vulnerability", "emi"]),
+            "hardship_reason": str(memory_state.get("hardship_reason", "income_reduction")),
+            "suggested_plan_mode": mode,
+            "reason": "heuristic_fallback",
+        }
+
+    def _classify_plan_signals_with_llm(
+        self,
+        *,
+        user_input: str,
+        mode: str,
+        memory_state: dict[str, Any],
+        existing_plan: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if self.llm is None:
+            return None
+        if not self.classifier_system_prompt.strip():
+            raise ValueError("Missing required prompt: plan_proposal.classifier_system_prompt")
+        if not self.classifier_user_prompt.strip():
+            raise ValueError("Missing required prompt: plan_proposal.classifier_user_prompt")
+
+        vars_map = {
+            "user_input": user_input,
+            "mode": mode,
+            "memory_state_json": self._json_compact(
+                self._compact_memory_state_for_prompt(memory_state),
+                max_chars=self.max_json_chars,
+            ),
+            "existing_plan_json": self._json_compact(
+                self._compact_existing_plan_for_prompt(existing_plan),
+                max_chars=self.max_json_chars,
+            ),
+        }
+        system_prompt = self._render_prompt_template(self.classifier_system_prompt, vars_map)
+        user_prompt = self._render_prompt_template(self.classifier_user_prompt, vars_map)
+        if not self.last_debug.get("prompt"):
+            self.last_debug["prompt"] = user_prompt
+            self.last_debug["system_prompt"] = system_prompt or None
+        try:
+            payload = StructuredOutputRunner(self.llm, max_retries=2).run(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                schema=_PlanSignalPayload,
+            )
+            prior = self.last_debug.get("llm_response")
+            merged = dict(prior) if isinstance(prior, dict) else {}
+            merged["classifier"] = payload.model_dump(mode="json")
+            self.last_debug["llm_response"] = merged
+        except Exception as exc:
+            self.last_debug["llm_error"] = str(exc)
+            return None
+        normalized_mode = str(payload.suggested_plan_mode).strip().lower()
+        if normalized_mode not in {"strict_collections", "hardship_negotiation"}:
+            normalized_mode = mode
+        return {
+            "needs_discount_specialist": bool(payload.needs_discount_specialist),
+            "is_plan_request": bool(payload.is_plan_request),
+            "is_plan_rejection": bool(payload.is_plan_rejection),
+            "hardship_signal": bool(payload.hardship_signal),
+            "hardship_reason": str(payload.hardship_reason or memory_state.get("hardship_reason", "income_reduction")),
+            "suggested_plan_mode": normalized_mode,
+            "reason": str(payload.reason or ""),
+        }
+
+    @staticmethod
+    def _truncate_text(text: str, max_chars: int) -> str:
+        value = str(text or "")
+        if len(value) <= max_chars:
+            return value
+        return value[: max_chars - 3].rstrip() + "..."
+
+    def _json_compact(self, value: Any, *, max_chars: int) -> str:
+        raw = json.dumps(value, ensure_ascii=True, default=str, separators=(",", ":"))
+        if len(raw) <= max_chars:
+            return raw
+        return self._truncate_text(raw, max_chars)
+
+    @staticmethod
+    def _compact_existing_plan_for_prompt(plan: dict[str, Any], *, minimal: bool = False) -> dict[str, Any]:
+        if not isinstance(plan, dict):
+            return {}
+        nodes_raw = plan.get("nodes") if isinstance(plan.get("nodes"), list) else []
+        edges_raw = plan.get("edges") if isinstance(plan.get("edges"), list) else []
+        markers = plan.get("step_markers") if isinstance(plan.get("step_markers"), dict) else {}
+        max_nodes = 6 if minimal else 10
+        max_edges = 10 if minimal else 16
+        nodes: list[dict[str, Any]] = []
+        for node in nodes_raw[:max_nodes]:
+            if not isinstance(node, dict):
+                continue
+            nodes.append(
+                {
+                    "id": str(node.get("id", "")).strip(),
+                    "label": str(node.get("label", "")).strip(),
+                    "status": str(node.get("status", "")).strip(),
+                    "owner": str(node.get("owner", "")).strip(),
+                }
+            )
+        edges: list[dict[str, Any]] = []
+        for edge in edges_raw[:max_edges]:
+            if not isinstance(edge, dict):
+                continue
+            edges.append(
+                {
+                    "from": str(edge.get("from", "")).strip(),
+                    "to": str(edge.get("to", "")).strip(),
+                    "condition": str(edge.get("condition", "")).strip(),
+                }
+            )
+        marker_view: dict[str, str] = {}
+        marker_limit = 8 if minimal else 14
+        for key, raw in markers.items():
+            if len(marker_view) >= marker_limit:
+                break
+            if not isinstance(raw, dict):
+                continue
+            marker_view[str(key)] = str(raw.get("state", "pending")).strip()
+        return {
+            "plan_id": str(plan.get("plan_id", "")).strip(),
+            "version": int(plan.get("version", 1) or 1),
+            "status": str(plan.get("status", "active")).strip(),
+            "mode": str(plan.get("mode", "strict_collections")).strip(),
+            "current_node_id": str(plan.get("current_node_id", "")).strip(),
+            "previous_node_id": str(plan.get("previous_node_id", "")).strip(),
+            "next_node_ids": [str(x).strip() for x in (plan.get("next_node_ids") or []) if str(x).strip()][:6],
+            "nodes": nodes,
+            "edges": edges,
+            "step_markers": marker_view,
+        }
+
+    @staticmethod
+    def _compact_memory_state_for_prompt(memory_state: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(memory_state, dict):
+            return {}
+        return {
+            "active_case_id": str(memory_state.get("active_case_id", "")).strip(),
+            "active_user_id": str(memory_state.get("active_user_id", "")).strip(),
+            "active_customer_name": str(memory_state.get("active_customer_name", "")).strip(),
+            "identity_verified": bool(memory_state.get("identity_verified", False)),
+            "verification_entities": memory_state.get("verification_entities", {}),
+            "verification_missing_fields": memory_state.get("verification_missing_fields", []),
+            "mode": str(memory_state.get("mode", "strict_collections")).strip(),
+            "last_response_target": str(memory_state.get("last_response_target", "")).strip(),
+        }

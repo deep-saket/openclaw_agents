@@ -1,14 +1,15 @@
 flowchart TD
-  Start["START"] --> IN["IntentNode (Relevance Gate)\n- relevant | irrelevant | empty"]
-  IN -->|irrelevant/empty| IR["IrrelevantResponseNode\n- static response"]
+  Start["START"] --> IN["IntentNode (Relevance Gate)\nrelevant | irrelevant | empty"]
+  IN -->|irrelevant/empty| IR["IrrelevantResponseNode"]
   IR --> End["END"]
 
-  IN -->|relevant| PG["IntentNode (Pre-Plan Gate)\n- plan | decide"]
-  PG -->|plan| PP["PlanProposalNode\n- plan advance / next action"]
-  PG -->|decide| XP["IntentNode (Execution Path)\n- need_memory | need_tool"]
+  IN -->|relevant| EN["CollectionEntityExtractNode"]
+  EN --> PG["IntentNode (Pre-Plan Gate)\nplan | decide"]
+  PG -->|plan| PP["PlanProposalNode"]
+  PG -->|decide| XP["IntentNode (Execution Path)\nneed_memory | need_tool"]
 
   XP -->|need_memory| MR["MemoryRetrieveNode"]
-  MR --> PM["IntentNode (Post-Memory Plan Gate)\n- plan | react"]
+  MR --> PM["IntentNode (Post-Memory Gate)\nplan | react"]
   PM -->|plan| PP
   PM -->|react| RN["ReactNode"]
 
@@ -17,36 +18,25 @@ flowchart TD
   TE --> RN
   RN -->|respond/end| PP
 
-  PP -->|propose| TE
   PP -->|continue| RF["CollectionReflectNode"]
-
-  RF -->|retry_react| RN
-  RF -->|retry_plan| PP
-  RF -->|complete| RR["RelevantResponseNode\n- response + response_target + additional_targets"]
+  RF -->|retry_plan_proposal| PP
+  RF -->|complete| RR["RelevantResponseNode\nresponse + response_target (+ additional_targets)"]
   RR --> End
 
-  End -.external orchestration in main.-> X1["Target: customer"]
-  End -.external orchestration in main.-> X2["Target: self"]
-  End -.external orchestration in main.-> X3["Target: discount_planning_agent"]
-  End -.external orchestration in main.-> X4["Additional target: collection_memory_helper_agent"]
+  End -. external orchestration in main .-> X1["Target: customer"]
+  End -. external orchestration in main .-> X2["Target: self"]
+  End -. external orchestration in main .-> X3["Target: discount_planning_agent"]
+  End -. external orchestration in main .-> X4["Additional target: collection_memory_helper_agent"]
 
-  subgraph TBOX["Collection Tool Box"]
-    T1["case_fetch"]
-    T2["case_prioritize"]
-    T3["contact_attempt"]
-    T4["customer_verify"]
-    T5["loan_policy_lookup"]
-    T6["dues_explain_build"]
-    T7["offer_eligibility"]
-    T8["plan_propose"]
-    T9["payment_link_create"]
-    T10["pay_by_phone_collect"]
-    T11["payment_status_check"]
-    T12["promise_capture"]
-    T13["followup_schedule"]
-    T14["disposition_update"]
-    T15["channel_switch"]
-    T16["human_escalation"]
+  subgraph TBOX["Collection Tool Box (React/ToolExecution)"]
+    T1["verify_dob"]
+    T2["verify_mobile"]
+    T3["loan_policy_lookup"]
+    T4["offer_eligibility"]
+    T5["plan_propose"]
+    T6["payment_link_create"]
+    T7["promise_capture"]
+    T8["human_escalation"]
   end
 
-  TE -.uses.-> TBOX
+  TE -. uses .-> TBOX

@@ -1,39 +1,289 @@
 {
-  "trace_id": "5811e4af-67e0-438d-b8a1-1e75ba5cff79",
+  "trace_id": "e167a016-67b3-4e7b-b413-66ccf6ead98b",
   "agent_name": "collection_agent",
-  "session_id": "S2_scam-83ba",
-  "user_input": "last 4 pan QP9T and zip 400067",
-  "status": "failed",
-  "started_at": "2026-05-04T05:09:36.306342+00:00",
-  "finished_at": "2026-05-04T05:09:37.535479+00:00",
-  "error": "CollectionIntentNode failed to produce structured LLM intent output. Fallback disabled. Error: Structured output failed after retries: HTTP Error 429: Too Many Requests",
+  "session_id": "collection-user_a-cli",
+  "user_input": "My phone number is : 9900001001and date of birth is  1991-08-19",
+  "status": "completed",
+  "started_at": "2026-05-19T11:34:28.680937+00:00",
+  "finished_at": "2026-05-19T11:41:28.964711+00:00",
+  "error": null,
   "summary": {
-    "trace_id": "5811e4af-67e0-438d-b8a1-1e75ba5cff79",
+    "trace_id": "e167a016-67b3-4e7b-b413-66ccf6ead98b",
     "agent_name": "collection_agent",
-    "session_id": "S2_scam-83ba",
-    "status": "failed",
+    "session_id": "collection-user_a-cli",
+    "status": "completed",
     "node_hits": [
-      "relevance_intent"
+      "relevance_intent",
+      "entity_extract",
+      "pre_plan_intent",
+      "execution_path_intent",
+      "verification_react",
+      "tool_execution",
+      "verification_react",
+      "tool_execution",
+      "verification_react",
+      "post_verification_intent",
+      "plan_proposal",
+      "reflect",
+      "relevant_response"
     ],
-    "node_count": 1,
-    "llm_call_count": 0,
-    "tool_call_count": 0,
-    "models": [],
+    "node_count": 13,
+    "llm_call_count": 10,
+    "tool_call_count": 2,
+    "models": [
+      "llama-3.1-8b-instant"
+    ],
     "prompt_tokens": 0,
     "completion_tokens": 0,
     "total_tokens": 0,
-    "error": "CollectionIntentNode failed to produce structured LLM intent output. Fallback disabled. Error: Structured output failed after retries: HTTP Error 429: Too Many Requests"
+    "error": null
   },
   "nodes": [
     {
       "node_name": "relevance_intent",
-      "status": "failed",
-      "started_at": "2026-05-04T05:09:36.308600+00:00",
-      "finished_at": "2026-05-04T05:09:37.535366+00:00",
-      "duration_ms": 1226.766,
-      "error": "CollectionIntentNode failed to produce structured LLM intent output. Fallback disabled. Error: Structured output failed after retries: HTTP Error 429: Too Many Requests"
+      "status": "completed",
+      "started_at": "2026-05-19T11:34:28.681884+00:00",
+      "finished_at": "2026-05-19T11:34:29.407184+00:00",
+      "duration_ms": 725.3,
+      "error": null
+    },
+    {
+      "node_name": "entity_extract",
+      "status": "completed",
+      "started_at": "2026-05-19T11:34:29.408672+00:00",
+      "finished_at": "2026-05-19T11:34:37.624028+00:00",
+      "duration_ms": 8215.356,
+      "error": null
+    },
+    {
+      "node_name": "pre_plan_intent",
+      "status": "completed",
+      "started_at": "2026-05-19T11:34:37.624700+00:00",
+      "finished_at": "2026-05-19T11:34:38.136502+00:00",
+      "duration_ms": 511.802,
+      "error": null
+    },
+    {
+      "node_name": "execution_path_intent",
+      "status": "completed",
+      "started_at": "2026-05-19T11:34:38.137373+00:00",
+      "finished_at": "2026-05-19T11:34:38.641356+00:00",
+      "duration_ms": 503.983,
+      "error": null
+    },
+    {
+      "node_name": "verification_react",
+      "status": "completed",
+      "started_at": "2026-05-19T11:34:38.642261+00:00",
+      "finished_at": "2026-05-19T11:35:23.556860+00:00",
+      "duration_ms": 44914.599,
+      "error": null
+    },
+    {
+      "node_name": "tool_execution",
+      "status": "completed",
+      "started_at": "2026-05-19T11:35:23.561034+00:00",
+      "finished_at": "2026-05-19T11:35:24.131259+00:00",
+      "duration_ms": 570.225,
+      "error": null
+    },
+    {
+      "node_name": "verification_react",
+      "status": "completed",
+      "started_at": "2026-05-19T11:35:24.629608+00:00",
+      "finished_at": "2026-05-19T11:35:34.673538+00:00",
+      "duration_ms": 10043.93,
+      "error": null
+    },
+    {
+      "node_name": "tool_execution",
+      "status": "completed",
+      "started_at": "2026-05-19T11:35:34.675608+00:00",
+      "finished_at": "2026-05-19T11:35:35.234826+00:00",
+      "duration_ms": 559.218,
+      "error": null
+    },
+    {
+      "node_name": "verification_react",
+      "status": "completed",
+      "started_at": "2026-05-19T11:35:35.727020+00:00",
+      "finished_at": "2026-05-19T11:36:08.730591+00:00",
+      "duration_ms": 33003.571,
+      "error": null
+    },
+    {
+      "node_name": "post_verification_intent",
+      "status": "completed",
+      "started_at": "2026-05-19T11:38:23.981322+00:00",
+      "finished_at": "2026-05-19T11:38:24.838862+00:00",
+      "duration_ms": 857.54,
+      "error": null
+    },
+    {
+      "node_name": "plan_proposal",
+      "status": "completed",
+      "started_at": "2026-05-19T11:38:56.552368+00:00",
+      "finished_at": "2026-05-19T11:41:13.793021+00:00",
+      "duration_ms": 137240.653,
+      "error": null
+    },
+    {
+      "node_name": "reflect",
+      "status": "completed",
+      "started_at": "2026-05-19T11:41:20.809395+00:00",
+      "finished_at": "2026-05-19T11:41:22.375490+00:00",
+      "duration_ms": 1566.095,
+      "error": null
+    },
+    {
+      "node_name": "relevant_response",
+      "status": "completed",
+      "started_at": "2026-05-19T11:41:24.748944+00:00",
+      "finished_at": "2026-05-19T11:41:25.898963+00:00",
+      "duration_ms": 1150.019,
+      "error": null
     }
   ],
-  "llm_calls": [],
-  "tool_calls": []
+  "llm_calls": [
+    {
+      "call_id": "8cd16d61-edea-4ddc-8215-8eee01c8fdce",
+      "node_name": "relevance_intent",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:34:29.406912+00:00",
+      "finished_at": "2026-05-19T11:34:29.406912+00:00",
+      "duration_ms": 210.571
+    },
+    {
+      "call_id": "e0ca639c-2c86-4c3b-882a-691fae49fed8",
+      "node_name": "entity_extract",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:34:36.608735+00:00",
+      "finished_at": "2026-05-19T11:34:36.608735+00:00",
+      "duration_ms": 7199.284
+    },
+    {
+      "call_id": "e7355622-b652-425f-8e57-8ddc5c4377f3",
+      "node_name": "verification_react",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:35:48.701925+00:00",
+      "finished_at": "2026-05-19T11:35:48.701925+00:00",
+      "duration_ms": 519.98
+    },
+    {
+      "call_id": "9d376657-ac36-4914-9842-0d727ed27913",
+      "node_name": "post_verification_intent",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:38:24.838300+00:00",
+      "finished_at": "2026-05-19T11:38:24.838300+00:00",
+      "duration_ms": 336.443
+    },
+    {
+      "call_id": "393ebcd8-b33a-49d3-bdaf-99f327342795",
+      "node_name": "plan_proposal",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:40:44.605571+00:00",
+      "finished_at": "2026-05-19T11:40:44.605571+00:00",
+      "duration_ms": 432.996
+    },
+    {
+      "call_id": "8b763f08-ec67-4e5e-a55c-a647799fcfdb",
+      "node_name": "plan_proposal",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:40:45.032151+00:00",
+      "finished_at": "2026-05-19T11:40:45.032151+00:00",
+      "duration_ms": 426.018
+    },
+    {
+      "call_id": "fec00ed6-1112-4f39-b353-f8952a03b215",
+      "node_name": "plan_proposal",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:40:45.507297+00:00",
+      "finished_at": "2026-05-19T11:40:45.507297+00:00",
+      "duration_ms": 474.69
+    },
+    {
+      "call_id": "9c2b8a95-9635-49b0-aeb7-799f8e362367",
+      "node_name": "plan_proposal",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:41:07.277018+00:00",
+      "finished_at": "2026-05-19T11:41:07.277018+00:00",
+      "duration_ms": 882.483
+    },
+    {
+      "call_id": "30ad9381-d452-44d2-a7ae-61cc858d86be",
+      "node_name": "reflect",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:41:22.374515+00:00",
+      "finished_at": "2026-05-19T11:41:22.374515+00:00",
+      "duration_ms": 1048.764
+    },
+    {
+      "call_id": "06137ea7-6412-463f-931e-706356f1b48b",
+      "node_name": "relevant_response",
+      "model_name": "llama-3.1-8b-instant",
+      "call_kind": "generate",
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "started_at": "2026-05-19T11:41:25.379582+00:00",
+      "finished_at": "2026-05-19T11:41:25.379582+00:00",
+      "duration_ms": 626.809
+    }
+  ],
+  "tool_calls": [
+    {
+      "tool_name": "verify_dob",
+      "node_name": "tool_execution",
+      "status": "completed",
+      "started_at": "2026-05-19T11:35:23.632010+00:00",
+      "finished_at": "2026-05-19T11:35:23.632010+00:00",
+      "duration_ms": 70.344,
+      "error": null
+    },
+    {
+      "tool_name": "verify_mobile",
+      "node_name": "tool_execution",
+      "status": "completed",
+      "started_at": "2026-05-19T11:35:34.746767+00:00",
+      "finished_at": "2026-05-19T11:35:34.746767+00:00",
+      "duration_ms": 70.458,
+      "error": null
+    }
+  ]
 }

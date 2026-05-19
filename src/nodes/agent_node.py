@@ -56,11 +56,16 @@ class AgentNode(BaseGraphNode):
 
         update: NodeUpdate = {}
         if self.include_as_observation:
-            update["observation"] = {
+            new_observation = {
                 "tool_name": f"agent:{delegate_name}",
                 "output": result,
                 "session_id": delegate_session_id,
             }
+            update["observation"] = new_observation
+            existing_observations = state.get("observations")
+            observations = list(existing_observations) if isinstance(existing_observations, list) else []
+            observations.append(new_observation)
+            update["observations"] = observations
         if self.include_as_response:
             update["response"] = str(result)
         return update
@@ -83,11 +88,21 @@ class AgentNode(BaseGraphNode):
     @staticmethod
     def _render_template(*, template: str, state: AgentState, delegate_name: str, default_value: str) -> str:
         """Renders a state-aware template with placeholder-safe behavior."""
+        latest_observation = None
+        observations = state.get("observations")
+        if isinstance(observations, list):
+            for item in reversed(observations):
+                if isinstance(item, dict):
+                    latest_observation = item
+                    break
+        if latest_observation is None:
+            latest_observation = state.get("observation")
         values = {
             "session_id": AgentNode._stringify(state.get("session_id")),
             "user_input": AgentNode._stringify(state.get("user_input")),
             "response": AgentNode._stringify(state.get("response")),
-            "observation": AgentNode._stringify(state.get("observation")),
+            "observation": AgentNode._stringify(latest_observation),
+            "observations": AgentNode._stringify(state.get("observations")),
             "memory_context": AgentNode._stringify(state.get("memory_context")),
             "agent_name": AgentNode._stringify(delegate_name),
         }

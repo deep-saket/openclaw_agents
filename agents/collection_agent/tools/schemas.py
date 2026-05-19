@@ -70,17 +70,30 @@ class ContactAttemptOutput(BaseModel):
     created_at: datetime
 
 
-class CustomerVerifyInput(BaseModel):
+class VerifyDOBInput(BaseModel):
     case_id: str | None = None
     customer_id: str | None = None
-    challenge_answers: dict[str, str] = Field(default_factory=dict)
+    dob: str
 
 
-class CustomerVerifyOutput(BaseModel):
+class VerifyDOBOutput(BaseModel):
     customer_id: str
     status: Literal["verified", "failed", "locked"]
+    field: Literal["dob"] = "dob"
     failed_attempts: int
-    required_fields: list[str]
+
+
+class VerifyMobileInput(BaseModel):
+    case_id: str | None = None
+    customer_id: str | None = None
+    phone: str
+
+
+class VerifyMobileOutput(BaseModel):
+    customer_id: str
+    status: Literal["verified", "failed", "locked"]
+    field: Literal["phone"] = "phone"
+    failed_attempts: int
 
 
 class LoanPolicyLookupInput(BaseModel):
@@ -256,6 +269,45 @@ class PlanProposeOutput(BaseModel):
     first_due_date: str
     rationale: str
     status: Literal["proposed", "revised"]
+
+
+class EntityExtractInput(BaseModel):
+    text: str
+
+
+class EntityExtractOutput(BaseModel):
+    entities: dict[str, str] = Field(default_factory=dict)
+    entity_keys: list[str] = Field(default_factory=list)
+
+
+class VerificationEntityExtractInput(BaseModel):
+    text: str
+    required_fields: list[str] = Field(default_factory=list)
+    include_name: bool = True
+
+
+class VerificationEntityExtractOutput(BaseModel):
+    entities: dict[str, str] = Field(default_factory=dict)
+    required_fields: list[str] = Field(default_factory=list)
+    detected_fields: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list)
+
+
+class VerificationMemoryVerifyInput(BaseModel):
+    entities: dict[str, str] = Field(default_factory=dict)
+    expected_challenge: dict[str, str] = Field(default_factory=dict)
+    required_fields: list[str] = Field(default_factory=list)
+    require_name_match: bool = False
+    expected_name: str | None = None
+
+
+class VerificationMemoryVerifyOutput(BaseModel):
+    status: Literal["verified", "failed", "insufficient"]
+    matched: bool
+    missing_fields: list[str] = Field(default_factory=list)
+    mismatched_fields: list[str] = Field(default_factory=list)
+    required_fields: list[str] = Field(default_factory=list)
+    compared_fields: list[str] = Field(default_factory=list)
 
 
 class StrictScriptInput(BaseModel):

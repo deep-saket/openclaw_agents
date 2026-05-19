@@ -21,6 +21,7 @@ from typing import Any, Callable
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from agents.collection_agent.agent import CollectionAgent
@@ -264,7 +265,11 @@ class CollectionDebugRuntime:
     @classmethod
     def create(cls, base_dir: Path) -> "CollectionDebugRuntime":
         config_path = base_dir / "config.yml"
+        # Prefer agent-local env, then workspace-root env fallback.
         load_env_file(base_dir / ".env")
+        repo_root_env = base_dir.parents[1] / ".env"
+        if repo_root_env.exists():
+            load_env_file(repo_root_env)
         raw_config = load_collection_config(config_path if config_path.exists() else DEFAULT_CONFIG_PATH)
 
         llm_error: str | None = None
@@ -283,6 +288,14 @@ class CollectionDebugRuntime:
             repository=collection_repo,
             data_store=collection_store,
             llm=llm,
+            verification_policy=(
+                raw_config.get("verification", {}) if isinstance(raw_config.get("verification"), dict) else {}
+            ),
+            strict_llm_mode=bool(
+                (raw_config.get("agent", {}) if isinstance(raw_config.get("agent"), dict) else {}).get(
+                    "strict_llm_mode", True
+                )
+            ),
             trace_output_dir=base_dir / "runtime" / "traces",
         )
         discount_agent = DiscountPlanningAgent(llm=llm)
@@ -315,6 +328,9 @@ class CollectionDebugRuntime:
         requested_session = request.session_id.strip() if isinstance(request.session_id, str) else ""
         session_id = requested_session or f"collection-{user_code}"
 
+        # "Start user" is expected to begin a fresh demo run, not continue prior
+        # partially-verified state or stale plan markers from the same session id.
+        self.collection_agent.repository.reset_conversation_session(session_id)
         memory = self.collection_agent.session_store.load(session_id)
         memory.set_state(
             mode="strict_collections",
@@ -332,23 +348,54 @@ class CollectionDebugRuntime:
             f"customer_id={matched['customer']['customer_id']} "
             f"case_id={matched['case']['case_id']} "
             f"overdue_amount={matched['case']['overdue_amount']} "
-            "Generate the first call pitch introducing dues and asking for payment intent."
+            "Generate the first call pitch by introducing yourself and requesting identity verification only. "
+            "Do not disclose overdue amount, dues details, or payment options before verification."
         )
 
-        turn = self.run_turn(
-            RunTurnRequest(
-                message=opener_input,
-                session_id=session_id,
-                soft_cap=request.soft_cap,
-                hard_cap=request.hard_cap,
-            )
+        # Keep demo initialization deterministic and fast. The opening pitch is
+        # rendered statically here; subsequent turns use full agent execution.
+        opener_message = (
+            f"Hello {str(matched['customer']['name'])}, this is Alex from the bank's collections team. "
+            "I am calling regarding your loan account dues. "
+            "Before I share details, please confirm your date of birth (YYYY-MM-DD) "
+            "and your registered phone number."
         )
-        return {
+        memory.set_state(last_agent_response=opener_message, last_response_target="customer", turn_index=1)
+        turn = {
+            "session_id": session_id,
+            "final_response": opener_message,
+            "final_target": "customer",
+            "hops": [
+                {
+                    "hop": 1,
+                    "input": opener_input,
+                    "response": opener_message,
+                    "response_target": "customer",
+                    "elapsed_ms": 0.0,
+                    "node_history": [],
+                    "conversation_phase": "demo_init",
+                    "thinking": ["demo-init: static opener returned (LLM not invoked)."],
+                    "events": [],
+                    "trace_summary": {},
+                    "state": {},
+                    "working_memory_state": self._memory_state(session_id=session_id),
+                }
+            ],
+            "final_state": {
+                "demo_init": {
+                    "mode": "static_opener",
+                    "llm_invoked": False,
+                }
+            },
+            "final_working_memory_state": self._memory_state(session_id=session_id),
+            "llm": self._llm_meta(),
+        }
+        return _json_safe({
             "session_id": session_id,
             "user": _json_safe(matched),
             "opener_input": opener_input,
             "turn": turn,
-        }
+        })
 
     def reset_conversation(self, request: ResetConversationRequest) -> dict[str, Any]:
         user_code = request.user_code.strip().lower()
@@ -491,6 +538,23 @@ class CollectionDebugRuntime:
                     "final_working_memory_state": self._memory_state(session_id=session_id),
                     "llm": self._llm_meta(),
                 }
+
+            if target == "discount_planning_agent":
+                handoff_payload = state.get("handoff_payload") if isinstance(state.get("handoff_payload"), dict) else {}
+                recommendation = self.discount_agent.run(handoff_payload)
+                self.collection_agent.session_store.load(session_id).set_state(
+                    discount_recommendation=recommendation,
+                    last_tool_used="discount_planning_handoff",
+                )
+                hop_payload["discount_handoff"] = _json_safe(
+                    {
+                        "handoff_payload": handoff_payload,
+                        "recommendation": recommendation,
+                    }
+                )
+                current_input = "Discount recommendation ready. Continue and respond to customer."
+                current_sender = "self"
+                continue
 
             if hop_index >= soft_cap:
                 self.collection_agent.session_store.load(session_id).set_state(
@@ -844,7 +908,7 @@ def create_router(runtime: CollectionDebugRuntime) -> APIRouter:
 
     @router.post("/run-turn")
     async def run_turn(body: RunTurnRequest) -> dict[str, Any]:
-        return runtime.run_turn(body)
+        return await run_in_threadpool(runtime.run_turn, body)
 
     @router.get("/run-turn-stream")
     async def run_turn_stream(
@@ -876,21 +940,21 @@ def create_router(runtime: CollectionDebugRuntime) -> APIRouter:
     @router.post("/start-conversation")
     async def start_conversation(body: StartConversationRequest) -> dict[str, Any]:
         try:
-            return runtime.start_conversation(body)
+            return await run_in_threadpool(runtime.start_conversation, body)
         except Exception as exc:
             return {"error": str(exc), "users": runtime.list_demo_users()}
 
     @router.post("/reset-conversation")
     async def reset_conversation(body: ResetConversationRequest) -> dict[str, Any]:
         try:
-            return runtime.reset_conversation(body)
+            return await run_in_threadpool(runtime.reset_conversation, body)
         except Exception as exc:
             return {"error": str(exc), "users": runtime.list_demo_users()}
 
     @router.post("/start-call")
     async def start_call(body: StartVoiceCallRequest) -> dict[str, Any]:
         try:
-            return runtime.start_voice_call(body)
+            return await run_in_threadpool(runtime.start_voice_call, body)
         except Exception as exc:
             return {"error": str(exc), "users": runtime.list_demo_users()}
 
@@ -900,7 +964,7 @@ def create_router(runtime: CollectionDebugRuntime) -> APIRouter:
 
     @router.post("/voice/stop")
     async def stop_voice(body: StopVoiceCallRequest) -> dict[str, Any]:
-        return runtime.stop_voice_call(force=bool(body.force))
+        return await run_in_threadpool(runtime.stop_voice_call, force=bool(body.force))
 
     @router.get("/session/{session_id}/messages")
     async def session_messages(session_id: str, limit: int = 120) -> dict[str, Any]:

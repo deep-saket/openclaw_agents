@@ -11,7 +11,8 @@ from types import SimpleNamespace
 from langgraph.graph import END, START, StateGraph
 
 from src.agents.base_agent import BaseAgent
-from src.nodes import MemoryNode, MemoryRetrieveNode, PlannerNode, ResponseNode, WhatsAppNode
+from src.nodes import MemoryNode, MemoryRetrieveNode, ResponseNode, WhatsAppNode
+from src.nodes.react_node import ReactNode
 from src.nodes.types import AgentState
 from src.interfaces.whatsapp import MockWhatsAppInterface, TwilioWhatsAppInterface, WhatsAppInterface
 from src.llm.qwen import Qwen3_1_7BLLM
@@ -21,62 +22,50 @@ from src.tools.registry import ToolRegistry
 from src.utils.config import AppSettings
 
 
-class ConversationNode(PlannerNode):
+class ConversationNode(ReactNode):
     """Implements the notebook conversation planning rules."""
 
-    def plan(
-        self,
-        *,
-        user_input: str,
-        memory=None,
-        observation=None,
-        memory_context=None,
-        system_prompt=None,
-        user_prompt=None,
-        available_tools=None,
-    ):
-        """Plans the direct response for the current conversation turn."""
-
-        del observation, available_tools
+    def _apply_pre_llm_override(self, *, state: AgentState, context: dict[str, object]):
+        user_input = str(state.get("user_input", ""))
+        memory = state.get("memory")
+        memory_context = state.get("memory_context")
         assert memory is not None
         working_memory = (memory_context or {}).get("working", memory)
 
         match = re.search(r"my name is\s+([A-Za-z][A-Za-z\s'-]*)", user_input, re.IGNORECASE)
         if match:
             name = match.group(1).strip()
-            return SimpleNamespace(
-                thought="Stored the user name.",
-                tool_call=None,
-                memory_updates=[{"target": "working", "operation": "set_state", "values": {"user_name": name}}],
-                respond_directly=True,
-                response_text="I'll remember that.",
-                done=True,
-            )
+            return {
+                "skip_llm": True,
+                "reason": "name_store",
+                "decision": SimpleNamespace(
+                    thought="Stored the user name.",
+                    tool_call=None,
+                    memory_updates=[{"target": "working", "operation": "set_state", "values": {"user_name": name}}],
+                    respond_directly=True,
+                    response_text="I'll remember that.",
+                    done=True,
+                ),
+            }
 
         if "what is my name" in user_input.lower() or "what's my name" in user_input.lower():
             name = working_memory.state.get("user_name")
             if name:
-                return SimpleNamespace(
+                response_text = f"Your name is {name}."
+            else:
+                response_text = "You have not told me your name yet."
+            return {
+                "skip_llm": True,
+                "reason": "name_lookup",
+                "decision": SimpleNamespace(
                     thought="Answered from working memory.",
                     tool_call=None,
                     respond_directly=True,
-                    response_text=f"Your name is {name}.",
+                    response_text=response_text,
                     done=True,
-                )
-            return SimpleNamespace(
-                thought="No name stored in working memory.",
-                tool_call=None,
-                respond_directly=True,
-                response_text="You have not told me your name yet.",
-                done=True,
-            )
-
-        return super().plan(
-            user_input=user_input,
-            memory=memory,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-        )
+                ),
+            }
+        return None
 
 
 class SimpleConversationAgent(BaseAgent):

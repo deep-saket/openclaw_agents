@@ -85,6 +85,9 @@ class AgentState(TypedDict, total=False):
     memory_updates: list[dict[str, Any]]
     stored_memories: list[Any]
     observation: dict[str, Any] | None
+    observations: list[dict[str, Any]]
+    verified_dob: bool
+    verified_mobile: bool
     reflection_feedback: dict[str, Any] | None
     reflection_complete: bool
     error: dict[str, Any] | None
@@ -104,6 +107,7 @@ class AgentState(TypedDict, total=False):
     handoff_payload: dict[str, Any]
     additional_targets: list[str]
     memory_helper_trigger: dict[str, Any]
+    pending_tool_calls: list[dict[str, Any]]
 
 
 class NodeUpdate(TypedDict, total=False):
@@ -127,6 +131,9 @@ class NodeUpdate(TypedDict, total=False):
     memory_updates: list[dict[str, Any]]
     stored_memories: list[Any]
     observation: dict[str, Any] | None
+    observations: list[dict[str, Any]]
+    verified_dob: bool
+    verified_mobile: bool
     reflection_feedback: dict[str, Any] | None
     reflection_complete: bool
     error: dict[str, Any] | None
@@ -146,6 +153,7 @@ class NodeUpdate(TypedDict, total=False):
     handoff_payload: dict[str, Any]
     additional_targets: list[str]
     memory_helper_trigger: dict[str, Any]
+    pending_tool_calls: list[dict[str, Any]]
 
 
 ReActState = AgentState

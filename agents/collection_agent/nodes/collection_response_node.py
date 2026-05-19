@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import BaseModel
@@ -21,11 +21,52 @@ class _ResponsePayload(BaseModel):
 
 @dataclass(slots=True)
 class CollectionResponseNode(ResponseNode):
-    """Emits response text and a response target for next-hop routing."""
+    """Emits response text and a response target for next-hop routing.
+
+    State Keys Read:
+    - `user_input`
+    - `response_target`
+    - `plan_proposal`
+    - `conversation_plan`
+    - `observations`
+    - `observation` (latest compatibility mirror)
+    - `verification_*` keys (`identity_verified`, `verification_entities`, `verification_missing_fields`)
+    - `extracted_entities`
+    - `extracted_entities_turn`
+    - `extracted_entity_descriptions`
+    - `memory` (reads/writes `memory.state`, including conversation history and last response fields)
+
+    State Keys Write:
+    - `response`
+    - `response_target`
+    - `conversation_history`
+    - `prompt`
+    - `system_prompt`
+    - `llm_response`
+    - `llm_error`
+    - `fallback_reason` (optional)
+    """
 
     default_target: str = "customer"
+    render_system_prompt: str = ""
+    render_user_prompt: str = ""
+    verification_opening_template: str = ""
+    verification_followup_template: str = ""
+    verification_default_missing_text: str = "your date of birth (YYYY-MM-DD) and your registered phone number"
+    verification_hardship_prefix: str = "I am sorry to hear this, and I appreciate you sharing it. "
+    verification_ack_template: str = "Thank you{customer_suffix}. "
+    strict_llm_mode: bool = True
+    max_prompt_chars: int = 4200
+    max_json_chars: int = 800
+    last_render_debug: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
 
     def execute(self, state: AgentState) -> NodeUpdate:
+        self.last_render_debug = {
+            "prompt": None,
+            "system_prompt": None,
+            "llm_response": None,
+            "llm_error": None,
+        }
         plan = state.get("plan_proposal") if isinstance(state.get("plan_proposal"), dict) else {}
         if plan:
             update: NodeUpdate = {"response": self._render_from_proposal(state=state, proposal=plan)}
@@ -36,37 +77,81 @@ class CollectionResponseNode(ResponseNode):
             update = ResponseNode.execute(self, state)
 
         target = str(update.get("response_target", state.get("response_target", self.default_target))).strip().lower()
-        if target == "discount_planning_agent":
-            target = "self"
-        if target not in {"customer", "self"}:
+        if target not in {"customer", "self", "discount_planning_agent"}:
             target = self.default_target
         update["response_target"] = target
+        update["prompt"] = self.last_render_debug.get("prompt")
+        update["system_prompt"] = self.last_render_debug.get("system_prompt")
+        update["llm_response"] = self.last_render_debug.get("llm_response")
+        update["llm_error"] = self.last_render_debug.get("llm_error")
+        if self.last_render_debug.get("fallback_reason"):
+            update["fallback_reason"] = self.last_render_debug.get("fallback_reason")
+        self._update_conversation_history_memory(state=state, update=update)
         return update
+
+    def _update_conversation_history_memory(self, *, state: AgentState, update: NodeUpdate) -> None:
+        memory = state.get("memory")
+        if memory is None:
+            return
+        memory_state = dict(getattr(memory, "state", {}))
+        history = list(memory_state.get("conversation_history", [])) if isinstance(memory_state.get("conversation_history"), list) else []
+
+        user_text = str(state.get("user_input", "")).strip()
+        source = str(state.get("message_source", "customer")).strip().lower() or "customer"
+        if user_text and source not in {"self", "system"}:
+            if not history or not (
+                isinstance(history[-1], dict)
+                and str(history[-1].get("role", "")).strip().lower() == source
+                and str(history[-1].get("content", "")).strip() == user_text
+            ):
+                history.append({"role": source, "content": user_text})
+
+        response_text = str(update.get("response", "")).strip()
+        response_target = str(update.get("response_target", "customer")).strip().lower()
+        if response_text and response_target == "customer":
+            if not history or not (
+                isinstance(history[-1], dict)
+                and str(history[-1].get("role", "")).strip().lower() == "agent"
+                and str(history[-1].get("content", "")).strip() == response_text
+            ):
+                history.append({"role": "agent", "content": response_text})
+
+        # Keep bounded in memory.
+        history = history[-40:]
+        memory.set_state(conversation_history=history)
+        update["conversation_history"] = history
 
     def route(self, state: AgentState) -> str:
         target = str(state.get("response_target", self.default_target)).strip().lower()
-        if target == "discount_planning_agent":
-            return "self"
-        if target not in {"customer", "self"}:
+        if target not in {"customer", "self", "discount_planning_agent"}:
             return self.default_target
         return target
 
     def _render_from_proposal(self, *, state: AgentState, proposal: dict[str, Any]) -> str:
         memory = state.get("memory")
         memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
+        user_input = str(state.get("user_input", ""))
         response_target = str(proposal.get("target", state.get("response_target", "customer"))).strip().lower() or "customer"
+        if response_target == "discount_planning_agent":
+            return "Prepare specialist handoff payload and wait for discount recommendation."
         conversation_plan = (
             proposal.get("conversation_plan")
             if isinstance(proposal.get("conversation_plan"), dict)
             else (state.get("conversation_plan") if isinstance(state.get("conversation_plan"), dict) else {})
         )
         facts = self._resolve_case_facts(state=state, proposal=proposal)
+        current_plan_node_id = (
+            str(conversation_plan.get("current_node_id", "")).strip()
+            if isinstance(conversation_plan, dict)
+            else ""
+        )
         verification_guard_context = self._build_verification_guard_context(
             state=state,
             memory_state=memory_state,
             response_target=response_target,
             conversation_plan=conversation_plan,
             customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
+            user_input=user_input,
         )
 
         if self.llm is not None:
@@ -77,6 +162,19 @@ class CollectionResponseNode(ResponseNode):
             )
             if llm_response:
                 return llm_response
+            if self.strict_llm_mode:
+                fallback_reason = str(self.last_render_debug.get("fallback_reason", "")).strip()
+                if fallback_reason == "provider_rate_limit":
+                    raise RuntimeError(
+                        "CollectionResponseNode rate-limited by provider while strict_llm_mode is enabled. "
+                        f"Underlying error: {self.last_render_debug.get('llm_error', 'unknown')}"
+                    )
+                raise RuntimeError("CollectionResponseNode failed to render structured LLM response in strict_llm_mode.")
+        if isinstance(verification_guard_context, dict) and verification_guard_context.get("verification_incomplete"):
+            return self._render_verification_first_message(
+                customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
+                guard=verification_guard_context,
+            )
         return self._fallback_render_from_proposal(proposal=proposal)
 
     def _llm_render_from_proposal(
@@ -87,7 +185,15 @@ class CollectionResponseNode(ResponseNode):
         verification_guard_context: dict[str, Any] | None = None,
     ) -> str | None:
         user_input = str(state.get("user_input", ""))
-        observation = state.get("observation")
+        observation = None
+        observations = state.get("observations")
+        if isinstance(observations, list):
+            for item in reversed(observations):
+                if isinstance(item, dict):
+                    observation = item
+                    break
+        if observation is None:
+            observation = state.get("observation")
         memory = state.get("memory")
         memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
         response_target = str(proposal.get("target", state.get("response_target", "customer"))).strip().lower() or "customer"
@@ -106,47 +212,101 @@ class CollectionResponseNode(ResponseNode):
         turn_index = int(memory_state.get("turn_index", state.get("turn_index", 0)) or 0)
         is_opening_turn = turn_index <= 0
         verification_context = verification_guard_context if isinstance(verification_guard_context, dict) else {}
+        extracted_entities = state.get("extracted_entities")
+        if not isinstance(extracted_entities, dict):
+            extracted_entities = memory_state.get("extracted_entities", {}) if isinstance(memory_state.get("extracted_entities"), dict) else {}
+        extracted_entities_turn = state.get("extracted_entities_turn")
+        if not isinstance(extracted_entities_turn, dict):
+            extracted_entities_turn = (
+                memory_state.get("extracted_entities_turn", {})
+                if isinstance(memory_state.get("extracted_entities_turn"), dict)
+                else {}
+            )
+        extracted_entity_descriptions = state.get("extracted_entity_descriptions")
+        if not isinstance(extracted_entity_descriptions, dict):
+            extracted_entity_descriptions = (
+                memory_state.get("extracted_entity_descriptions", {})
+                if isinstance(memory_state.get("extracted_entity_descriptions"), dict)
+                else {}
+            )
+        verification_entities = state.get("verification_entities")
+        if not isinstance(verification_entities, dict):
+            verification_entities = memory_state.get("verification_entities", {}) if isinstance(memory_state.get("verification_entities"), dict) else {}
+        verification_missing_fields = state.get("verification_missing_fields")
+        if not isinstance(verification_missing_fields, list):
+            verification_missing_fields = [
+                str(x).strip()
+                for x in memory_state.get("active_verification_required_fields", [])
+                if str(x).strip() and not str(verification_entities.get(str(x).strip(), "")).strip()
+            ]
+        required_fields = [
+            str(x).strip()
+            for x in memory_state.get("active_verification_required_fields", [])
+            if str(x).strip()
+        ]
+        verification_context_merged: dict[str, Any] = {
+            "identity_verified": bool(state.get("identity_verified", memory_state.get("identity_verified", False))),
+            "required_fields": required_fields,
+            "verification_entities": verification_entities,
+            "verification_missing_fields": verification_missing_fields,
+        }
+        if isinstance(verification_context, dict):
+            verification_context_merged.update(verification_context)
+        compact_plan = self._compact_conversation_plan(conversation_plan)
+        compact_proposal = self._compact_plan_proposal(proposal=proposal)
+        compact_observation = self._compact_observation(observation)
+        prior_agent_response_short = self._truncate_text(prior_agent_response, 280)
 
-        system_prompt = (
-            f"{self.system_prompt or ''}\n"
-            "Your agent name is Alex.\n"
-            "You are a bank collections assistant. Convert plan_proposal into the correct target-directed message.\n"
-            "Allowed response_target values: customer, self.\n"
-            "Never mention internal terms such as plan_proposal, plan, node, tool, or workflow.\n"
-            "Use clear, polite, concise language and ask one concrete next-step question when needed.\n"
-            "Never output placeholders such as [insert amount], [name], or [link].\n"
-            "If amount context is provided, always include that numeric amount.\n"
-            "Only use greeting/opening call introduction when is_opening_turn=true; avoid re-greeting on follow-up turns.\n"
-            "When opening customer conversation, introduce yourself as Alex from collections.\n"
-            "When response_target=customer: produce end-customer message only.\n"
-            "When response_target=self: produce concise internal execution directive for next planner pass.\n"
-            "If verification context indicates verification is incomplete, do not disclose dues/policy-sensitive details.\n"
-            "If verification is incomplete, ask only for the missing fields listed in verification context.\n"
-            "Return strict JSON only: {\"message\": \"...\", \"response_target\": \"customer|self\"}."
-        ).strip()
-        user_prompt = (
-            f"User input: {user_input}\n"
-            f"Customer name: {customer_name}\n"
-            f"Case id: {case_id}\n"
-            f"Overdue amount INR: {overdue_amount:.2f}\n"
-            f"Response target: {response_target}\n"
-            f"is_opening_turn: {json.dumps(is_opening_turn)}\n"
-            f"Previous agent response (if any): {prior_agent_response}\n"
-            f"Current plan step id: {current_plan_node_id}\n"
-            f"Current plan step label: {current_plan_node_label}\n"
-            f"Plan proposal: {json.dumps(proposal, ensure_ascii=True)}\n"
-            f"Conversation plan graph: {json.dumps(conversation_plan, ensure_ascii=True)}\n"
-            f"Verification context: {json.dumps(verification_context, ensure_ascii=True)}\n"
-            f"Observation: {json.dumps(observation, ensure_ascii=True, default=str)}\n"
-            "Generate only structured JSON output."
+        system_prompt = (f"{self.system_prompt or ''}\n{self.render_system_prompt or ''}").strip()
+        user_prompt = self._render_template(
+            self.render_user_prompt,
+            {
+                "user_input": user_input,
+                "customer_name": customer_name,
+                "case_id": case_id,
+                "overdue_amount": f"{overdue_amount:.2f}",
+                "response_target": response_target,
+                "is_opening_turn_json": json.dumps(is_opening_turn),
+                "prior_agent_response": prior_agent_response_short,
+                "current_plan_node_id": current_plan_node_id,
+                "current_plan_node_label": current_plan_node_label,
+                "plan_proposal_json": self._json_compact(compact_proposal, max_chars=self.max_json_chars),
+                "conversation_plan_json": self._json_compact(compact_plan, max_chars=self.max_json_chars),
+                "verification_context_json": self._json_compact(verification_context_merged, max_chars=800),
+                "extracted_entities_json": self._json_compact(extracted_entities, max_chars=500),
+                "extracted_entities_turn_json": self._json_compact(extracted_entities_turn, max_chars=500),
+                "extracted_entity_descriptions_json": self._json_compact(extracted_entity_descriptions, max_chars=500),
+                "verification_entities_json": self._json_compact(verification_entities, max_chars=500),
+                "verification_missing_fields_json": self._json_compact(verification_missing_fields, max_chars=300),
+                "observation_json": self._json_compact(compact_observation, max_chars=700),
+            },
         )
+        if len(user_prompt) > self.max_prompt_chars:
+            # Second-stage clamp for strict provider token windows.
+            user_prompt = self._truncate_text(user_prompt, self.max_prompt_chars)
+        self.last_render_debug = {
+            "prompt": user_prompt,
+            "system_prompt": system_prompt or None,
+            "llm_response": None,
+            "llm_error": None,
+        }
         try:
-            payload = StructuredOutputRunner(self.llm, max_retries=2).run(
+            payload = StructuredOutputRunner(self.llm, max_retries=4).run(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 schema=_ResponsePayload,
             )
-        except Exception:
+            self.last_render_debug["llm_response"] = payload.model_dump(mode="json")
+        except Exception as exc:
+            err_text = str(exc)
+            self.last_render_debug["llm_error"] = err_text
+            if self._is_provider_rate_limit_error(err_text):
+                self.last_render_debug["fallback_reason"] = "provider_rate_limit"
+                return None
+            if self.strict_llm_mode:
+                raise RuntimeError(
+                    f"Structured response generation failed: {exc}"
+                ) from exc
             return None
         response = str(payload.message).strip()
         response_target_payload = str(payload.response_target).strip().lower()
@@ -154,6 +314,29 @@ class CollectionResponseNode(ResponseNode):
             proposal["target"] = response_target_payload
         if not response:
             return None
+        if isinstance(verification_context_merged, dict) and verification_context_merged.get("verification_incomplete"):
+            sanitized = self._enforce_verification_field_scope(
+                text=response,
+                verification_context=verification_context_merged,
+                customer_name=customer_name,
+            )
+            if sanitized:
+                response = sanitized
+        response = self._enforce_commitment_stage_scope(
+            text=response,
+            current_plan_node_id=current_plan_node_id,
+            user_input=user_input,
+            verification_context=verification_context_merged,
+        )
+        response = self._enforce_post_verification_scope(
+            text=response,
+            current_plan_node_id=current_plan_node_id,
+            verification_context=verification_context_merged,
+            customer_name=customer_name,
+            case_id=case_id,
+            overdue_amount=overdue_amount,
+            user_input=user_input,
+        )
         return self._post_process_rendered_response(
             text=response,
             customer_name=customer_name,
@@ -170,44 +353,128 @@ class CollectionResponseNode(ResponseNode):
         response_target: str,
         conversation_plan: dict[str, Any],
         customer_name: str,
+        user_input: str,
     ) -> dict[str, Any] | None:
         if response_target != "customer":
             return None
-        current_node_id = str(conversation_plan.get("current_node_id", "")).strip()
-        if current_node_id != "verify_identity":
-            return None
-        if bool(memory_state.get("identity_verified", False)):
+        if bool(state.get("identity_verified", memory_state.get("identity_verified", False))):
             return None
 
-        collected = memory_state.get("verification_collected") if isinstance(memory_state.get("verification_collected"), dict) else {}
+        collected = (
+            state.get("verification_entities")
+            if isinstance(state.get("verification_entities"), dict)
+            else (
+                memory_state.get("verification_collected")
+                if isinstance(memory_state.get("verification_collected"), dict)
+                else {}
+            )
+        )
         required = memory_state.get("active_verification_required_fields")
         required_fields = [str(x).strip() for x in required if str(x).strip()] if isinstance(required, list) else []
+        # Safety clamp: verification scope for this agent must stay within supported identity fields.
+        allowed_identity_fields = {"dob", "phone", "last4_pan", "zip", "name"}
+        required_fields = [field for field in required_fields if field in allowed_identity_fields]
+        missing_from_state_raw = state.get("verification_missing_fields")
+        if not isinstance(missing_from_state_raw, list):
+            missing_from_state_raw = memory_state.get("verification_missing_fields")
+        missing_from_state = (
+            [str(x).strip() for x in missing_from_state_raw if str(x).strip()]
+            if isinstance(missing_from_state_raw, list)
+            else []
+        )
 
         missing_labels: list[str] = []
         name_confirmed = bool(collected.get("name_confirmed"))
-        if not name_confirmed:
-            missing_labels.append("your full name")
-        for field in required_fields:
-            if field in {"name", "name_confirmed"}:
-                continue
-            if collected.get(field):
-                continue
-            missing_labels.append(self._verification_field_label(field))
+        # Prefer tool-driven missing fields from state (source of truth under iterative verify_dob/verify_mobile flow).
+        if missing_from_state:
+            for field in missing_from_state:
+                if field in {"name", "name_confirmed"}:
+                    continue
+                missing_labels.append(self._verification_field_label(field))
+        else:
+            for field in required_fields:
+                if field in {"name", "name_confirmed"}:
+                    continue
+                if collected.get(field):
+                    continue
+                missing_labels.append(self._verification_field_label(field))
+        mismatched_raw = (
+            memory_state.get("verification_mismatched_fields")
+            if isinstance(memory_state.get("verification_mismatched_fields"), list)
+            else []
+        )
+        mismatched_fields = [str(x).strip() for x in mismatched_raw if str(x).strip()]
+        mismatch_labels = [self._verification_field_label(field) for field in mismatched_fields]
+        mismatch_mode = False
+        if not missing_labels and mismatch_labels:
+            missing_labels = mismatch_labels
+            mismatch_mode = True
+
+        lowered_input = str(user_input or "").lower()
+        hardship_tokens = (
+            "job loss",
+            "lost my job",
+            "lost job",
+            "cannot pay",
+            "can't pay",
+            "hardship",
+            "vulnerable",
+            "medical",
+            "salary cut",
+            "income loss",
+        )
+        hardship_signal = any(token in lowered_input for token in hardship_tokens)
+        turn_index = int(memory_state.get("turn_index", state.get("turn_index", 0)) or 0)
+        is_opening_turn = turn_index <= 0
 
         return {
             "verification_incomplete": True,
+            "is_opening_turn": is_opening_turn,
             "name_confirmed": bool(name_confirmed),
             "customer_name": customer_name,
             "required_fields": required_fields,
             "missing_field_labels": missing_labels,
             "missing_fields_human": self._join_human_list(missing_labels) if missing_labels else "",
+            "mismatch_mode": mismatch_mode,
+            "hardship_signal": hardship_signal,
             "guidance": (
                 "Ask only for missing verification fields in a natural conversational way. "
                 "Do not disclose dues or policy-sensitive details until verification completes."
             ),
-            "current_plan_node_id": current_node_id,
+            "current_plan_node_id": str(conversation_plan.get("current_node_id", "")).strip(),
             "collected_fields": collected,
         }
+
+    def _render_verification_first_message(self, *, customer_name: str, guard: dict[str, Any]) -> str:
+        missing_labels = guard.get("missing_field_labels") if isinstance(guard.get("missing_field_labels"), list) else []
+        missing_human = str(guard.get("missing_fields_human", "")).strip()
+        hardship_signal = bool(guard.get("hardship_signal", False))
+        is_opening_turn = bool(guard.get("is_opening_turn", False))
+        hardship_prefix = self.verification_hardship_prefix if hardship_signal else ""
+        customer_suffix = f", {customer_name}" if customer_name else ""
+        ack_prefix = self._render_template(
+            self.verification_ack_template,
+            {"customer_suffix": customer_suffix},
+        ).strip()
+        if ack_prefix:
+            ack_prefix = f"{ack_prefix} "
+        if missing_human:
+            ask_target = missing_human
+        elif missing_labels:
+            ask_target = self._join_human_list([str(x) for x in missing_labels if str(x).strip()])
+        else:
+            ask_target = self.verification_default_missing_text
+
+        template = self.verification_opening_template if is_opening_turn else self.verification_followup_template
+        return self._render_template(
+            template,
+            {
+                "customer_name": customer_name,
+                "hardship_prefix": hardship_prefix,
+                "missing_human": ask_target,
+                "ack_prefix": ack_prefix,
+            },
+        ).strip()
 
     def _fallback_render_from_proposal(self, *, proposal: dict[str, Any]) -> str:
         target = str(proposal.get("target", "customer")).strip().lower() or "customer"
@@ -376,8 +643,7 @@ class CollectionResponseNode(ResponseNode):
         key = str(field_name).strip().lower()
         mapping = {
             "dob": "your date of birth (YYYY-MM-DD)",
-            "last4_pan": "the last 4 characters of your PAN",
-            "zip": "your registered ZIP/pincode",
+            "phone": "your registered phone number",
         }
         return mapping.get(key, key.replace("_", " "))
 
@@ -391,6 +657,129 @@ class CollectionResponseNode(ResponseNode):
         if len(values) == 2:
             return f"{values[0]} and {values[1]}"
         return f"{', '.join(values[:-1])}, and {values[-1]}"
+
+    def _enforce_verification_field_scope(
+        self,
+        *,
+        text: str,
+        verification_context: dict[str, Any],
+        customer_name: str,
+    ) -> str | None:
+        """Reject verification asks outside configured missing fields (email/pan/zip drift)."""
+        lowered = str(text or "").lower()
+        if not lowered:
+            return None
+        missing_labels = verification_context.get("missing_field_labels")
+        missing_labels_list = (
+            [str(x).strip().lower() for x in missing_labels if str(x).strip()]
+            if isinstance(missing_labels, list)
+            else []
+        )
+        required_fields = verification_context.get("required_fields")
+        required_list = (
+            [str(x).strip().lower() for x in required_fields if str(x).strip()]
+            if isinstance(required_fields, list)
+            else []
+        )
+        # Known sensitive fields that can appear due model drift.
+        disallowed_tokens = {
+            "email": "email" not in required_list and "registered email address" not in missing_labels_list,
+            "pan": "last4_pan" not in required_list and "last 4 characters of your pan" not in missing_labels_list,
+            "zip": "zip" not in required_list and "registered zip/pincode" not in missing_labels_list,
+            "pincode": "zip" not in required_list and "registered zip/pincode" not in missing_labels_list,
+        }
+        if any(flag and token in lowered for token, flag in disallowed_tokens.items()):
+            return self._render_verification_first_message(customer_name=customer_name, guard=verification_context)
+        return None
+
+    @staticmethod
+    def _enforce_commitment_stage_scope(
+        *,
+        text: str,
+        current_plan_node_id: str,
+        user_input: str,
+        verification_context: dict[str, Any],
+    ) -> str:
+        lowered = str(text or "").lower()
+        if not lowered:
+            return text
+        node_id = str(current_plan_node_id or "").strip().lower()
+        in_commitment_stage = node_id in {
+            "collect_payment_intent",
+            "resolve_outcome",
+            "capture_commitment_follow_up",
+            "capture_commitment",
+        }
+        if not in_commitment_stage:
+            return text
+        input_lower = str(user_input or "").lower()
+        requested_email_link = any(
+            token in input_lower
+            for token in ["send link to email", "email me the link", "payment link via email", "email link"]
+        )
+        if ("registered email" in lowered or "email address" in lowered) and not requested_email_link:
+            return (
+                "Please choose one next step: pay now, request a repayment arrangement, "
+                "or schedule a follow-up date."
+            )
+        return text
+
+    @staticmethod
+    def _enforce_post_verification_scope(
+        *,
+        text: str,
+        current_plan_node_id: str,
+        verification_context: dict[str, Any],
+        customer_name: str,
+        case_id: str,
+        overdue_amount: float,
+        user_input: str,
+    ) -> str:
+        lowered = str(text or "").lower()
+        if not lowered:
+            return text
+        identity_verified = bool(verification_context.get("identity_verified", False))
+        required_fields = verification_context.get("required_fields")
+        required_list = (
+            [str(x).strip().lower() for x in required_fields if str(x).strip()]
+            if isinstance(required_fields, list)
+            else []
+        )
+        asks_extra_email = (
+            ("registered email" in lowered or "email address" in lowered)
+            and "email" not in required_list
+        )
+        asks_any_verification = any(
+            token in lowered
+            for token in [
+                "confirm your date of birth",
+                "confirm your registered phone",
+                "confirm your identity",
+                "verify your identity",
+            ]
+        )
+        if not identity_verified:
+            return text
+        if asks_extra_email or asks_any_verification:
+            input_lower = str(user_input or "").lower()
+            requested_email_link = any(
+                token in input_lower
+                for token in ["send link to email", "email me the link", "payment link via email", "email link"]
+            )
+            if requested_email_link and "email" in lowered and not asks_any_verification:
+                return text
+            node_id = str(current_plan_node_id or "").strip().lower()
+            if node_id == "explain_dues":
+                return (
+                    f"Thank you for completing verification, {customer_name}. "
+                    f"For case {case_id}, your overdue amount is INR {overdue_amount:.2f}. "
+                    "Would you like to pay now, request an arrangement, or schedule a follow-up?"
+                )
+            return (
+                "Please choose one next step: pay now, request a repayment arrangement, "
+                "or schedule a follow-up date."
+            )
+        return text
 
     @staticmethod
     def _resolve_plan_node_label(conversation_plan: dict[str, Any], node_id: str) -> str:
@@ -413,6 +802,9 @@ class CollectionResponseNode(ResponseNode):
         customer_name = str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer"
         case_id = str(memory_state.get("active_case_id", "COLL-1001")).strip() or "COLL-1001"
         overdue_amount = float(memory_state.get("active_overdue_amount", 0.0) or 0.0)
+        emi_amount = float(memory_state.get("active_emi_amount", 0.0) or 0.0)
+        late_fee = float(memory_state.get("active_late_fee", 0.0) or 0.0)
+        dpd = int(memory_state.get("active_dpd", 0) or 0)
 
         context = proposal.get("context") if isinstance(proposal.get("context"), dict) else {}
         if context:
@@ -431,6 +823,9 @@ class CollectionResponseNode(ResponseNode):
             customer_name = str(case_snapshot.get("customer_name", customer_name)).strip() or customer_name
             case_id = str(case_snapshot.get("case_id", case_id)).strip() or case_id
             overdue_amount = float(case_snapshot.get("overdue_amount", overdue_amount) or overdue_amount)
+            emi_amount = float(case_snapshot.get("emi_amount", emi_amount) or emi_amount)
+            late_fee = float(case_snapshot.get("late_fee", late_fee) or late_fee)
+            dpd = int(case_snapshot.get("dpd", dpd) or dpd)
 
         payment_context = proposal.get("payment_context") if isinstance(proposal.get("payment_context"), dict) else {}
         if payment_context:
@@ -442,7 +837,17 @@ class CollectionResponseNode(ResponseNode):
             "customer_name": customer_name,
             "case_id": case_id,
             "overdue_amount": overdue_amount,
+            "emi_amount": emi_amount,
+            "late_fee": late_fee,
+            "dpd": dpd,
         }
+
+    @staticmethod
+    def _render_template(template: str, values: dict[str, Any]) -> str:
+        rendered = template
+        for key, value in values.items():
+            rendered = rendered.replace(f"{{{key}}}", str(value))
+        return rendered
 
     @staticmethod
     def _post_process_rendered_response(
@@ -454,6 +859,13 @@ class CollectionResponseNode(ResponseNode):
         ensure_intro: bool = False,
     ) -> str:
         rendered = text.strip()
+
+        # Normalize robotic verification phrasing from model variants.
+        rendered = re.sub(
+            r"(?i)\bi\s+(?:see|noticed)\s+you(?:'ve| have)\s+already\s+confirmed[^.!?]*[.!?]\s*",
+            "Thank you. ",
+            rendered,
+        )
 
         # Replace placeholder fragments with deterministic values.
         rendered = re.sub(
@@ -480,3 +892,110 @@ class CollectionResponseNode(ResponseNode):
             ).strip()
 
         return rendered
+
+    @staticmethod
+    def _is_provider_rate_limit_error(error_text: str) -> bool:
+        lowered = str(error_text or "").lower()
+        return (
+            "rate limit" in lowered
+            or "rate_limit_exceeded" in lowered
+            or "error code: 429" in lowered
+            or "tokens per day" in lowered
+            or "tpm" in lowered
+        )
+
+    @staticmethod
+    def _truncate_text(text: str, max_chars: int) -> str:
+        value = str(text or "")
+        if len(value) <= max_chars:
+            return value
+        return value[: max_chars - 3].rstrip() + "..."
+
+    def _json_compact(self, value: Any, *, max_chars: int) -> str:
+        raw = json.dumps(value, ensure_ascii=True, default=str, separators=(",", ":"))
+        if len(raw) <= max_chars:
+            return raw
+        return self._truncate_text(raw, max_chars)
+
+    @staticmethod
+    def _compact_observation(observation: Any) -> dict[str, Any]:
+        if not isinstance(observation, dict):
+            return {}
+        phase = observation.get("tool_phase") if isinstance(observation.get("tool_phase"), dict) else observation
+        if not isinstance(phase, dict):
+            return {}
+        output = phase.get("output") if isinstance(phase.get("output"), dict) else {}
+        return {
+            "tool_name": str(phase.get("tool_name", "")).strip(),
+            "status": str(output.get("status", "")).strip(),
+            "needs_additional_action": bool(output.get("needs_additional_action", False)),
+            "keys": sorted([str(k) for k in output.keys()])[:12],
+        }
+
+    @staticmethod
+    def _compact_conversation_plan(plan: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(plan, dict):
+            return {}
+        nodes_raw = plan.get("nodes") if isinstance(plan.get("nodes"), list) else []
+        edges_raw = plan.get("edges") if isinstance(plan.get("edges"), list) else []
+        markers = plan.get("step_markers") if isinstance(plan.get("step_markers"), dict) else {}
+        nodes = []
+        for node in nodes_raw[:10]:
+            if not isinstance(node, dict):
+                continue
+            nodes.append(
+                {
+                    "id": str(node.get("id", "")).strip(),
+                    "label": str(node.get("label", "")).strip(),
+                    "status": str(node.get("status", "")).strip(),
+                    "owner": str(node.get("owner", "")).strip(),
+                }
+            )
+        edges = []
+        for edge in edges_raw[:16]:
+            if not isinstance(edge, dict):
+                continue
+            edges.append(
+                {
+                    "from": str(edge.get("from", "")).strip(),
+                    "to": str(edge.get("to", "")).strip(),
+                    "condition": str(edge.get("condition", "")).strip(),
+                }
+            )
+        marker_view = {}
+        for key, raw in markers.items():
+            if len(marker_view) >= 12:
+                break
+            if not isinstance(raw, dict):
+                continue
+            marker_view[str(key)] = str(raw.get("state", "pending")).strip()
+        return {
+            "plan_id": str(plan.get("plan_id", "")).strip(),
+            "version": int(plan.get("version", 1) or 1),
+            "status": str(plan.get("status", "active")).strip(),
+            "current_node_id": str(plan.get("current_node_id", "")).strip(),
+            "next_node_ids": [str(x).strip() for x in (plan.get("next_node_ids") or []) if str(x).strip()][:6],
+            "nodes": nodes,
+            "edges": edges,
+            "step_markers": marker_view,
+        }
+
+    @staticmethod
+    def _compact_plan_proposal(*, proposal: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(proposal, dict):
+            return {}
+        context = proposal.get("context") if isinstance(proposal.get("context"), dict) else {}
+        next_actions = proposal.get("next_actions") if isinstance(proposal.get("next_actions"), list) else []
+        return {
+            "target": str(proposal.get("target", "")).strip(),
+            "intent": str(proposal.get("intent", "")).strip(),
+            "plan_outline": str(proposal.get("plan_outline", "")).strip(),
+            "draft_response": str(proposal.get("draft_response", "")).strip(),
+            "next_actions": [str(x).strip() for x in next_actions[:8] if str(x).strip()],
+            "context": {
+                "case_id": str(context.get("case_id", "")).strip(),
+                "customer_name": str(context.get("customer_name", "")).strip(),
+                "overdue_amount": context.get("overdue_amount"),
+                "observed_tool": str(context.get("observed_tool", "")).strip(),
+            },
+        }

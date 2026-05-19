@@ -80,6 +80,7 @@ class MemoryNode(BaseGraphNode):
     def execute(self, state: AgentState) -> NodeUpdate:
         """Applies memory mutations for the current graph turn."""
         self._record_llm_usage(state, node_name="memory")
+        observation = self._latest_observation_from_state(state)
         memory = self._working_memory() or state.get("memory")
         stored_memories: list[Any] = []
         explicit_updates = self._collect_updates(state)
@@ -87,7 +88,7 @@ class MemoryNode(BaseGraphNode):
             explicit_updates = self.plan(
                 user_input=state.get("user_input", ""),
                 response=state.get("response"),
-                observation=state.get("observation"),
+                observation=observation,
                 decision=state.get("decision"),
                 memory=memory,
                 memory_targets=state.get("memory_targets"),
@@ -98,7 +99,7 @@ class MemoryNode(BaseGraphNode):
             defaults=self._default_plan(
                 user_input=state.get("user_input", ""),
                 response=state.get("response"),
-                observation=state.get("observation"),
+                observation=observation,
                 memory=memory,
                 memory_targets=state.get("memory_targets"),
             ),
@@ -122,6 +123,16 @@ class MemoryNode(BaseGraphNode):
         if stored_memories:
             result["stored_memories"] = stored_memories
         return result
+
+    @staticmethod
+    def _latest_observation_from_state(state: AgentState) -> dict[str, Any] | None:
+        observations = state.get("observations")
+        if isinstance(observations, list):
+            for item in reversed(observations):
+                if isinstance(item, dict):
+                    return item
+        observation = state.get("observation")
+        return observation if isinstance(observation, dict) else None
 
     @staticmethod
     def _collect_updates(state: AgentState) -> list[dict[str, Any]]:

@@ -57,11 +57,24 @@ class ToolExecutionNode(BaseGraphNode):
         memory = state.get("memory")
         if memory is not None:
             memory.set_state(last_tool_used=tool_result["tool_name"])
+        tool_arguments = dict(tool_call.arguments) if isinstance(tool_call.arguments, dict) else tool_call.arguments
+        current_observation = {
+            "tool_name": tool_result["tool_name"],
+            "input": tool_arguments,
+            "output": tool_result["output"],
+        }
+        existing_observations = state.get("observations")
+        observations = list(existing_observations) if isinstance(existing_observations, list) else []
+        observations.append(current_observation)
         return {
-            "observation": {
-                "tool_name": tool_result["tool_name"],
-                "output": tool_result["output"],
-            }
+            "observation": current_observation,
+            "observations": observations,
+            "tool_calls": [
+                {
+                    "tool_name": str(tool_call.tool_name),
+                    "arguments": tool_arguments,
+                }
+            ],
         }
 
     def _get_executor(self) -> ToolExecutor:
