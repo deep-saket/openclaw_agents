@@ -188,6 +188,7 @@ class CollectionAgent(BaseAgent):
             system_prompt=str(react_prompts.get("system_prompt", "")),
             user_prompt=str(react_prompts.get("user_prompt", "{user_input}")),
             available_tools=render_collection_tool_catalog_yaml(),
+            tool_registry=self.tool_registry,
             max_steps=8,
         )
         self.plan_node = PlanProposalNode(
@@ -352,6 +353,7 @@ class CollectionAgent(BaseAgent):
                 result = fn(state)
             state_update: dict[str, Any] = {}
             if isinstance(result, dict):
+                self._normalize_observations_in_update(state=state, update=result)
                 if node_name == "tool_execution":
                     self._persist_tool_observation_history(state=state, update=result)
                 route_value = self._infer_route_value(node_name=node_name, prior_state=state, update=result)
@@ -390,6 +392,7 @@ class CollectionAgent(BaseAgent):
                     "step": state.get("steps", 0),
                     "decision": repr(state.get("decision")),
                     "observation": state_update.get("observation") if isinstance(state_update, dict) else None,
+                    "observations": state_update.get("observations") if isinstance(state_update, dict) else None,
                     "response": state_update.get("response") if isinstance(state_update, dict) else None,
                     "route": state_update.get("route") if isinstance(state_update, dict) else None,
                     "prompt": state_update.get("prompt") if isinstance(state_update, dict) else None,
@@ -408,6 +411,35 @@ class CollectionAgent(BaseAgent):
 
         return _wrapped
 
+    @staticmethod
+    def _normalize_observation_payload(observation: Any) -> dict[str, Any] | None:
+        if not isinstance(observation, dict):
+            return None
+        tool_phase = observation.get("tool_phase")
+        if isinstance(tool_phase, dict):
+            return dict(tool_phase)
+        return dict(observation)
+
+    def _normalize_observations_in_update(self, *, state: CollectionGraphState, update: dict[str, Any]) -> None:
+        existing_state_observations = (
+            [item for item in state.get("observations", []) if isinstance(item, dict)]
+            if isinstance(state.get("observations"), list)
+            else []
+        )
+        update_observations = (
+            [item for item in update.get("observations", []) if isinstance(item, dict)]
+            if isinstance(update.get("observations"), list)
+            else list(existing_state_observations)
+        )
+        normalized_observation = self._normalize_observation_payload(update.get("observation"))
+        if normalized_observation:
+            if not update_observations or update_observations[-1] != normalized_observation:
+                update_observations.append(normalized_observation)
+            update["observation"] = normalized_observation
+        elif update_observations:
+            update["observation"] = dict(update_observations[-1])
+        update["observations"] = update_observations
+
     def _persist_tool_observation_history(self, *, state: CollectionGraphState, update: dict[str, Any]) -> None:
         memory = state.get("memory")
         if memory is None:
@@ -423,10 +455,12 @@ class CollectionAgent(BaseAgent):
         if not tool_name:
             return
         status = str(payload.get("status", "")).strip()
+        tool_input = payload.get("input") if isinstance(payload.get("input"), dict) else {}
         output = payload.get("output") if isinstance(payload.get("output"), dict) else {}
         entry = {
             "tool_name": tool_name,
             "status": status,
+            "input": tool_input,
             "output": output,
             "timestamp_ms": int(time.time() * 1000),
         }
@@ -441,15 +475,20 @@ class CollectionAgent(BaseAgent):
             if (
                 str(last.get("tool_name", "")).strip() == entry["tool_name"]
                 and str(last.get("status", "")).strip() == entry["status"]
+                and dict(last.get("input", {})) == entry["input"]
                 and dict(last.get("output", {})) == entry["output"]
             ):
                 memory.set_state(last_tool_observation=entry, tool_observations_history=history[-40:])
                 update["tool_observations_history"] = history[-40:]
+                update["observations"] = history[-40:]
+                update["observation"] = dict(history[-1]) if history else {}
                 return
         history.append(entry)
         history = history[-40:]
         memory.set_state(last_tool_observation=entry, tool_observations_history=history)
         update["tool_observations_history"] = history
+        update["observations"] = history
+        update["observation"] = dict(history[-1]) if history else {}
 
     def _resolve_next_node(
         self,
@@ -624,6 +663,12 @@ class CollectionAgent(BaseAgent):
             user_id = str(memory.state.get("active_user_id", "")).strip()
             case_id = str(memory.state.get("active_case_id", "COLL-1001")).strip()
             channel = str(memory.state.get("active_channel", "sms")).strip()
+            initial_observations = (
+                [item for item in memory.state.get("tool_observations_history", []) if isinstance(item, dict)]
+                if isinstance(memory.state.get("tool_observations_history"), list)
+                else []
+            )
+            initial_observation = dict(initial_observations[-1]) if initial_observations else None
             existing_conversation_plan = (
                 dict(memory.state.get("active_conversation_plan", {}))
                 if isinstance(memory.state.get("active_conversation_plan"), dict)
@@ -648,7 +693,26 @@ class CollectionAgent(BaseAgent):
                                 else []
                             ),
                             "memory_targets": [{"type": "working", "enabled": True, "limit": 8}],
-                            "observation": None,
+                            "observation": initial_observation,
+                            "observations": initial_observations,
+                            "verification_entities": (
+                                dict(memory.state.get("verification_entities", {}))
+                                if isinstance(memory.state.get("verification_entities"), dict)
+                                else {}
+                            ),
+                            "verification_missing_fields": (
+                                [str(x).strip() for x in memory.state.get("verification_missing_fields", []) if str(x).strip()]
+                                if isinstance(memory.state.get("verification_missing_fields"), list)
+                                else []
+                            ),
+                            "verification_verified_fields": (
+                                [str(x).strip() for x in memory.state.get("verification_verified_fields", []) if str(x).strip()]
+                                if isinstance(memory.state.get("verification_verified_fields"), list)
+                                else []
+                            ),
+                            "verified_dob": bool(memory.state.get("verified_dob", False)),
+                            "verified_mobile": bool(memory.state.get("verified_mobile", False)),
+                            "identity_verified": bool(memory.state.get("identity_verified", False)),
                             "node_history": [],
                             "conversation_phase": "turn_started",
                             "tool_errors": [],
@@ -658,7 +722,6 @@ class CollectionAgent(BaseAgent):
                         }
                     )
                     state = self._finalize_output_state(state)
-                    self._apply_post_turn_verification_state(memory=memory, state=state)
                     memory_updates: dict[str, Any] = {
                         "turn_index": turn_index + 1,
                         "last_user_input": user_input,
@@ -711,6 +774,17 @@ class CollectionAgent(BaseAgent):
     def _finalize_output_state(self, state: AgentState) -> AgentState:
         """Guarantees output contract keys for downstream orchestration."""
         output = dict(state)
+        observations = (
+            [item for item in output.get("observations", []) if isinstance(item, dict)]
+            if isinstance(output.get("observations"), list)
+            else []
+        )
+        if not observations and isinstance(output.get("observation"), dict):
+            observations = [dict(output.get("observation", {}))]
+        output["observations"] = observations
+        if observations:
+            output["observation"] = dict(observations[-1])
+
         response_target = str(output.get("response_target", "customer")).strip().lower()
         if response_target not in {"customer", "self", "discount_planning_agent"}:
             response_target = "customer"
@@ -764,7 +838,6 @@ class CollectionAgent(BaseAgent):
             agent_loop_blocked=False,
             agent_loop_count=0,
             active_conversation_plan={},
-            identity_verified=False,
             verification_collected={},
             last_admin_message=user_input,
         )
@@ -1030,15 +1103,6 @@ class CollectionAgent(BaseAgent):
         expected_name = str(memory_state.get("active_customer_name", "")).strip()
 
         if bool(cfg.get("tool_only_verification", False)):
-            verified_fields = (
-                [str(x).strip() for x in memory_state.get("verification_verified_fields", []) if str(x).strip()]
-                if isinstance(memory_state.get("verification_verified_fields"), list)
-                else []
-            )
-            missing_tool_fields = [field for field in required_fields if field not in set(verified_fields)]
-            updates["verification_verified_fields"] = sorted(set(verified_fields))
-            updates["verification_missing_fields"] = sorted(set(missing_tool_fields))
-            updates["identity_verified"] = not bool(missing_tool_fields)
             updates["verification_entities"] = collected
             updates["verification_collected"] = collected
             memory.set_state(**updates)
@@ -1103,11 +1167,9 @@ class CollectionAgent(BaseAgent):
         if not bool(cfg.get("auto_verify_from_memory_evidence", True)) and status != "verified":
             matched = False
 
-        updates["identity_verified"] = bool(matched)
         updates["verification_entities"] = collected
         updates["verification_collected"] = collected
         updates["verification_last_status"] = ("verified" if matched else (status or "failed"))
-        updates["verification_missing_fields"] = sorted(set(missing_fields_state))
         updates["verification_mismatched_fields"] = sorted(set(mismatched_fields_state))
         updates["verification_compared_fields"] = sorted(set(compared_fields_state))
         memory.set_state(**updates)
@@ -1152,49 +1214,6 @@ class CollectionAgent(BaseAgent):
             "required_fields": required_fields,
             "status_by_field": status_by_field,
         }
-
-    def _apply_post_turn_verification_state(self, *, memory: Any, state: AgentState) -> None:
-        observation = state.get("observation")
-        if not isinstance(observation, dict):
-            return
-        tool_phase = observation.get("tool_phase") if isinstance(observation.get("tool_phase"), dict) else observation
-        if not isinstance(tool_phase, dict):
-            return
-        tool_name = str(tool_phase.get("tool_name", "")).strip()
-        if tool_name not in {"verify_dob", "verify_mobile"}:
-            return
-
-        output = tool_phase.get("output") if isinstance(tool_phase.get("output"), dict) else {}
-        status = str(output.get("status", "")).strip().lower()
-        memory_state = dict(getattr(memory, "state", {}))
-        required_fields = (
-            [str(x).strip() for x in memory_state.get("active_verification_required_fields", []) if str(x).strip()]
-            if isinstance(memory_state.get("active_verification_required_fields"), list)
-            else ["dob", "phone"]
-        )
-        verified_fields = (
-            [str(x).strip() for x in memory_state.get("verification_verified_fields", []) if str(x).strip()]
-            if isinstance(memory_state.get("verification_verified_fields"), list)
-            else []
-        )
-        field_name = str(output.get("field", "")).strip().lower()
-        if not field_name:
-            field_name = "dob" if tool_name == "verify_dob" else "phone"
-        updates: dict[str, Any] = {}
-        if status == "verified" and field_name:
-            verified_fields = sorted(set([*verified_fields, field_name]))
-        elif status in {"failed", "locked"} and field_name:
-            verified_fields = [field for field in verified_fields if field != field_name]
-            if isinstance(output.get("failed_attempts"), int):
-                updates[f"verification_failed_attempts_{field_name}"] = int(output["failed_attempts"])
-        missing_fields = [field for field in required_fields if field not in set(verified_fields)]
-        updates["active_verification_required_fields"] = sorted(set(required_fields))
-        updates["verification_verified_fields"] = sorted(set(verified_fields))
-        updates["verification_missing_fields"] = sorted(set(missing_fields))
-        updates["verification_last_status"] = status or "unknown"
-        updates["identity_verified"] = not bool(missing_fields)
-        if updates:
-            memory.set_state(**updates)
 
     @staticmethod
     def _phase_for_node(node_name: str) -> str:

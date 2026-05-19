@@ -21,7 +21,25 @@ class _EntityPayload(BaseModel):
 
 @dataclass(slots=True)
 class CollectionEntityExtractNode(BaseGraphNode):
-    """Extracts entities into memory/state immediately after relevance gating."""
+    """Extracts entities into memory/state immediately after relevance gating.
+
+    State Keys Read:
+    - `user_input`
+    - `conversation_history`
+    - `memory` (reads and mutates `memory.state`, including extracted and verification entities)
+
+    State Keys Write:
+    - `extracted_entities`
+    - `extracted_entities_turn`
+    - `extracted_entity_descriptions`
+    - `verification_entities`
+    - `extracted_entities_updated_fields`
+    - `entity_extraction_source`
+    - `prompt`
+    - `system_prompt`
+    - `llm_response`
+    - `llm_error`
+    """
 
     llm: Any | None = None
     extract_callback: Callable[[Any, str], None] | None = None
@@ -34,6 +52,12 @@ class CollectionEntityExtractNode(BaseGraphNode):
         memory = state.get("memory")
         user_input = str(state.get("user_input", ""))
         memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
+        conversation_history = (
+            state.get("conversation_history")
+            if isinstance(state.get("conversation_history"), list)
+            else (memory_state.get("conversation_history") if isinstance(memory_state.get("conversation_history"), list) else [])
+        )
+        conversation_history_compact = self._compact_conversation_history(conversation_history)
         existing_entities = (
             dict(memory_state.get("extracted_entities", {}))
             if isinstance(memory_state.get("extracted_entities"), dict)
@@ -64,7 +88,9 @@ class CollectionEntityExtractNode(BaseGraphNode):
                 user_input=user_input,
                 required_fields=required_fields,
                 existing_entities=existing_entities,
+                existing_entity_descriptions=existing_descriptions,
                 active_customer_name=str(memory_state.get("active_customer_name", "")).strip(),
+                conversation_history_compact=conversation_history_compact,
             )
             if extracted is not None:
                 llm_entities = extracted.entities
@@ -99,11 +125,7 @@ class CollectionEntityExtractNode(BaseGraphNode):
                 else {}
             )
 
-        # Keep stable contextual entities from memory, but do not carry forward
-        # verification-sensitive keys via merged extracted_entities.
         merged_entities = dict(existing_entities)
-        for sensitive_key in {"name", "dob", "phone", "zip", "last4_pan"}:
-            merged_entities.pop(sensitive_key, None)
         merged_descriptions = dict(existing_descriptions)
         turn_entities: dict[str, str] = {}
         updated_fields: list[str] = []
@@ -173,29 +195,14 @@ class CollectionEntityExtractNode(BaseGraphNode):
             if isinstance(memory_state.get("verification_entities"), dict)
             else {}
         )
-        identity_verified = bool(memory_state.get("identity_verified", False))
-        required_fields = [str(x).strip() for x in required_fields if str(x).strip()]
-        missing_required = [field for field in required_fields if not str(verification_entities.get(field, "")).strip()]
-
-        # Provide entity context early so downstream prompt templates can use it.
-        context = dict(state.get("memory_context", {})) if isinstance(state.get("memory_context"), dict) else {}
-        context["entities"] = extracted_entities
-        context["entities_turn"] = extracted_entities_turn
-        context["entity_descriptions"] = extracted_entity_descriptions
-        context["verification_entities"] = verification_entities
-        context["identity_verified"] = identity_verified
-        context["verification_missing_fields"] = missing_required
 
         return {
             "extracted_entities": extracted_entities,
             "extracted_entities_turn": extracted_entities_turn,
             "extracted_entity_descriptions": extracted_entity_descriptions,
             "verification_entities": verification_entities,
-            "identity_verified": identity_verified,
-            "verification_missing_fields": missing_required,
             "extracted_entities_updated_fields": sorted(set(updated_fields)),
             "entity_extraction_source": ("callback_fallback" if used_callback_fallback else "llm"),
-            "memory_context": context,
             "prompt": llm_debug.get("prompt"),
             "system_prompt": llm_debug.get("system_prompt"),
             "llm_response": llm_debug.get("llm_response"),
@@ -208,7 +215,9 @@ class CollectionEntityExtractNode(BaseGraphNode):
         user_input: str,
         required_fields: list[str],
         existing_entities: dict[str, str],
+        existing_entity_descriptions: dict[str, str],
         active_customer_name: str,
+        conversation_history_compact: str,
     ) -> tuple[_EntityPayload | None, dict[str, Any]]:
         debug_payload: dict[str, Any] = {
             "prompt": None,
@@ -224,6 +233,8 @@ class CollectionEntityExtractNode(BaseGraphNode):
                     "required_fields_json": json.dumps(required_fields, ensure_ascii=True),
                     "active_customer_name": active_customer_name,
                     "existing_entities_json": json.dumps(existing_entities, ensure_ascii=True),
+                    "existing_entity_descriptions_json": json.dumps(existing_entity_descriptions, ensure_ascii=True),
+                    "conversation_history_compact": conversation_history_compact,
                 },
             )
             debug_payload["prompt"] = user_prompt
@@ -239,36 +250,11 @@ class CollectionEntityExtractNode(BaseGraphNode):
 
         entities: dict[str, str] = {}
         descriptions: dict[str, str] = {}
-        evidences = dict(payload.field_evidence) if isinstance(payload.field_evidence, dict) else {}
-        verification_keys = set(required_fields) | {"name", "dob", "phone", "zip", "last4_pan"}
 
         for key, value in dict(payload.entities).items():
             key_norm = str(key).strip()
             val_norm = str(value).strip()
             if key_norm and val_norm:
-                if key_norm in verification_keys:
-                    evidence = str(evidences.get(key_norm, "")).strip()
-                    # Strict evidence gating for verification-sensitive fields:
-                    # accept only when model provides an explicit substring from user input.
-                    if not evidence:
-                        continue
-                    if evidence.lower() not in user_input.lower():
-                        continue
-                    # Value/evidence consistency gates to prevent hallucinated values.
-                    if key_norm == "dob":
-                        if val_norm not in evidence:
-                            continue
-                    elif key_norm == "phone":
-                        value_digits = "".join(ch for ch in val_norm if ch.isdigit())
-                        evidence_digits = "".join(ch for ch in evidence if ch.isdigit())
-                        if len(value_digits) >= 10 and value_digits[-10:] not in evidence_digits:
-                            continue
-                    elif key_norm in {"zip", "last4_pan"}:
-                        if val_norm.lower() not in evidence.lower():
-                            continue
-                    elif key_norm == "name":
-                        if val_norm.lower() not in evidence.lower():
-                            continue
                 entities[key_norm] = val_norm
         for key, value in dict(payload.entity_descriptions).items():
             key_norm = str(key).strip()
@@ -276,6 +262,24 @@ class CollectionEntityExtractNode(BaseGraphNode):
             if key_norm and val_norm:
                 descriptions[key_norm] = val_norm
         return _EntityPayload(entities=entities, entity_descriptions=descriptions), debug_payload
+
+    @staticmethod
+    def _compact_conversation_history(history: list[dict[str, Any]], *, max_turns: int = 16, max_chars: int = 1800) -> str:
+        if not history:
+            return ""
+        rows: list[str] = []
+        for row in history[-max_turns:]:
+            if not isinstance(row, dict):
+                continue
+            role = str(row.get("role", "")).strip() or str(row.get("speaker", "")).strip() or "unknown"
+            text = str(row.get("content", "")).strip() or str(row.get("text", "")).strip()
+            if not text:
+                continue
+            rows.append(f"{role}: {text}")
+        joined = "\n".join(rows)
+        if len(joined) <= max_chars:
+            return joined
+        return joined[-max_chars:]
 
     @staticmethod
     def _render_prompt_template(template: str, values: dict[str, Any]) -> str:

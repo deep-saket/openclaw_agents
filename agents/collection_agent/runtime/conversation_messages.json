@@ -1447,27 +1447,85 @@
       "created_at": "2026-05-18T19:20:13.146846Z"
     }
   ],
+  "collection-user_a-cli-fixcheck": [
+    {
+      "id": "32bb032a-5306-4c99-bb68-c8d93f6e6d4b",
+      "session_id": "collection-user_a-cli-fixcheck",
+      "role": "customer",
+      "content": "Yes this is Aditi.",
+      "created_at": "2026-05-19T06:55:43.779959Z"
+    },
+    {
+      "id": "02e13ce1-f6fd-44fe-b908-3dbf3b415dbc",
+      "session_id": "collection-user_a-cli-fixcheck",
+      "role": "agent",
+      "content": "Thank you for confirming you are Aditi. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-19T06:56:01.457630Z"
+    },
+    {
+      "id": "b5957a91-4ff2-4c54-b9eb-5c420df65749",
+      "session_id": "collection-user_a-cli-fixcheck",
+      "role": "customer",
+      "content": "My phone number is : 9900001001and date of birth is  1991-08-19",
+      "created_at": "2026-05-19T06:56:01.459526Z"
+    },
+    {
+      "id": "41690c44-381b-44f8-a415-6f60d69a1fab",
+      "session_id": "collection-user_a-cli-fixcheck",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth and phone number. You have an overdue amount of INR 12,500.00. What would you like to do to settle this amount?",
+      "created_at": "2026-05-19T06:57:55.896019Z"
+    },
+    {
+      "id": "f48bcca5-270b-4632-803f-758eb3173093",
+      "session_id": "collection-user_a-cli-fixcheck",
+      "role": "customer",
+      "content": "what do you want me to verify",
+      "created_at": "2026-05-19T06:57:55.898695Z"
+    }
+  ],
   "collection-user_a-cli": [
     {
-      "id": "d4e9a878-e61f-4fe1-b07c-81905f05ab09",
+      "id": "8fe7632a-4d65-4be5-b447-bf912f848b1d",
       "session_id": "collection-user_a-cli",
       "role": "customer",
-      "content": "Hi Alex!! This is Aditi.",
-      "created_at": "2026-05-18T19:44:52.772508Z"
+      "content": "Yes this is Aditi.",
+      "created_at": "2026-05-19T10:05:00.791745Z"
     },
     {
-      "id": "eef260c2-a003-4717-8561-2b5b9e3a0df5",
+      "id": "fcbce82e-417f-48cd-8172-6945795c0ea3",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "Thank you for confirming your name. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
-      "created_at": "2026-05-18T19:47:11.965590Z"
+      "content": "Thank you for confirming your name, Aditi. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-19T10:05:59.766458Z"
     },
     {
-      "id": "963f9c74-8ac8-450b-926a-42b7595a10b3",
+      "id": "aea87d82-96f5-46c6-96d5-afad2a0d40b1",
       "session_id": "collection-user_a-cli",
       "role": "customer",
-      "content": "My DoB ius 1991-08-19 and mobile number is 919900001001",
-      "created_at": "2026-05-18T19:47:14.652260Z"
+      "content": "My phone number is : 9900001001and date of birth is  1991-08-19",
+      "created_at": "2026-05-19T10:05:59.787870Z"
+    },
+    {
+      "id": "5d7347d7-3145-49b0-9db7-250bf5f779b6",
+      "session_id": "collection-user_a-cli",
+      "role": "agent",
+      "content": "Thank you, Aditi Sharma. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number\n.",
+      "created_at": "2026-05-19T10:07:42.590765Z"
+    },
+    {
+      "id": "bcaf36b9-8b3b-43e5-9044-28a0ebb6d0c7",
+      "session_id": "collection-user_a-cli",
+      "role": "customer",
+      "content": "what do you want me to verify",
+      "created_at": "2026-05-19T10:07:42.613497Z"
+    },
+    {
+      "id": "9b68fae0-fa81-4da7-9810-eba3fb3dd9e6",
+      "session_id": "collection-user_a-cli",
+      "role": "agent",
+      "content": "Thank you for confirming your identity, Aditi. Now, let's discuss your loan account dues. You have an outstanding amount of INR 12,500.00. Would you like to pay this amount now or discuss a payment arrangement?",
+      "created_at": "2026-05-19T10:09:41.807264Z"
     }
   ]
 }

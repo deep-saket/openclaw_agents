@@ -47,7 +47,14 @@ class ReflectNode(BaseGraphNode):
     def execute(self, state: AgentState) -> NodeUpdate:
         """Runs reflection for the current graph state."""
         self._record_llm_usage(state, node_name="reflect")
-        observation = state.get("observation")
+        observations = list(state.get("observations", [])) if isinstance(state.get("observations"), list) else []
+        if not observations and isinstance(state.get("observation"), dict):
+            observations = [dict(state.get("observation", {}))]
+        observation = None
+        for item in reversed(observations):
+            if isinstance(item, dict):
+                observation = item
+                break
         decision = state.get("decision")
         self._store_reflection_log(observation=observation, decision=decision)
 
@@ -71,12 +78,17 @@ class ReflectNode(BaseGraphNode):
             "system_prompt": reflection_result.get("system_prompt"),
             "llm_response": reflection_result.get("llm_response"),
             "llm_error": reflection_result.get("llm_error"),
+            "observations": observations,
         }
         if self.merge_feedback_into_observation:
-            result["observation"] = {
+            merged_observation = {
                 "tool_phase": observation,
                 "reflection_feedback": feedback,
             }
+            result["observation"] = merged_observation
+            merged_observations = [item for item in observations if isinstance(item, dict)]
+            merged_observations.append(merged_observation)
+            result["observations"] = merged_observations
         if self.emit_memory_update:
             result["memory_updates"] = [self._build_memory_update(state, feedback)]
         return result
@@ -158,6 +170,14 @@ class ReflectNode(BaseGraphNode):
 
     def _build_memory_update(self, state: AgentState, feedback: dict[str, Any]) -> dict[str, Any]:
         """Builds a reflection-memory update for a later MemoryNode."""
+        observations = list(state.get("observations", [])) if isinstance(state.get("observations"), list) else []
+        if not observations and isinstance(state.get("observation"), dict):
+            observations = [dict(state.get("observation", {}))]
+        latest_observation = None
+        for item in reversed(observations):
+            if isinstance(item, dict):
+                latest_observation = item
+                break
         return {
             "target": "reflection",
             "operation": "store",
@@ -167,7 +187,7 @@ class ReflectNode(BaseGraphNode):
                 "reasoning": {
                     "user_input": state.get("user_input", ""),
                     "decision": self._stringify(state.get("decision")),
-                    "observation": self._stringify(state.get("observation")),
+                    "observation": self._stringify(latest_observation),
                     "is_complete": bool(feedback.get("is_complete", self.default_is_complete)),
                 },
             },

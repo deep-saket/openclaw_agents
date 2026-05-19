@@ -21,7 +21,31 @@ class _ResponsePayload(BaseModel):
 
 @dataclass(slots=True)
 class CollectionResponseNode(ResponseNode):
-    """Emits response text and a response target for next-hop routing."""
+    """Emits response text and a response target for next-hop routing.
+
+    State Keys Read:
+    - `user_input`
+    - `response_target`
+    - `plan_proposal`
+    - `conversation_plan`
+    - `observations`
+    - `observation` (latest compatibility mirror)
+    - `verification_*` keys (`identity_verified`, `verification_entities`, `verification_missing_fields`)
+    - `extracted_entities`
+    - `extracted_entities_turn`
+    - `extracted_entity_descriptions`
+    - `memory` (reads/writes `memory.state`, including conversation history and last response fields)
+
+    State Keys Write:
+    - `response`
+    - `response_target`
+    - `conversation_history`
+    - `prompt`
+    - `system_prompt`
+    - `llm_response`
+    - `llm_error`
+    - `fallback_reason` (optional)
+    """
 
     default_target: str = "customer"
     render_system_prompt: str = ""
@@ -161,7 +185,15 @@ class CollectionResponseNode(ResponseNode):
         verification_guard_context: dict[str, Any] | None = None,
     ) -> str | None:
         user_input = str(state.get("user_input", ""))
-        observation = state.get("observation")
+        observation = None
+        observations = state.get("observations")
+        if isinstance(observations, list):
+            for item in reversed(observations):
+                if isinstance(item, dict):
+                    observation = item
+                    break
+        if observation is None:
+            observation = state.get("observation")
         memory = state.get("memory")
         memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
         response_target = str(proposal.get("target", state.get("response_target", "customer"))).strip().lower() or "customer"
@@ -213,7 +245,7 @@ class CollectionResponseNode(ResponseNode):
             if str(x).strip()
         ]
         verification_context_merged: dict[str, Any] = {
-            "identity_verified": bool(memory_state.get("identity_verified", False)),
+            "identity_verified": bool(state.get("identity_verified", memory_state.get("identity_verified", False))),
             "required_fields": required_fields,
             "verification_entities": verification_entities,
             "verification_missing_fields": verification_missing_fields,
@@ -325,16 +357,26 @@ class CollectionResponseNode(ResponseNode):
     ) -> dict[str, Any] | None:
         if response_target != "customer":
             return None
-        if bool(memory_state.get("identity_verified", False)):
+        if bool(state.get("identity_verified", memory_state.get("identity_verified", False))):
             return None
 
-        collected = memory_state.get("verification_collected") if isinstance(memory_state.get("verification_collected"), dict) else {}
+        collected = (
+            state.get("verification_entities")
+            if isinstance(state.get("verification_entities"), dict)
+            else (
+                memory_state.get("verification_collected")
+                if isinstance(memory_state.get("verification_collected"), dict)
+                else {}
+            )
+        )
         required = memory_state.get("active_verification_required_fields")
         required_fields = [str(x).strip() for x in required if str(x).strip()] if isinstance(required, list) else []
         # Safety clamp: verification scope for this agent must stay within supported identity fields.
         allowed_identity_fields = {"dob", "phone", "last4_pan", "zip", "name"}
         required_fields = [field for field in required_fields if field in allowed_identity_fields]
-        missing_from_state_raw = memory_state.get("verification_missing_fields")
+        missing_from_state_raw = state.get("verification_missing_fields")
+        if not isinstance(missing_from_state_raw, list):
+            missing_from_state_raw = memory_state.get("verification_missing_fields")
         missing_from_state = (
             [str(x).strip() for x in missing_from_state_raw if str(x).strip()]
             if isinstance(missing_from_state_raw, list)

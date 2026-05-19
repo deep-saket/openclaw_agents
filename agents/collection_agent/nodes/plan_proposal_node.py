@@ -63,7 +63,35 @@ class _PlanSignalPayload(BaseModel):
 
 @dataclass(slots=True)
 class PlanProposalNode(BaseGraphNode):
-    """Builds conversation plan proposals and updates a per-session plan tree."""
+    """Builds conversation plan proposals and updates a per-session plan tree.
+
+    State Keys Read:
+    - `user_input`
+    - `routing_context`
+    - `observations`
+    - `observation` (latest compatibility mirror)
+    - `decision`
+    - `response_target`
+    - `route`
+    - `plan_proposal`
+    - `conversation_plan`
+    - `verification_*` keys from state/memory
+    - `memory` (reads and updates `memory.state` for plan mode, plan revision, active plan, etc.)
+
+    State Keys Write:
+    - `route`
+    - `response`
+    - `response_target`
+    - `plan_proposal`
+    - `conversation_plan`
+    - `additional_targets` (optional)
+    - `memory_helper_trigger` (optional)
+    - `handoff_payload` (optional)
+    - `prompt`
+    - `system_prompt`
+    - `llm_response`
+    - `llm_error`
+    """
 
     llm: Any | None = None
     system_prompt: str = ""
@@ -87,8 +115,20 @@ class PlanProposalNode(BaseGraphNode):
         mode = str(memory_state.get("mode", "strict_collections"))
         routing_context = state.get("routing_context") if isinstance(state.get("routing_context"), dict) else {}
         plan_origin = str(routing_context.get("plan_origin", "react"))
-        observation = state.get("observation")
+        observation = None
+        observations = state.get("observations")
+        if isinstance(observations, list):
+            for item in reversed(observations):
+                if isinstance(item, dict):
+                    observation = item
+                    break
+        if observation is None:
+            observation = state.get("observation")
         user_input = str(state.get("user_input", ""))
+        memory_state = self._overlay_verification_state_from_graph(
+            state=state,
+            memory_state=memory_state,
+        )
 
         if isinstance(observation, dict) and isinstance(observation.get("tool_phase"), dict):
             observation = observation.get("tool_phase")
@@ -96,23 +136,6 @@ class PlanProposalNode(BaseGraphNode):
         output = observation.get("output", {}) if isinstance(observation, dict) else {}
         decision = state.get("decision")
         existing_plan = self._get_existing_conversation_plan(state=state, memory_state=memory_state)
-        verification_ctx = self._compute_effective_verification_context(
-            state=state,
-            memory_state=memory_state,
-            observation=(observation if isinstance(observation, dict) else None),
-        )
-        memory_state = dict(memory_state)
-        memory_state["identity_verified"] = bool(verification_ctx.get("identity_verified", False))
-        memory_state["verification_missing_fields"] = list(verification_ctx.get("verification_missing_fields", []))
-        memory_state["verification_verified_fields"] = list(verification_ctx.get("verification_verified_fields", []))
-        memory_state["verification_entities"] = dict(verification_ctx.get("verification_entities", {}))
-        if memory is not None:
-            memory.set_state(
-                identity_verified=bool(memory_state.get("identity_verified", False)),
-                verification_missing_fields=list(memory_state.get("verification_missing_fields", [])),
-                verification_verified_fields=list(memory_state.get("verification_verified_fields", [])),
-                verification_entities=dict(memory_state.get("verification_entities", {})),
-            )
 
         plan_signals = self._classify_plan_signals(
             user_input=user_input,
@@ -148,10 +171,6 @@ class PlanProposalNode(BaseGraphNode):
             return update
 
         def with_plan(update: NodeUpdate) -> NodeUpdate:
-            update["identity_verified"] = bool(memory_state.get("identity_verified", False))
-            update["verification_missing_fields"] = list(memory_state.get("verification_missing_fields", []))
-            update["verification_verified_fields"] = list(memory_state.get("verification_verified_fields", []))
-            update["verification_entities"] = dict(memory_state.get("verification_entities", {}))
             response_target = str(update.get("response_target", "customer")).strip().lower() or "customer"
             route = str(update.get("route", "continue")).strip().lower() or "continue"
             proposal = update.get("plan_proposal") if isinstance(update.get("plan_proposal"), dict) else {}
@@ -871,63 +890,28 @@ class PlanProposalNode(BaseGraphNode):
             return sorted(set(required_fields))
         return ["dob", "phone"]
 
-    def _compute_effective_verification_context(
+    def _overlay_verification_state_from_graph(
         self,
         *,
         state: AgentState,
         memory_state: dict[str, Any],
-        observation: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        required_fields = self._verification_required_fields(memory_state)
-        verified_fields = (
-            [str(x).strip().lower() for x in memory_state.get("verification_verified_fields", []) if str(x).strip()]
-            if isinstance(memory_state.get("verification_verified_fields"), list)
-            else []
-        )
-        if isinstance(state.get("verification_verified_fields"), list):
-            verified_fields.extend([str(x).strip().lower() for x in state.get("verification_verified_fields", []) if str(x).strip()])
-        verified_set = set(verified_fields)
-
-        verification_entities = (
-            dict(memory_state.get("verification_entities", {}))
-            if isinstance(memory_state.get("verification_entities"), dict)
-            else {}
-        )
+        merged = dict(memory_state)
         if isinstance(state.get("verification_entities"), dict):
-            verification_entities.update({k: v for k, v in state.get("verification_entities", {}).items() if str(v).strip()})
-
-        observed_tool = str(observation.get("tool_name", "")).strip().lower() if isinstance(observation, dict) else ""
-        observed_output = (
-            observation.get("output", {})
-            if isinstance(observation, dict) and isinstance(observation.get("output"), dict)
-            else {}
-        )
-        observed_status = str(observed_output.get("status", "")).strip().lower()
-        observed_field = str(observed_output.get("field", "")).strip().lower()
-        if not observed_field and observed_tool in {"verify_dob", "verify_mobile"}:
-            observed_field = "dob" if observed_tool == "verify_dob" else "phone"
-        if observed_field:
-            if observed_status == "verified":
-                verified_set.add(observed_field)
-            elif observed_status in {"failed", "locked"}:
-                verified_set.discard(observed_field)
-
-        verified_set = {field for field in verified_set if field in set(required_fields)}
-        missing_fields = sorted([field for field in required_fields if field not in verified_set])
-
-        # Backward compatibility: if older sessions only persisted `identity_verified`,
-        # preserve completion when required fields are unavailable.
-        legacy_identity = bool(memory_state.get("identity_verified", False)) or bool(state.get("identity_verified", False))
-        identity_verified = (not bool(missing_fields)) if required_fields else legacy_identity
-        if legacy_identity and not required_fields:
-            identity_verified = True
-
-        return {
-            "identity_verified": bool(identity_verified),
-            "verification_missing_fields": missing_fields,
-            "verification_verified_fields": sorted(verified_set),
-            "verification_entities": verification_entities,
-        }
+            merged["verification_entities"] = dict(state.get("verification_entities", {}))
+            merged["verification_collected"] = dict(state.get("verification_entities", {}))
+        if isinstance(state.get("verification_missing_fields"), list):
+            merged["verification_missing_fields"] = [
+                str(x).strip().lower() for x in state.get("verification_missing_fields", []) if str(x).strip()
+            ]
+        if isinstance(state.get("verification_verified_fields"), list):
+            merged["verification_verified_fields"] = [
+                str(x).strip().lower() for x in state.get("verification_verified_fields", []) if str(x).strip()
+            ]
+        for key in ("verified_dob", "verified_mobile", "identity_verified"):
+            if key in state:
+                merged[key] = bool(state.get(key))
+        return merged
 
     @staticmethod
     def _render_prompt_template(template: str, values: dict[str, Any]) -> str:

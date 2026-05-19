@@ -11,7 +11,34 @@ from src.nodes.types import AgentState, NodeUpdate
 
 @dataclass(slots=True)
 class CollectionReflectNode(ReflectNode):
-    """Collection-specific routing with LLM-driven reflection judgment."""
+    """Collection-specific routing with LLM-driven reflection judgment.
+
+    State Keys Read:
+    - `user_input`
+    - `observations`
+    - `observation` (latest compatibility mirror)
+    - `decision`
+    - `routing_context`
+    - `plan_proposal`
+    - `conversation_plan`
+    - `response_target`
+    - `response`
+    - `identity_verified`
+    - `verification_missing_fields`
+    - `verification_entities`
+    - `reflection_plan_retry_count`
+
+    State Keys Write:
+    - `reflection_feedback`
+    - `reflection_complete`
+    - `reflection_retry_count`
+    - `reflection_plan_retry_count`
+    - `retry_target`
+    - `failure_type`
+    - `correction_hints`
+    - base reflect debug keys (if emitted by parent):
+      `prompt`, `system_prompt`, `llm_response`, `llm_error`
+    """
     max_retry_loops: int = 2
 
     def execute(self, state: AgentState) -> NodeUpdate:
@@ -21,7 +48,15 @@ class CollectionReflectNode(ReflectNode):
         if plan_origin in {"pre_plan_intent", "post_memory_plan_intent"}:
             # For planning path validation, reflect must evaluate the proposal payload,
             # not the raw user greeting/utterance in isolation.
-            reflect_state["observation"] = self._build_plan_reflection_observation(state)
+            plan_observation = self._build_plan_reflection_observation(state)
+            reflect_state["observation"] = plan_observation
+            prior_observations = (
+                list(reflect_state.get("observations", []))
+                if isinstance(reflect_state.get("observations"), list)
+                else []
+            )
+            prior_observations.append(plan_observation)
+            reflect_state["observations"] = prior_observations
 
         # Explicit base-class invocation avoids the dataclass(slots=True) +
         # zero-arg super() runtime edge case observed in this environment.
@@ -110,7 +145,15 @@ class CollectionReflectNode(ReflectNode):
         correction_hints: list[str] = []
         failure_type = "none"
 
-        observation = state.get("observation") if isinstance(state.get("observation"), dict) else {}
+        observation = {}
+        observations = state.get("observations")
+        if isinstance(observations, list):
+            for item in reversed(observations):
+                if isinstance(item, dict):
+                    observation = item
+                    break
+        if not observation and isinstance(state.get("observation"), dict):
+            observation = dict(state.get("observation", {}))
         observed_tool = str(observation.get("tool_name", "")).strip().lower()
         observed_output = observation.get("output") if isinstance(observation.get("output"), dict) else {}
         observed_status = str(observed_output.get("status", "")).strip().lower()

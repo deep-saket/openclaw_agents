@@ -131,6 +131,7 @@ class GraphAgent(BaseAgent):
                         "user_input": user_input,
                         "memory": memory,
                         "observation": None,
+                        "observations": [],
                         "steps": 0,
                         "trace": {"trace_id": trace.trace_id},
                     }
@@ -152,7 +153,7 @@ class GraphAgent(BaseAgent):
             agent_name=self.agent_name,
             session_id=session_key,
             steps=state.get("steps", 0),
-            has_observation=state.get("observation") is not None,
+            has_observation=bool(state.get("observations")) or state.get("observation") is not None,
             responded=bool(response),
         )
         return response
@@ -213,6 +214,7 @@ class GraphAgent(BaseAgent):
                 "step": state.get("steps", 0),
                 "decision": repr(state.get("decision")),
                 "observation": result.get("observation"),
+                "observations": result.get("observations"),
                 "response": result.get("response"),
             }
         )

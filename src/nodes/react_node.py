@@ -33,6 +33,9 @@ class ReactNode(BaseGraphNode):
 
     def execute(self, state: AgentState) -> NodeUpdate:
         self._record_llm_usage(state, node_name="react")
+        before_updates = self._update_node_owned_keys_before(state=state)
+        if isinstance(before_updates, dict) and before_updates:
+            state.update(before_updates)
         context = self._build_context_for_react(state)
         pre_rule = self._apply_pre_llm_override(state=state, context=context)
         if pre_rule is None:
@@ -75,6 +78,11 @@ class ReactNode(BaseGraphNode):
             "tool_calls": tool_calls,
         }
         update["pending_tool_calls"] = pending_tool_calls or []
+        update["no_tools_required"] = not self._decision_requires_tool(decision)
+        after_updates = self._update_node_owned_keys_after(state=state, update=update)
+        if isinstance(after_updates, dict) and after_updates:
+            state.update(after_updates)
+            update.update(after_updates)
         return update
 
     def route(self, state: AgentState) -> str:
@@ -107,10 +115,19 @@ class ReactNode(BaseGraphNode):
         memory = state.get("memory")
         raw_memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
         memory_state = self._compact_memory_state(raw_memory_state)
+        observations = list(state.get("observations", [])) if isinstance(state.get("observations"), list) else []
+        if not observations and isinstance(state.get("observation"), dict):
+            observations = [dict(state.get("observation", {}))]
+        latest_observation = None
+        for item in reversed(observations):
+            if isinstance(item, dict):
+                latest_observation = item
+                break
         return {
             "session_id": state.get("session_id"),
             "user_input": state.get("user_input"),
-            "observation": state.get("observation"),
+            "observation": latest_observation,
+            "observations": observations,
             "memory_context": state.get("memory_context"),
             "available_tools": self.available_tools if self.available_tools is not None else state.get("available_tools"),
             "memory_state": memory_state,
@@ -169,6 +186,14 @@ class ReactNode(BaseGraphNode):
         del state, context
         return decision
 
+    def _update_node_owned_keys_before(self, *, state: AgentState) -> dict[str, Any] | None:
+        del state
+        return None
+
+    def _update_node_owned_keys_after(self, *, state: AgentState, update: NodeUpdate) -> dict[str, Any] | None:
+        del state, update
+        return None
+
     def _plan_with_llm_or_fallback(self, *, state: AgentState, context: dict[str, Any]) -> Any:
         rendered_system_prompt = self.system_prompt or ""
         rendered_user_prompt = self._render_user_prompt(
@@ -208,8 +233,11 @@ class ReactNode(BaseGraphNode):
     def _render_user_prompt(self, *, user_prompt: str, context: dict[str, Any]) -> str:
         values = {
             "user_input": self._stringify_context(context.get("user_input")),
+            "recent_conversation": self._stringify_context(context.get("recent_conversation")),
             "observation": self._stringify_context(context.get("observation")),
+            "observations": self._stringify_context(context.get("observations")),
             "memory_context": self._stringify_context(context.get("memory_context")),
+            "memory_contents": self._stringify_context(context.get("memory_contents")),
             "available_tools": self._stringify_context(context.get("available_tools")),
         }
         rendered_lines: list[str] = []
@@ -302,6 +330,7 @@ class ReactNode(BaseGraphNode):
                     respond_directly=False,
                     response_text=None,
                     done=False,
+                    no_tools_required=bool(payload.get("no_tools_required", False)),
                 )
         if tool_name is None:
             return SimpleNamespace(
@@ -310,6 +339,7 @@ class ReactNode(BaseGraphNode):
                 respond_directly=bool(payload.get("respond_directly", True)),
                 response_text=payload.get("response_text", raw),
                 done=bool(payload.get("done", True)),
+                no_tools_required=bool(payload.get("no_tools_required", False)),
             )
         return SimpleNamespace(
             thought=payload.get("thought", f"Use {tool_name}."),
@@ -320,6 +350,7 @@ class ReactNode(BaseGraphNode):
             respond_directly=False,
             response_text=None,
             done=False,
+            no_tools_required=bool(payload.get("no_tools_required", False)),
         )
 
     @staticmethod
@@ -361,3 +392,17 @@ class ReactNode(BaseGraphNode):
             args = item.get("arguments") if isinstance(item.get("arguments"), dict) else {}
             pending.append({"tool_name": name, "arguments": args})
         return pending or None
+
+    @staticmethod
+    def _decision_requires_tool(decision: Any) -> bool:
+        tool_call = getattr(decision, "tool_call", None)
+        if tool_call is not None and str(getattr(tool_call, "tool_name", "")).strip():
+            return True
+        tool_calls = getattr(decision, "tool_calls", None)
+        if isinstance(tool_calls, list):
+            for item in tool_calls:
+                if not isinstance(item, dict):
+                    continue
+                if str(item.get("tool_name", "")).strip():
+                    return True
+        return False

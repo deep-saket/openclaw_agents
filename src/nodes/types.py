@@ -85,6 +85,9 @@ class AgentState(TypedDict, total=False):
     memory_updates: list[dict[str, Any]]
     stored_memories: list[Any]
     observation: dict[str, Any] | None
+    observations: list[dict[str, Any]]
+    verified_dob: bool
+    verified_mobile: bool
     reflection_feedback: dict[str, Any] | None
     reflection_complete: bool
     error: dict[str, Any] | None
@@ -128,6 +131,9 @@ class NodeUpdate(TypedDict, total=False):
     memory_updates: list[dict[str, Any]]
     stored_memories: list[Any]
     observation: dict[str, Any] | None
+    observations: list[dict[str, Any]]
+    verified_dob: bool
+    verified_mobile: bool
     reflection_feedback: dict[str, Any] | None
     reflection_complete: bool
     error: dict[str, Any] | None

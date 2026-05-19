@@ -21,7 +21,24 @@ class _IntentPayload(BaseModel):
 
 @dataclass(slots=True)
 class CollectionIntentNode(IntentNode):
-    """Writes and routes intent payloads using a dedicated state key."""
+    """Writes and routes intent payloads using a dedicated state key.
+
+    State Keys Read:
+    - `user_input`
+    - `memory` (for `memory.state` hydration inside `_get_memory_state`)
+    - node-specific context keys returned by `_build_context_for_intent`
+
+    State Keys Write:
+    - `intent` (compatibility key)
+    - `<output_key>` (for example `relevance_intent`, `pre_plan_intent`, etc.)
+    - `prompt`
+    - `system_prompt`
+    - `llm_response`
+    - `llm_error`
+    - `llm_status`
+    - `fallback_reason` (optional)
+    - `response` (optional via `response_map`)
+    """
 
     output_key: str = "intent"
     allow_deterministic_fallback: bool = False
