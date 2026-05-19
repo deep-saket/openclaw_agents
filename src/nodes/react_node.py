@@ -34,8 +34,10 @@ class ReactNode(BaseGraphNode):
     def execute(self, state: AgentState) -> NodeUpdate:
         self._record_llm_usage(state, node_name="react")
         before_updates = self._update_node_owned_keys_before(state=state)
+        emitted_before_updates: dict[str, Any] = {}
         if isinstance(before_updates, dict) and before_updates:
             state.update(before_updates)
+            emitted_before_updates = dict(before_updates)
         context = self._build_context_for_react(state)
         pre_rule = self._apply_pre_llm_override(state=state, context=context)
         if pre_rule is None:
@@ -77,6 +79,8 @@ class ReactNode(BaseGraphNode):
             "llm_status": llm_status,
             "tool_calls": tool_calls,
         }
+        if emitted_before_updates:
+            update.update(emitted_before_updates)
         update["pending_tool_calls"] = pending_tool_calls or []
         update["no_tools_required"] = not self._decision_requires_tool(decision)
         after_updates = self._update_node_owned_keys_after(state=state, update=update)

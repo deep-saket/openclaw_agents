@@ -144,19 +144,6 @@ class PlanProposalNode(BaseGraphNode):
             existing_plan=existing_plan,
         )
         identity_verified = bool(memory_state.get("identity_verified", False))
-        required_fields = (
-            [str(x).strip() for x in memory_state.get("active_verification_required_fields", []) if str(x).strip()]
-            if isinstance(memory_state.get("active_verification_required_fields"), list)
-            else []
-        )
-        verification_entities = (
-            dict(memory_state.get("verification_entities", {}))
-            if isinstance(memory_state.get("verification_entities"), dict)
-            else {}
-        )
-        missing_required_fields = [
-            field for field in required_fields if not str(verification_entities.get(field, "")).strip()
-        ]
         suggested_mode = str(plan_signals.get("suggested_plan_mode", mode)).strip().lower()
         if suggested_mode in {"strict_collections", "hardship_negotiation"} and suggested_mode != mode:
             mode = suggested_mode
@@ -634,8 +621,10 @@ class PlanProposalNode(BaseGraphNode):
         verification_context_json = json.dumps(
             {
                 "identity_verified": bool(memory_state.get("identity_verified", False)),
-                "verification_collected": memory_state.get("verification_collected", {}),
                 "required_fields": memory_state.get("active_verification_required_fields", []),
+                "verification_missing_fields": memory_state.get("verification_missing_fields", []),
+                "verification_verified_fields": memory_state.get("verification_verified_fields", []),
+                "verification_entities": memory_state.get("verification_entities", {}),
             },
             ensure_ascii=True,
             default=str,
@@ -719,7 +708,7 @@ class PlanProposalNode(BaseGraphNode):
                 "entities_context_json": self._json_compact(
                     {
                         "verification_entities": state.get("verification_entities", {}),
-                        "verification_missing_fields": state.get("verification_missing_fields", []),
+                        "verification_missing_fields": memory_state.get("verification_missing_fields", []),
                         "identity_verified": bool(memory_state.get("identity_verified", False)),
                     },
                     max_chars=500,
@@ -779,20 +768,7 @@ class PlanProposalNode(BaseGraphNode):
         patched = dict(proposal) if isinstance(proposal, dict) else {}
         warnings: list[str] = []
         identity_verified = bool(memory_state.get("identity_verified", False))
-        verification_entities = (
-            state.get("verification_entities")
-            if isinstance(state.get("verification_entities"), dict)
-            else {}
-        )
-        missing_fields_state = state.get("verification_missing_fields")
-        if isinstance(missing_fields_state, list):
-            missing_fields = [str(x).strip() for x in missing_fields_state if str(x).strip()]
-        else:
-            required = memory_state.get("active_verification_required_fields")
-            required_fields = [str(x).strip() for x in required if str(x).strip()] if isinstance(required, list) else []
-            missing_fields = [f for f in required_fields if not str(verification_entities.get(f, "")).strip()]
-
-        if not identity_verified and missing_fields:
+        if not identity_verified:
             next_actions = patched.get("next_actions")
             next_actions_list = [str(x).strip() for x in next_actions if str(x).strip()] if isinstance(next_actions, list) else []
             normalized_actions: list[str] = []

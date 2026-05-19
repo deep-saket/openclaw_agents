@@ -26,6 +26,7 @@ class CollectionGraphState(AgentState, total=False):
     pre_plan_intent: dict[str, Any]
     execution_path_intent: dict[str, Any]
     post_memory_plan_intent: dict[str, Any]
+    post_verification_intent: dict[str, Any]
 
     # Per-turn diagnostics and orchestration helpers
     node_history: list[str]

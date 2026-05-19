@@ -21,9 +21,11 @@ from agents.collection_agent.nodes import (
     CollectionResponseNode,
     ExecutionPathIntentNode,
     PostMemoryPlanIntentNode,
+    PostVerificationIntentNode,
     PrePlanIntentNode,
     PlanProposalNode,
     RelevanceIntentNode,
+    VerificationReactNode,
 )
 from agents.collection_agent.prompts import load_collection_agent_prompts, render_collection_tool_catalog_yaml
 from agents.collection_agent.repository import CollectionRepository
@@ -89,7 +91,6 @@ class CollectionAgent(BaseAgent):
     _STATIC_NEXT_NODE_MAP: ClassVar[dict[str, str]] = {
         "entity_extract": "pre_plan_intent",
         "memory_retrieve": "post_memory_plan_intent",
-        "tool_execution": "react",
         "relevant_response": "END",
         "irrelevant_response": "END",
     }
@@ -106,9 +107,16 @@ class CollectionAgent(BaseAgent):
         },
         "execution_path_intent": {
             "need_memory": "memory_retrieve",
+            "verification_react": "verification_react",
             "need_tool": "react",
+            "react": "react",
         },
         "post_memory_plan_intent": {
+            "plan": "plan_proposal",
+            "verification_react": "verification_react",
+            "react": "react",
+        },
+        "post_verification_intent": {
             "plan": "plan_proposal",
             "react": "react",
         },
@@ -116,6 +124,15 @@ class CollectionAgent(BaseAgent):
             "act": "tool_execution",
             "respond": "plan_proposal",
             "end": "plan_proposal",
+        },
+        "verification_react": {
+            "act": "tool_execution",
+            "respond": "post_verification_intent",
+            "end": "post_verification_intent",
+        },
+        "tool_execution": {
+            "react": "react",
+            "verification_react": "verification_react",
         },
         "plan_proposal": {
             "continue": "reflect",
@@ -183,11 +200,30 @@ class CollectionAgent(BaseAgent):
             system_prompt=str(intent_prompts.get("post_memory_plan_system_prompt", "")),
             user_prompt=str(intent_prompts.get("post_memory_plan_user_prompt", "")),
         )
+        self.post_verification_intent_node = PostVerificationIntentNode(
+            llm=self.llm,
+            allow_deterministic_fallback=deterministic_fallback_enabled,
+            system_prompt=str(intent_prompts.get("post_verification_system_prompt", "")),
+            user_prompt=str(intent_prompts.get("post_verification_user_prompt", "")),
+        )
         self.react_node = CollectionReactNode(
             llm=self.llm,
             system_prompt=str(react_prompts.get("system_prompt", "")),
             user_prompt=str(react_prompts.get("user_prompt", "{user_input}")),
-            available_tools=render_collection_tool_catalog_yaml(),
+            available_tools=render_collection_tool_catalog_yaml(
+                exclude_tool_names=["verify_dob", "verify_mobile"]
+            ),
+            tool_registry=self.tool_registry,
+            max_steps=8,
+        )
+        verification_react_prompts = prompts.get("verification_react", {})
+        self.verification_react_node = VerificationReactNode(
+            llm=self.llm,
+            system_prompt=str(verification_react_prompts.get("system_prompt", "")),
+            user_prompt=str(verification_react_prompts.get("user_prompt", "{user_input}")),
+            available_tools=render_collection_tool_catalog_yaml(
+                include_tool_names=["verify_dob", "verify_mobile"]
+            ),
             tool_registry=self.tool_registry,
             max_steps=8,
         )
@@ -272,7 +308,15 @@ class CollectionAgent(BaseAgent):
             "post_memory_plan_intent",
             self._wrap_node("post_memory_plan_intent", self.post_memory_plan_intent_node.execute),
         )
+        graph.add_node(
+            "post_verification_intent",
+            self._wrap_node("post_verification_intent", self.post_verification_intent_node.execute),
+        )
         graph.add_node("react", self._wrap_node("react", self.react_node.execute))
+        graph.add_node(
+            "verification_react",
+            self._wrap_node("verification_react", self.verification_react_node.execute),
+        )
         graph.add_node("plan_proposal", self._wrap_node("plan_proposal", self.plan_node.execute))
         graph.add_node("tool_execution", self._wrap_node("tool_execution", self.tool_execution_node.execute))
         graph.add_node("reflect", self._wrap_node("reflect", self.reflect_node.execute))
@@ -302,18 +346,21 @@ class CollectionAgent(BaseAgent):
         )
         graph.add_conditional_edges(
             "execution_path_intent",
-            self.execution_path_intent_node.route,
+            self._route_execution_path_intent,
             {
                 "need_memory": "memory_retrieve",
+                "verification_react": "verification_react",
                 "need_tool": "react",
+                "react": "react",
             },
         )
         graph.add_edge("memory_retrieve", "post_memory_plan_intent")
         graph.add_conditional_edges(
             "post_memory_plan_intent",
-            self.post_memory_plan_intent_node.route,
+            self._route_post_memory_plan_intent,
             {
                 "plan": "plan_proposal",
+                "verification_react": "verification_react",
                 "react": "react",
             },
         )
@@ -327,13 +374,37 @@ class CollectionAgent(BaseAgent):
             },
         )
         graph.add_conditional_edges(
+            "verification_react",
+            self.verification_react_node.route,
+            {
+                "act": "tool_execution",
+                "respond": "post_verification_intent",
+                "end": "post_verification_intent",
+            },
+        )
+        graph.add_conditional_edges(
+            "post_verification_intent",
+            self.post_verification_intent_node.route,
+            {
+                "plan": "plan_proposal",
+                "react": "react",
+            },
+        )
+        graph.add_conditional_edges(
             "plan_proposal",
             self.plan_node.route,
             {
                 "continue": "reflect",
             },
         )
-        graph.add_edge("tool_execution", "react")
+        graph.add_conditional_edges(
+            "tool_execution",
+            self._route_after_tool_execution,
+            {
+                "verification_react": "verification_react",
+                "react": "react",
+            },
+        )
         graph.add_conditional_edges(
             "reflect",
             self.reflect_node.route,
@@ -521,16 +592,50 @@ class CollectionAgent(BaseAgent):
         if node_name == "pre_plan_intent":
             return str(self.pre_plan_intent_node.route(merged_state)).strip().lower()
         if node_name == "execution_path_intent":
-            return str(self.execution_path_intent_node.route(merged_state)).strip().lower()
+            return str(self._route_execution_path_intent(merged_state)).strip().lower()
         if node_name == "post_memory_plan_intent":
-            return str(self.post_memory_plan_intent_node.route(merged_state)).strip().lower()
+            return str(self._route_post_memory_plan_intent(merged_state)).strip().lower()
+        if node_name == "post_verification_intent":
+            return str(self.post_verification_intent_node.route(merged_state)).strip().lower()
         if node_name == "react":
             return str(self.react_node.route(merged_state)).strip().lower()
+        if node_name == "verification_react":
+            return str(self.verification_react_node.route(merged_state)).strip().lower()
+        if node_name == "tool_execution":
+            return str(self._route_after_tool_execution(merged_state)).strip().lower()
         if node_name == "plan_proposal":
             return str(self.plan_node.route(merged_state)).strip().lower()
         if node_name == "reflect":
             return str(self.reflect_node.route(merged_state)).strip().lower()
         return None
+
+    @staticmethod
+    def _identity_verified_from_state(state: CollectionGraphState) -> bool:
+        memory = state.get("memory")
+        memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
+        return bool(state.get("identity_verified", memory_state.get("identity_verified", False)))
+
+    def _route_execution_path_intent(self, state: CollectionGraphState) -> str:
+        route = str(self.execution_path_intent_node.route(state)).strip().lower()
+        if route != "need_tool":
+            return route
+        return "verification_react" if not self._identity_verified_from_state(state) else "react"
+
+    def _route_post_memory_plan_intent(self, state: CollectionGraphState) -> str:
+        route = str(self.post_memory_plan_intent_node.route(state)).strip().lower()
+        if route != "react":
+            return route
+        return "verification_react" if not self._identity_verified_from_state(state) else "react"
+
+    @staticmethod
+    def _route_after_tool_execution(state: CollectionGraphState) -> str:
+        observation = state.get("observation")
+        if isinstance(observation, dict) and isinstance(observation.get("tool_phase"), dict):
+            observation = observation.get("tool_phase")
+        tool_name = str(observation.get("tool_name", "")).strip().lower() if isinstance(observation, dict) else ""
+        if tool_name in {"verify_dob", "verify_mobile"}:
+            return "verification_react"
+        return "react"
 
     @staticmethod
     def _set_plan_origin(update: dict[str, Any], *, plan_origin: str) -> None:
@@ -546,12 +651,24 @@ class CollectionAgent(BaseAgent):
         if node_name == "post_memory_plan_intent" and route_value == "plan":
             self._set_plan_origin(update, plan_origin="post_memory_plan_intent")
             return
+        if node_name == "post_verification_intent" and route_value == "plan":
+            self._set_plan_origin(update, plan_origin="post_verification_intent")
+            return
         if node_name == "react" and route_value in {"respond", "end"}:
             self._set_plan_origin(update, plan_origin="react")
+            return
+        if node_name == "verification_react" and route_value in {"respond", "end"}:
+            self._set_plan_origin(update, plan_origin="verification_react")
 
     @staticmethod
     def _build_node_debug_message(*, node_name: str, state: CollectionGraphState, update: dict[str, Any]) -> str:
-        if node_name in {"relevance_intent", "pre_plan_intent", "execution_path_intent", "post_memory_plan_intent"}:
+        if node_name in {
+            "relevance_intent",
+            "pre_plan_intent",
+            "execution_path_intent",
+            "post_memory_plan_intent",
+            "post_verification_intent",
+        }:
             payload = update.get(node_name) if isinstance(update.get(node_name), dict) else {}
             intent = str(payload.get("intent", "unknown"))
             reason = str(payload.get("reason", "")).strip()
@@ -602,6 +719,23 @@ class CollectionAgent(BaseAgent):
             if update.get("response"):
                 return "react: prepared direct response path."
             return "react: planned next action."
+
+        if node_name == "verification_react":
+            decision = update.get("decision")
+            tool_call = None
+            if isinstance(decision, dict):
+                tool_call = decision.get("tool_call")
+            elif decision is not None:
+                tool_call = getattr(decision, "tool_call", None)
+            if isinstance(tool_call, dict):
+                tool_name = str(tool_call.get("tool_name", "unknown_tool"))
+                return f"verification_react: selected tool `{tool_name}` for execution."
+            if tool_call is not None:
+                tool_name = str(getattr(tool_call, "tool_name", "unknown_tool"))
+                return f"verification_react: selected tool `{tool_name}` for execution."
+            if update.get("response"):
+                return "verification_react: completed verification tool planning."
+            return "verification_react: planned next verification action."
 
         if node_name == "tool_execution":
             obs = update.get("observation") if isinstance(update.get("observation"), dict) else {}
@@ -1224,7 +1358,9 @@ class CollectionAgent(BaseAgent):
             "execution_path_intent": "execution_routing",
             "memory_retrieve": "memory_hydration",
             "post_memory_plan_intent": "post_memory_routing",
+            "post_verification_intent": "post_verification_routing",
             "react": "action_planning",
+            "verification_react": "verification_action_planning",
             "tool_execution": "tool_execution",
             "plan_proposal": "plan_proposal",
             "reflect": "quality_reflection",

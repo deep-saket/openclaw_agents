@@ -4375,5 +4375,289 @@
     "status": "completed",
     "error": null,
     "created_at": "2026-05-19T10:06:15.618778Z"
+  },
+  {
+    "id": "a53db1f4-3b65-4503-8fee-84f6380b20b7",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "dob": "1991-08-19"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:04:32.208598Z"
+  },
+  {
+    "id": "4d9abc07-cecf-4ecb-ac2e-ac3e2bfbfa91",
+    "tool_name": "verify_mobile",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "phone": "9900001001"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "phone",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:04:56.197473Z"
+  },
+  {
+    "id": "01b6ffa6-de96-45ab-8e47-58872de09ae1",
+    "tool_name": "offer_eligibility",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "hardship_flag": false,
+      "requested_waiver_pct": 0.0
+    },
+    "output_payload": {
+      "case_id": "COLL-1001",
+      "allowed": false,
+      "offer_type": "none",
+      "approved_waiver_pct": 0.0,
+      "reason_codes": [
+        "no_policy_match"
+      ],
+      "recommended_next": "capture_promise"
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:05:56.656586Z"
+  },
+  {
+    "id": "9c0dfe48-6d3a-488d-a0b2-865f35885d63",
+    "tool_name": "offer_eligibility",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "hardship_flag": false,
+      "requested_waiver_pct": 0.0
+    },
+    "output_payload": {
+      "case_id": "COLL-1001",
+      "allowed": false,
+      "offer_type": "none",
+      "approved_waiver_pct": 0.0,
+      "reason_codes": [
+        "no_policy_match"
+      ],
+      "recommended_next": "capture_promise"
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:06:27.239302Z"
+  },
+  {
+    "id": "0d2604a3-c2c1-46e6-b193-0ec20334e136",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "dob": "1991-08-19"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:09:01.810442Z"
+  },
+  {
+    "id": "c59eaa50-712c-4e1f-93f3-52d4ea133c8e",
+    "tool_name": "verify_mobile",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "phone": "9900001001"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "phone",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:09:01.873539Z"
+  },
+  {
+    "id": "ff94f1e8-73cb-484a-94b4-a3af50673d9e",
+    "tool_name": "offer_eligibility",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "hardship_flag": false,
+      "requested_waiver_pct": 0.0
+    },
+    "output_payload": {
+      "case_id": "COLL-1001",
+      "allowed": false,
+      "offer_type": "none",
+      "approved_waiver_pct": 0.0,
+      "reason_codes": [
+        "no_policy_match"
+      ],
+      "recommended_next": "capture_promise"
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:09:12.119120Z"
+  },
+  {
+    "id": "f44fa248-af3d-44fd-b9e9-c2e8ec48b669",
+    "tool_name": "offer_eligibility",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "hardship_flag": false,
+      "requested_waiver_pct": 0.0
+    },
+    "output_payload": {
+      "case_id": "COLL-1001",
+      "allowed": false,
+      "offer_type": "none",
+      "approved_waiver_pct": 0.0,
+      "reason_codes": [
+        "no_policy_match"
+      ],
+      "recommended_next": "capture_promise"
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:09:39.161320Z"
+  },
+  {
+    "id": "cc43ade4-e886-41c8-8299-b218efcf584a",
+    "tool_name": "offer_eligibility",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "hardship_flag": false,
+      "requested_waiver_pct": 0.0
+    },
+    "output_payload": {
+      "case_id": "COLL-1001",
+      "allowed": false,
+      "offer_type": "none",
+      "approved_waiver_pct": 0.0,
+      "reason_codes": [
+        "no_policy_match"
+      ],
+      "recommended_next": "capture_promise"
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:10:05.602225Z"
+  },
+  {
+    "id": "52a8e53d-58a8-40f0-894f-450e5ab5ef16",
+    "tool_name": "offer_eligibility",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "hardship_flag": false,
+      "requested_waiver_pct": 0.0
+    },
+    "output_payload": {
+      "case_id": "COLL-1001",
+      "allowed": false,
+      "offer_type": "none",
+      "approved_waiver_pct": 0.0,
+      "reason_codes": [
+        "no_policy_match"
+      ],
+      "recommended_next": "capture_promise"
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:10:32.566257Z"
+  },
+  {
+    "id": "a920a4f8-3521-4a29-9026-f047bb05f30b",
+    "tool_name": "offer_eligibility",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "hardship_flag": false,
+      "requested_waiver_pct": 0.0
+    },
+    "output_payload": {
+      "case_id": "COLL-1001",
+      "allowed": false,
+      "offer_type": "none",
+      "approved_waiver_pct": 0.0,
+      "reason_codes": [
+        "no_policy_match"
+      ],
+      "recommended_next": "capture_promise"
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:10:58.575243Z"
+  },
+  {
+    "id": "dcadaa16-f610-41db-aab9-33b78fb366a9",
+    "tool_name": "offer_eligibility",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "hardship_flag": false,
+      "requested_waiver_pct": 0.0
+    },
+    "output_payload": {
+      "case_id": "COLL-1001",
+      "allowed": false,
+      "offer_type": "none",
+      "approved_waiver_pct": 0.0,
+      "reason_codes": [
+        "no_policy_match"
+      ],
+      "recommended_next": "capture_promise"
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:11:24.550819Z"
+  },
+  {
+    "id": "a8ae42c2-7083-41d1-9964-59f38b48b43d",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "dob": "1991-08-19"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:35:23.561646Z"
+  },
+  {
+    "id": "270bcad1-d76e-4c44-8d6c-6761e9539c56",
+    "tool_name": "verify_mobile",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "phone": "9900001001"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "phone",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-19T11:35:34.676293Z"
   }
 ]
