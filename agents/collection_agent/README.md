@@ -122,40 +122,56 @@ Important: Graph state is rebuilt each run; session memory survives across turns
 | Key | Meaning | Typical writer |
 | --- | --- | --- |
 | `relevance_intent` | Relevance classification payload (`intent`, `confidence`, `reason`) | `relevance_intent` |
+| `negotiation_classification` | Persistent negotiation-state classification payload | `negotiation_classification` |
 | `pre_plan_intent` | Pre-plan route intent (`plan`/`decide`) | `pre_plan_intent` |
-| `execution_path_intent` | Decide execution route (`need_memory`/`need_tool`) | `execution_path_intent` |
-| `post_memory_plan_intent` | Post-memory route intent (`plan`/`react`) | `post_memory_plan_intent` |
+| `execution_path_intent` | Decide execution route (`need_memory`/`verification_react`/`react`) | `execution_path_intent` |
+| `post_memory_plan_intent` | Post-memory route intent (`plan`/`verification_react`/`react`) | `post_memory_plan_intent` |
+| `post_verification_intent` | Post-verification route intent (`plan`/`react`) | `post_verification_intent` |
 | `intent` | Compatibility mirror of current intent payload | each intent node |
 | `route` | Current routing decision for the node | inferred in node wrapper |
 | `node_history` | Exact node traversal order for this run | node wrapper |
 | `previous_node` | Previous node in this run | node wrapper |
 | `next_node` | Resolved next node (or candidates) | node wrapper |
-| `conversation_phase` | Phase label (`entity_extraction`, `plan_proposal`, etc.) | node wrapper |
-| `decision` | ReAct decision object (tool call or direct response intent) | `react` |
-| `observation` | Tool execution observation payload | `tool_execution` |
+| `conversation_phase` | Phase label (`entity_extraction`, `plan_proposal_state`, etc.) | node wrapper |
+| `decision` | ReAct decision object (tool call or direct response intent) | `react`, `verification_react` |
+| `observations` | Canonical ordered tool observation history for this pass | `tool_execution` |
+| `observation` | Latest observation compatibility mirror | `tool_execution` |
 | `extracted_entities` | Session-level merged extracted entities | `entity_extract` |
 | `extracted_entities_turn` | Entities extracted in current turn only | `entity_extract` |
 | `extracted_entity_descriptions` | Descriptions/schema hints for extracted fields | `entity_extract` |
 | `extracted_entities_updated_fields` | Fields changed vs previous memory snapshot | `entity_extract` |
-| `verification_entities` | Verification-focused entity map (name/dob/phone, etc.) | `entity_extract`, `plan_proposal` |
-| `verification_missing_fields` | Verification fields still missing | `entity_extract`, `plan_proposal` |
-| `verification_verified_fields` | Verified verification fields | `plan_proposal` |
-| `identity_verified` | Whether verification is complete | `entity_extract`, `plan_proposal` |
-| `plan_proposal` | Planner proposal payload (target, outline, next actions, tree update) | `plan_proposal` |
-| `conversation_plan` | Current plan tree snapshot for this run | `plan_proposal` |
-| `routing_context.plan_origin` | Origin of planner invocation (`pre_plan_intent`, `post_memory_plan_intent`, `react`) | node wrapper |
+| `verification_entities` | Verification-focused entity map (name/dob/phone, etc.) | `entity_extract` |
+| `verified_dob` | Boolean mirror for DOB verification success | `verification_react` |
+| `verified_mobile` | Boolean mirror for mobile verification success | `verification_react` |
+| `verification_missing_fields` | Verification fields still missing | `verification_react` |
+| `verification_verified_fields` | Verified verification fields | `verification_react` |
+| `identity_verified` | Whether verification is complete | `verification_react` |
+| `conversation_mode` | Persistent collections / hardship / verification dialogue mode | `negotiation_classification` |
+| `negotiation_stage` | Negotiation-stage progression state | `negotiation_classification` |
+| `customer_payment_posture` | Customer payment posture classification | `negotiation_classification` |
+| `hardship_context` | Persistent hardship detection payload | `negotiation_classification` |
+| `response_mode` | Downstream tone/response-mode hint | `negotiation_classification` |
+| `active_dialogue_owner` | Component that should lead the next customer-facing dialogue | `negotiation_classification` |
+| `plan_proposal` | Planner proposal payload (target, outline, next actions, tree update) | `plan_proposal_directive` |
+| `conversation_plan` | Current plan tree snapshot for this run | `plan_proposal_graph` |
+| `plan_prepared_memory_state` | Verification/negotiation-overlaid memory snapshot used by planning | `plan_proposal_state` |
+| `plan_signals` | Planning signal classification payload | `plan_proposal_state` |
+| `plan_mode` | Effective planning mode (`strict_collections` or `hardship_negotiation`) | `plan_proposal_state` |
+| `plan_tree_context` | Compact plan-tree view for prompt/debug use | `plan_proposal_graph` |
+| `plan_graph_debug` | Graph-mutation debug payload | `plan_proposal_graph` |
+| `routing_context.plan_origin` | Origin of planner invocation (`pre_plan_intent`, `post_memory_plan_intent`, `verification_react`, etc.) | node wrapper |
 | `reflection_feedback` | Reflect validation payload (`reason`, `is_complete`) | `reflect` |
 | `reflection_complete` | Whether reflection accepted current proposal | `reflect` |
 | `reflection_retry_count` | Retry counter used by reflect loop guard | `reflect` |
 | `reflection_plan_retry_count` | Plan-specific retry counter | `reflect` |
 | `failure_type` | Reflection failure class (`none`, `plan_correction_needed`, etc.) | `reflect` |
 | `correction_hints` | Reflect hints for planner retry | `reflect` |
-| `retry_target` | Retry destination (`plan_proposal` or `none`) | `reflect` |
+| `retry_target` | Retry destination (`plan_proposal_state` or `none`) | `reflect` |
 | `response` | Final customer/system response text for this pass | `relevant_response` / `irrelevant_response` |
-| `response_target` | Routing target after graph (`customer`, `self`, `discount_planning_agent`) | `plan_proposal`, normalized in response/finalizer |
-| `additional_targets` | Optional extra recipients (for example memory helper) | `plan_proposal` |
-| `handoff_payload` | Payload for cross-agent handoff | `plan_proposal` |
-| `memory_helper_trigger` | Trigger payload for memory-helper follow-up | `plan_proposal` |
+| `response_target` | Routing target after graph (`customer`, `self`, `discount_planning_agent`) | `plan_proposal_directive`, normalized in response/finalizer |
+| `additional_targets` | Optional extra recipients (for example memory helper) | `plan_proposal_directive` |
+| `handoff_payload` | Payload for cross-agent handoff | `plan_proposal_directive` |
+| `memory_helper_trigger` | Trigger payload for memory-helper follow-up | `plan_proposal_directive` |
 | `conversation_history` | Bounded history also returned in output state | `relevant_response` |
 | `prompt` | Rendered prompt for the current node (debug) | node-specific |
 | `system_prompt` | Effective system prompt for the current node (debug) | node-specific |
@@ -169,14 +185,19 @@ Important: Graph state is rebuilt each run; session memory survives across turns
 | Node | Primary graph-state updates |
 | --- | --- |
 | `relevance_intent` | `relevance_intent`, `intent`, debug keys (`prompt`, `llm_*`) |
-| `entity_extract` | `extracted_entities`, `extracted_entities_turn`, `extracted_entity_descriptions`, `verification_entities`, `verification_missing_fields`, `identity_verified`, `memory_context`, debug keys |
+| `entity_extract` | `extracted_entities`, `extracted_entities_turn`, `extracted_entity_descriptions`, `verification_entities`, `memory_context`, debug keys |
+| `negotiation_classification` | `negotiation_classification`, `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `hardship_context`, `response_mode`, `active_dialogue_owner` |
 | `pre_plan_intent` | `pre_plan_intent`, `intent`, debug keys |
 | `execution_path_intent` | `execution_path_intent`, `intent`, debug keys |
 | `memory_retrieve` | `memory_context`, `memory_retrievals` |
 | `post_memory_plan_intent` | `post_memory_plan_intent`, `intent`, debug keys |
+| `verification_react` | `decision`, `steps`, `verified_dob`, `verified_mobile`, `verification_verified_fields`, `verification_missing_fields`, `identity_verified` (+ debug keys when available) |
+| `post_verification_intent` | `post_verification_intent`, `intent`, debug keys |
 | `react` | `decision`, `steps` (+ debug keys when available) |
-| `tool_execution` | `observation` (+ writes session `tool_observations_history` via wrapper side-effect) |
-| `plan_proposal` | `plan_proposal`, `conversation_plan`, `route`, `response_target`, verification state mirrors, optional `handoff_payload`/`additional_targets` |
+| `tool_execution` | `observations`, `observation` (+ writes session `tool_observations_history` via wrapper side-effect) |
+| `plan_proposal_state` | `plan_prepared_memory_state`, `plan_signals`, `plan_mode`, `plan_origin`, `effective_identity_verified`, plan-state debug keys |
+| `plan_proposal_graph` | `conversation_plan`, `plan_tree_context`, `plan_graph_debug`, `route`, `response_target` |
+| `plan_proposal_directive` | `plan_proposal`, `response_target`, optional `handoff_payload`/`additional_targets`, directive debug keys |
 | `reflect` | `reflection_feedback`, `reflection_complete`, retry/failure keys |
 | `relevant_response` | `response`, `response_target`, `conversation_history`, debug keys |
 | `irrelevant_response` | static `response`, `response_target` |
@@ -192,6 +213,8 @@ These are not graph-state-only, but they drive graph behavior every turn:
 - `verification_entities`, `verification_collected`
 - `verification_verified_fields`, `verification_missing_fields`, `verification_last_status`
 - `identity_verified`
+- `conversation_mode`, `negotiation_stage`, `customer_payment_posture`
+- `hardship_context`, `response_mode`, `active_dialogue_owner`
 - `active_conversation_plan`
 - `conversation_history` (bounded, currently last 40 entries)
 - `tool_observations_history` (bounded, currently last 40 entries)
@@ -203,10 +226,11 @@ When behavior looks wrong, inspect these first in order:
 
 1. `node_history` (did graph visit expected nodes?)
 2. `route`, `next_node`, `conversation_phase` (was routing correct?)
-3. `verification_entities`, `verification_missing_fields`, `identity_verified` (verification stage truth)
-4. `plan_proposal` + `conversation_plan.current_node_id` (planner stage)
-5. `reflection_feedback` + `reflection_complete` (retry loop reason)
-6. `response` + `response_target` (final output contract)
+3. `verification_entities`, `verification_missing_fields`, `verification_verified_fields`, `identity_verified` (verification stage truth)
+4. `conversation_mode`, `negotiation_stage`, `hardship_context`, `active_dialogue_owner` (negotiation continuity truth)
+5. `plan_proposal` + `conversation_plan.current_node_id` (planner stage)
+6. `reflection_feedback` + `reflection_complete` (retry loop reason)
+7. `response` + `response_target` (final output contract)
 
 ## Graph (single-pass)
 
@@ -217,25 +241,36 @@ flowchart TD
   IR --> End["END"]
 
   IN -->|relevant| EN["CollectionEntityExtractNode\n- LLM entity extraction\n- verification entity sync"]
-  EN --> PG["IntentNode (Pre-Plan Gate)\n- plan | decide"]
-  PG -->|plan| PP["PlanProposalNode\n- plan advance / next action"]
-  PG -->|decide| XP["IntentNode (Execution Path)\n- need_memory | need_tool"]
+  EN --> NC["NegotiationClassificationNode\n- persistent hardship/posture/stage state"]
+  NC --> PG["IntentNode (Pre-Plan Gate)\n- plan | decide"]
+  PG -->|plan| PS["PlanProposalStateNode\n- overlay verification + negotiation state\n- classify plan signals"]
+  PG -->|decide| XP["IntentNode (Execution Path)\n- need_memory | verification_react | react"]
 
   XP -->|need_memory| MR["MemoryRetrieveNode"]
-  MR --> PM["IntentNode (Post-Memory Plan Gate)\n- plan | react"]
-  PM -->|plan| PP
-  PM -->|react| RN["ReactNode"]
+  MR --> PM["IntentNode (Post-Memory Plan Gate)\n- plan | verification_react | react"]
+  PM -->|plan| PS
+  PM -->|verification_react| VR["VerificationReactNode\n- verify_dob / verify_mobile only"]
+  PM -->|react| RN["CollectionReactNode\n- non-verification tools only"]
 
-  XP -->|need_tool| RN
+  XP -->|verification needed| VR
+  XP -->|non-verification tooling| RN
+
   RN -->|act| TE["ToolExecutionNode"]
-  TE --> RN
-  RN -->|respond/end| PP
+  RN -->|respond/end| PS
 
-  PP -->|propose| TE
-  PP -->|continue| RF["CollectionReflectNode"]
+  VR -->|act| TE
+  VR -->|respond/end| PVI["IntentNode (Post-Verification Gate)\n- plan | react"]
+  PVI -->|plan| PS
+  PVI -->|react| RN
 
-  RF -->|retry_react| RN
-  RF -->|retry_plan| PP
+  TE -->|verification tool result| VR
+  TE -->|other tool result| RN
+
+  PS -->|continue| PGN["PlanProposalGraphNode\n- mutate plan tree\n- reconcile markers"]
+  PGN -->|continue| PD["PlanProposalDirectiveNode\n- build plan proposal\n- attach response directive"]
+  PD -->|continue| RF["CollectionReflectNode"]
+
+  RF -->|retry_plan| PS
   RF -->|complete| RR["RelevantResponseNode\n- response + response_target + additional_targets"]
   RR --> End
 ```
@@ -261,7 +296,13 @@ Graph assets:
 ### `CollectionEntityExtractNode`
 
 - Runs immediately after relevance pass for in-scope turns.
-- Extracts entities (LLM-first), syncs verification entities, and updates verification state context before planning/routing.
+- Extracts entities (LLM-first) and syncs verification entities before planning/routing.
+
+### `NegotiationClassificationNode`
+
+- Runs immediately after entity extraction.
+- Classifies and persists `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `hardship_context`, `response_mode`, and `active_dialogue_owner`.
+- Preserves hardship negotiation continuity across turns without selecting tools directly.
 
 ### `IntentNode (Pre-Plan Gate)`
 
@@ -277,20 +318,43 @@ Graph assets:
 
 ### `IntentNode (Post-Memory Plan Gate)`
 
-- Re-evaluates whether to continue with plan proposal or React flow after memory retrieval.
+- Re-evaluates whether to continue with plan proposal, verification React, or non-verification React after memory retrieval.
 
-### `ReactNode`
+### `VerificationReactNode`
 
-- Decides next operation (`act`, `respond`, `end`) and tool arguments when needed.
+- Owns verification progression state (`verified_dob`, `verified_mobile`, `verification_verified_fields`, `verification_missing_fields`, `identity_verified`).
+- Uses `observations` as the authoritative execution history and selects verification tools only.
+
+### `IntentNode (Post-Verification Gate)`
+
+- Chooses whether verification completion should return to planning or continue with non-verification tool planning.
+
+### `CollectionReactNode`
+
+- Decides next operation (`act`, `respond`, `end`) and tool arguments for non-verification tools only.
 
 ### `ToolExecutionNode`
 
-- Executes selected tool and returns structured observation payload.
+- Executes selected tool and appends normalized `{tool_name, input, output}` observation entries.
 
-### `PlanProposalNode`
+### `PlanProposalStateNode`
 
-- Advances conversation plan, triggers plan revisions, and emits routing targets (`customer`, `self`, `discount_planning_agent`).
+- Prepares planning state before graph mutation.
+- Owns verification/negotiation state overlay, effective planning mode, and plan-signal classification.
+- Emits `plan_prepared_memory_state`, `plan_signals`, `plan_mode`, and plan-state debug payloads.
+
+### `PlanProposalGraphNode`
+
+- Owns conversation-plan graph mutation and marker reconciliation.
+- Preserves plan history while updating current and future path only.
+- Emits `conversation_plan` plus compact/debug graph views.
+
+### `PlanProposalDirectiveNode`
+
+- Builds the final `plan_proposal` payload and `response_directive`.
+- Assigns routing targets (`customer`, `self`, `discount_planning_agent`) and optional handoff payloads.
 - Detects conversation termination and may add `collection_memory_helper_agent` to additional targets.
+- Reads verification progression from graph-owned verification state and negotiation continuity from graph/memory overlays.
 
 ### `CollectionReflectNode`
 
@@ -320,30 +384,33 @@ Implementation note:
   - hard cap default: `50` hops (`--agent-hop-hard-cap`)
   - on cap hit, a memory flag is set (`agent_loop_blocked=true`) and collection agent returns a guardrail response.
 
-## Tool Table
+## Runtime Tool Catalogs
 
-| Tool | Description | Typical Inputs | Typical Output | Removed |
-| --- | --- | --- | --- | --- |
-| `case_fetch` | Retrieves borrower case records with DPD, overdue amount, risk band, and loan linkage so the agent can anchor all downstream decisions in case facts. | `case_id?`, `customer_id?`, `portfolio_id?` | `cases[]`, `total` | `yes` |
-| `case_prioritize` | Scores and orders delinquent cases so collections effort starts with highest-risk and highest-recovery opportunities. | `case_ids?`, `portfolio_id?` | `queue[]`, `total` | `yes` |
-| `contact_attempt` | Logs outreach attempts across channels and preserves reachability history for follow-up strategy and compliance traceability. | `case_id`, `channel?`, `reached?` | `attempt_id`, `status` | `yes` |
-| `verify_dob` | Verifies customer DOB against case-linked challenge record before sensitive dues disclosure. | `case_id?`, `customer_id?`, `dob` | `status`, `field=dob`, `failed_attempts` | `no` |
-| `verify_mobile` | Verifies customer mobile number against case-linked challenge record before sensitive dues disclosure. | `case_id?`, `customer_id?`, `phone` | `status`, `field=phone`, `failed_attempts` | `no` |
-| `entity_extract` | Extracts generic entities from raw input text (IDs, DOB, phone, PAN-last4, ZIP, name) for downstream orchestration/state updates. | `text` | `entities`, `entity_keys` | `no` |
-| `verification_entity_extract` | Filters raw text down to verification-relevant entities required for identity checks. | `text`, `required_fields`, `include_name?` | `entities`, `detected_fields`, `missing_fields` | `no` |
-| `verification_memory_verify` | Verifies extracted verification entities against expected challenge values cached in memory state. | `entities`, `expected_challenge`, `required_fields` | `status`, `matched`, `missing_fields`, `mismatched_fields` | `no` |
-| `loan_policy_lookup` | Fetches policy constraints (waiver/restructure/promise windows) that govern which offers can legally be proposed. | `case_id?`, `loan_id?` | policy object | `no` |
-| `dues_explain_build` | Builds a borrower-friendly dues explanation that summarizes principal overdue, fees, and total payable amount. | `case_id` | `explanation`, `total_due` | `yes` |
-| `offer_eligibility` | Checks baseline concession eligibility and produces initial direction (`waiver`, `restructure`, or `none`) under policy rules. | `case_id`, `hardship_flag?`, `requested_waiver_pct?` | `allowed`, `offer_type`, `approved_waiver_pct` | `no` |
-| `plan_propose` | Generates or revises repayment plan options (tenure + EMI) for hardship negotiation flows. | `case_id`, `revision_index?`, `max_installment_amount?` | `plan_id`, `monthly_amount`, `first_due_date`, `status` | `no` |
-| `payment_link_create` | Creates a payment link for borrowers ready to pay now on digital channels. | `case_id`, `amount`, `channel?` | `payment_reference_id`, `payment_url` | `no` |
-| `pay_by_phone_collect` | Simulates assisted payment collection over voice where borrower pays during the call. | `case_id`, `amount`, `consent_confirmed?` | `payment_id`, `status`, `receipt_reference` | `yes` |
-| `payment_status_check` | Verifies whether initiated payment is completed/pending/failed and whether more action is required. | `payment_reference_id` | `status`, `needs_additional_action` | `yes` |
-| `promise_capture` | Persists promise-to-pay commitments (amount/date/channel) for accountability and future tracking. | `case_id`, `promised_date`, `promised_amount` | `promise_id`, `status` | `no` |
-| `followup_schedule` | Creates reminder/callback tasks when immediate payment is not possible. | `case_id`, `scheduled_for`, `preferred_channel?` | `schedule_id` | `yes` |
-| `disposition_update` | Writes final interaction disposition and notes for audit, reporting, and queue progression. | `case_id`, `disposition_code`, `notes` | `audit_id`, `updated_at` | `yes` |
-| `channel_switch` | Moves conversation to requested channel (voice/sms/email/whatsapp) while retaining interaction context. | `case_id`, `from_channel?`, `to_channel?` | `switch_id`, `carried_context_summary` | `yes` |
-| `human_escalation` | Escalates exceptional cases (fraud/legal/dispute/sensitive) to human specialist queues. | `case_id`, `reason` | `escalation_id`, `queue`, `priority` | `no` |
+### Verification catalog
+
+| Tool | Description | Typical Inputs | Typical Output |
+| --- | --- | --- | --- |
+| `verify_dob` | Verifies customer DOB against the active case challenge before sensitive dues disclosure. | `case_id?`, `customer_id?`, `dob` | `status`, `field=dob`, `failed_attempts` |
+| `verify_mobile` | Verifies customer mobile number against the active case challenge before sensitive dues disclosure. | `case_id?`, `customer_id?`, `phone` | `status`, `field=phone`, `failed_attempts` |
+
+### Non-verification catalog
+
+| Tool | Description | Typical Inputs | Typical Output |
+| --- | --- | --- | --- |
+| `loan_policy_lookup` | Fetches policy constraints that govern waiver, restructure, and promise behavior. | `case_id?`, `loan_id?` | policy object |
+| `offer_eligibility` | Evaluates concession or arrangement eligibility under current policy. | `case_id`, `hardship_flag?`, `requested_waiver_pct?` | `allowed`, `offer_type`, `approved_waiver_pct` |
+| `plan_propose` | Generates or revises repayment plan options for hardship or arrangement negotiation. | `case_id`, `revision_index?`, `max_installment_amount?`, `hardship_reason?` | `plan_id`, `monthly_amount`, `first_due_date`, `status` |
+| `payment_link_create` | Creates a pay-now link for borrowers ready to pay immediately. | `case_id`, `amount`, `channel?` | `payment_reference_id`, `payment_url` |
+| `promise_capture` | Persists promise-to-pay commitments for follow-up tracking. | `case_id`, `promised_date`, `promised_amount` | `promise_id`, `status` |
+| `human_escalation` | Escalates fraud, legal, dispute, or vulnerable-customer scenarios to a human queue. | `case_id`, `reason` | `escalation_id`, `queue`, `priority` |
+
+### Internal helper tools used outside React catalogs
+
+| Tool | Description | Typical Inputs | Typical Output |
+| --- | --- | --- | --- |
+| `entity_extract` | Extracts generic entities from raw input text for session state updates. | `text` | `entities`, `entity_keys` |
+| `verification_entity_extract` | Extracts verification-relevant entities from raw input. | `text`, `required_fields`, `include_name?` | `entities`, `detected_fields`, `missing_fields` |
+| `verification_memory_verify` | Verifies extracted entities against expected challenge values cached in memory. | `entities`, `expected_challenge`, `required_fields` | `status`, `matched`, `missing_fields`, `mismatched_fields` |
 
 ## Specialist agent used outside graph
 

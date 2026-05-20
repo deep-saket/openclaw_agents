@@ -1486,39 +1486,46 @@
   ],
   "collection-user_a-cli": [
     {
-      "id": "cdd03a13-f3cf-4f50-a27c-a17dec5ea724",
+      "id": "ddf01dd2-888c-4d61-b860-74434c7d91b4",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "Yes this is Aditi.",
-      "created_at": "2026-05-19T11:33:30.956723Z"
+      "created_at": "2026-05-20T05:59:39.125089Z"
     },
     {
-      "id": "f6519f71-d813-4508-8175-6e4c360e4158",
+      "id": "409af55f-e794-4fa2-9a64-867744c94af8",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "Thank you for confirming your name, Aditi. Please also confirm your date of birth and registered phone number.",
-      "created_at": "2026-05-19T11:34:26.128517Z"
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-20T06:01:09.597850Z"
     },
     {
-      "id": "998ebe5c-60d5-482a-921f-cb1df9b9702c",
+      "id": "6804796e-d298-4031-bbd6-2940e533e147",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "My phone number is : 9900001001and date of birth is  1991-08-19",
-      "created_at": "2026-05-19T11:34:26.150761Z"
+      "created_at": "2026-05-20T06:01:09.600566Z"
     },
     {
-      "id": "f0de651f-9f00-48a7-881c-b5dc617b087b",
+      "id": "7a1706b6-f7e5-46bd-b811-f8c719b962a5",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "Verification is complete. Your date of birth and phone number have been verified. We will now explain the dues and policy options. Your overdue amount is INR 12,500.00. We can discuss payment options and arrangements to bring your account up to date. Would you like to pay the full amount now or discuss a payment plan?",
-      "created_at": "2026-05-19T11:41:28.949865Z"
+      "content": "Thank you Aditi Sharma. Your overdue amount is INR 12500.00. What would you like to do next to bring the account current?",
+      "created_at": "2026-05-20T06:03:58.415440Z"
     },
     {
-      "id": "a2ee8561-1153-47b9-9174-72786f489744",
+      "id": "5038b939-a54b-406a-9cbb-e9e134fc1124",
       "session_id": "collection-user_a-cli",
       "role": "customer",
-      "content": "what do you want me to verify",
-      "created_at": "2026-05-19T11:41:28.973162Z"
+      "content": "Actually, I recently lost my job, so I\u2019m facing some financial problems.",
+      "created_at": "2026-05-20T06:03:58.418308Z"
+    },
+    {
+      "id": "be8d6271-d898-4a87-8b78-2910010a72dc",
+      "session_id": "collection-user_a-cli",
+      "role": "agent",
+      "content": "I am sorry to hear that, Aditi Sharma. To explore a manageable arrangement, what monthly amount would realistically work for you right now?",
+      "created_at": "2026-05-20T06:06:35.361548Z"
     }
   ]
 }

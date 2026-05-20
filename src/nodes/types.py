@@ -88,6 +88,12 @@ class AgentState(TypedDict, total=False):
     observations: list[dict[str, Any]]
     verified_dob: bool
     verified_mobile: bool
+    conversation_mode: str
+    negotiation_stage: str
+    customer_payment_posture: str
+    hardship_context: dict[str, Any]
+    response_mode: str
+    active_dialogue_owner: str
     reflection_feedback: dict[str, Any] | None
     reflection_complete: bool
     error: dict[str, Any] | None
@@ -134,6 +140,12 @@ class NodeUpdate(TypedDict, total=False):
     observations: list[dict[str, Any]]
     verified_dob: bool
     verified_mobile: bool
+    conversation_mode: str
+    negotiation_stage: str
+    customer_payment_posture: str
+    hardship_context: dict[str, Any]
+    response_mode: str
+    active_dialogue_owner: str
     reflection_feedback: dict[str, Any] | None
     reflection_complete: bool
     error: dict[str, Any] | None

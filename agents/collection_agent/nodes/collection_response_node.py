@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agents.collection_agent.llm_structured import StructuredOutputRunner
 from src.nodes.response_node import ResponseNode
@@ -17,6 +17,17 @@ from src.nodes.types import AgentState, NodeUpdate
 class _ResponsePayload(BaseModel):
     message: str
     response_target: str = "customer"
+
+
+class _ResponseDirectivePayload(BaseModel):
+    conversation_objective: str = "close_conversation"
+    dialogue_action: str = "ask_commitment_date"
+    response_mode: str = "informational"
+    required_response_elements: list[str] = Field(default_factory=list)
+    forbidden_dialogue_actions: list[str] = Field(default_factory=list)
+    allowed_dialogue_actions: list[str] = Field(default_factory=list)
+    customer_facing_goal: str | None = None
+    handoff_target: str | None = None
 
 
 @dataclass(slots=True)
@@ -128,12 +139,58 @@ class CollectionResponseNode(ResponseNode):
         return target
 
     def _render_from_proposal(self, *, state: AgentState, proposal: dict[str, Any]) -> str:
+        render_context = self._resolve_render_context(state=state, proposal=proposal)
+        directive = self._resolve_response_directive(
+            state=state,
+            proposal=proposal,
+            context=render_context,
+        )
+        response_target = str(render_context.get("response_target", "customer")).strip().lower() or "customer"
+        if response_target == "discount_planning_agent":
+            return self._fallback_from_directive(
+                directive=directive,
+                context=render_context,
+                response_target=response_target,
+            )
+
+        if self.llm is not None:
+            llm_response = self._llm_render_from_proposal(
+                state=state,
+                proposal=proposal,
+                render_context=render_context,
+                response_directive=directive,
+            )
+            if llm_response:
+                validated = self._validate_response_against_directive(
+                    text=llm_response,
+                    directive=directive,
+                    context=render_context,
+                )
+                if validated:
+                    return self._apply_minimal_safety_cleanup(
+                        text=validated,
+                        context=render_context,
+                        directive=directive,
+                    )
+                self.last_render_debug["fallback_reason"] = "directive_validation_failed"
+            if self.strict_llm_mode:
+                fallback_reason = str(self.last_render_debug.get("fallback_reason", "")).strip()
+                if fallback_reason == "provider_rate_limit":
+                    raise RuntimeError(
+                        "CollectionResponseNode rate-limited by provider while strict_llm_mode is enabled. "
+                        f"Underlying error: {self.last_render_debug.get('llm_error', 'unknown')}"
+                    )
+        return self._fallback_from_directive(
+            directive=directive,
+            context=render_context,
+            response_target=response_target,
+        )
+
+    def _resolve_render_context(self, *, state: AgentState, proposal: dict[str, Any]) -> dict[str, Any]:
         memory = state.get("memory")
         memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
         user_input = str(state.get("user_input", ""))
         response_target = str(proposal.get("target", state.get("response_target", "customer"))).strip().lower() or "customer"
-        if response_target == "discount_planning_agent":
-            return "Prepare specialist handoff payload and wait for discount recommendation."
         conversation_plan = (
             proposal.get("conversation_plan")
             if isinstance(proposal.get("conversation_plan"), dict)
@@ -153,105 +210,303 @@ class CollectionResponseNode(ResponseNode):
             customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
             user_input=user_input,
         )
+        return {
+            "memory_state": memory_state,
+            "user_input": user_input,
+            "response_target": response_target,
+            "conversation_plan": conversation_plan,
+            "facts": facts,
+            "current_plan_node_id": current_plan_node_id,
+            "verification_guard_context": verification_guard_context,
+            "conversation_mode": str(state.get("conversation_mode", memory_state.get("conversation_mode", "collections"))).strip(),
+            "negotiation_stage": str(state.get("negotiation_stage", memory_state.get("negotiation_stage", "none"))).strip(),
+            "customer_payment_posture": str(
+                state.get("customer_payment_posture", memory_state.get("customer_payment_posture", "unknown"))
+            ).strip(),
+            "hardship_context": (
+                state.get("hardship_context")
+                if isinstance(state.get("hardship_context"), dict)
+                else (
+                    memory_state.get("hardship_context")
+                    if isinstance(memory_state.get("hardship_context"), dict)
+                    else {}
+                )
+            ),
+            "response_mode": str(state.get("response_mode", memory_state.get("response_mode", "informational"))).strip(),
+            "active_dialogue_owner": str(
+                state.get("active_dialogue_owner", memory_state.get("active_dialogue_owner", "collections"))
+            ).strip(),
+            "observations": state.get("observations") if isinstance(state.get("observations"), list) else [],
+            "observation": state.get("observation"),
+            "plan_proposal": proposal,
+        }
 
-        if self.llm is not None:
-            llm_response = self._llm_render_from_proposal(
+    def _resolve_response_directive(
+        self,
+        *,
+        state: AgentState,
+        proposal: dict[str, Any],
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        memory_state = context.get("memory_state") if isinstance(context.get("memory_state"), dict) else {}
+        raw_directive = proposal.get("response_directive")
+        if not isinstance(raw_directive, dict):
+            raw_directive = {
+                "conversation_objective": proposal.get("conversation_objective"),
+                "dialogue_action": proposal.get("dialogue_action"),
+                "response_mode": proposal.get("response_mode"),
+                "required_response_elements": proposal.get("required_response_elements"),
+                "forbidden_dialogue_actions": proposal.get("forbidden_dialogue_actions"),
+                "allowed_dialogue_actions": proposal.get("allowed_dialogue_actions"),
+                "customer_facing_goal": proposal.get("customer_facing_goal"),
+                "handoff_target": proposal.get("handoff_target"),
+            }
+        raw_directive = {key: value for key, value in raw_directive.items() if value is not None}
+        if not raw_directive:
+            directive = self._build_response_directive_from_context(
                 state=state,
-                proposal=proposal,
-                verification_guard_context=verification_guard_context,
+                memory_state=memory_state,
+                response_target=str(context.get("response_target", "customer")).strip().lower() or "customer",
             )
-            if llm_response:
-                return llm_response
-            if self.strict_llm_mode:
-                fallback_reason = str(self.last_render_debug.get("fallback_reason", "")).strip()
-                if fallback_reason == "provider_rate_limit":
-                    raise RuntimeError(
-                        "CollectionResponseNode rate-limited by provider while strict_llm_mode is enabled. "
-                        f"Underlying error: {self.last_render_debug.get('llm_error', 'unknown')}"
-                    )
-                raise RuntimeError("CollectionResponseNode failed to render structured LLM response in strict_llm_mode.")
-        if isinstance(verification_guard_context, dict) and verification_guard_context.get("verification_incomplete"):
-            return self._render_verification_first_message(
-                customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
-                guard=verification_guard_context,
+            if str(context.get("response_target", "")).strip().lower() == "discount_planning_agent":
+                directive["conversation_objective"] = "handoff_to_offer_agent"
+                directive["dialogue_action"] = "handoff"
+                directive["response_mode"] = "firm"
+                directive["handoff_target"] = "discount_planning_agent"
+            return directive
+        try:
+            payload = _ResponseDirectivePayload.model_validate(raw_directive)
+            directive = payload.model_dump(mode="json")
+        except Exception:
+            directive = self._build_response_directive_from_context(
+                state=state,
+                memory_state=memory_state,
+                response_target=str(context.get("response_target", "customer")).strip().lower() or "customer",
             )
-        return self._fallback_render_from_proposal(proposal=proposal)
+        if not directive.get("conversation_objective"):
+            directive = self._build_response_directive_from_context(
+                state=state,
+                memory_state=memory_state,
+                response_target=str(context.get("response_target", "customer")).strip().lower() or "customer",
+            )
+        if str(context.get("response_target", "")).strip().lower() == "discount_planning_agent":
+            directive["conversation_objective"] = "handoff_to_offer_agent"
+            directive["dialogue_action"] = "handoff"
+            directive["response_mode"] = "firm"
+            directive["handoff_target"] = "discount_planning_agent"
+        directive.setdefault("required_response_elements", [])
+        directive.setdefault("forbidden_dialogue_actions", [])
+        directive.setdefault("allowed_dialogue_actions", [])
+        directive.setdefault("customer_facing_goal", None)
+        directive.setdefault("handoff_target", None)
+        return directive
+
+    def _build_response_directive_from_context(
+        self,
+        *,
+        state: AgentState,
+        memory_state: dict[str, Any],
+        response_target: str,
+    ) -> dict[str, Any]:
+        objective, action, mode = self._infer_response_objective(
+            memory_state=memory_state,
+            response_target=response_target,
+        )
+        if response_target == "discount_planning_agent":
+            objective = "handoff_to_offer_agent"
+            action = "handoff"
+            mode = "firm"
+        directive = {
+            "conversation_objective": objective,
+            "dialogue_action": action,
+            "response_mode": mode,
+            "required_response_elements": self._required_response_elements_for_objective(objective=objective),
+            "forbidden_dialogue_actions": self._forbidden_dialogue_actions_for_objective(objective=objective),
+            "allowed_dialogue_actions": self._allowed_dialogue_actions_for_objective(objective=objective),
+            "customer_facing_goal": self._customer_facing_goal_for_objective(
+                objective=objective,
+                memory_state=memory_state,
+            ),
+            "handoff_target": ("discount_planning_agent" if response_target == "discount_planning_agent" else None),
+        }
+        del state
+        return directive
+
+    @staticmethod
+    def _infer_response_objective(
+        *,
+        memory_state: dict[str, Any],
+        response_target: str,
+    ) -> tuple[str, str, str]:
+        if response_target == "discount_planning_agent":
+            return "handoff_to_offer_agent", "handoff", "firm"
+
+        identity_verified = bool(memory_state.get("identity_verified", False))
+        conversation_mode = str(memory_state.get("conversation_mode", "collections")).strip().lower()
+        negotiation_stage = str(memory_state.get("negotiation_stage", "none")).strip().lower()
+        customer_payment_posture = str(memory_state.get("customer_payment_posture", "unknown")).strip().lower()
+        hardship_context = (
+            memory_state.get("hardship_context")
+            if isinstance(memory_state.get("hardship_context"), dict)
+            else {}
+        )
+        hardship_active = conversation_mode == "hardship_negotiation" or bool(hardship_context.get("hardship_detected", False))
+        if not identity_verified:
+            return "collect_verification", "ask_verification", "compliance"
+        if hardship_active:
+            if negotiation_stage in {"discovering_hardship", "assessing_capacity"}:
+                return "assess_affordability", "ask_affordable_amount", "empathetic"
+            if negotiation_stage in {"evaluating_options"}:
+                return "present_arrangement_options", "present_offer", "negotiation"
+            if negotiation_stage in {"negotiating_plan"}:
+                return "negotiate_installment", "discuss_arrangement", "negotiation"
+            if negotiation_stage in {"confirming_commitment"}:
+                return "confirm_commitment", "ask_commitment_date", "negotiation"
+            if negotiation_stage in {"awaiting_customer_decision"}:
+                return "present_arrangement_options", "ask_affordable_amount", "negotiation"
+            if customer_payment_posture == "needs_arrangement":
+                return "present_arrangement_options", "discuss_arrangement", "negotiation"
+            return "assess_affordability", "ask_affordable_amount", "empathetic"
+        if customer_payment_posture == "needs_arrangement":
+            return "present_arrangement_options", "present_offer", "negotiation"
+        return "explain_dues", "present_due_amount", "informational"
+
+    @staticmethod
+    def _required_response_elements_for_objective(*, objective: str) -> list[str]:
+        mapping = {
+            "collect_verification": ["ask_only_missing_verification_fields"],
+            "explain_dues": ["mention_due_amount", "ask_next_step"],
+            "assess_affordability": ["acknowledge_hardship", "ask_affordable_amount"],
+            "present_arrangement_options": ["discuss_arrangement", "ask_next_step"],
+            "negotiate_installment": ["ask_affordable_amount", "discuss_arrangement"],
+            "confirm_commitment": ["ask_commitment_date", "confirm_amount_or_date"],
+            "capture_promise": ["ask_commitment_date", "confirm_amount_or_date"],
+            "handoff_to_offer_agent": ["handoff_payload"],
+            "close_conversation": ["closure"],
+        }
+        return list(mapping.get(objective, []))
+
+    @staticmethod
+    def _forbidden_dialogue_actions_for_objective(*, objective: str) -> list[str]:
+        mapping = {
+            "collect_verification": ["disclose_dues_before_verification", "restart_collections_menu", "mention_internal_processing"],
+            "explain_dues": ["disclose_dues_before_verification", "mention_internal_processing"],
+            "assess_affordability": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
+            "present_arrangement_options": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
+            "negotiate_installment": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
+            "confirm_commitment": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
+            "capture_promise": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
+            "handoff_to_offer_agent": ["restart_collections_menu", "mention_internal_processing"],
+            "close_conversation": ["restart_collections_menu", "mention_internal_processing"],
+        }
+        return list(mapping.get(objective, []))
+
+    @staticmethod
+    def _allowed_dialogue_actions_for_objective(*, objective: str) -> list[str]:
+        mapping = {
+            "collect_verification": ["ask_verification"],
+            "explain_dues": ["present_due_amount", "ask_next_step"],
+            "assess_affordability": ["acknowledge_hardship", "ask_affordable_amount"],
+            "present_arrangement_options": ["present_offer", "discuss_arrangement"],
+            "negotiate_installment": ["discuss_arrangement", "ask_affordable_amount"],
+            "confirm_commitment": ["ask_commitment_date", "confirm_payment_intent"],
+            "capture_promise": ["ask_commitment_date", "confirm_payment_intent"],
+            "handoff_to_offer_agent": ["handoff"],
+            "close_conversation": ["close_conversation"],
+        }
+        return list(mapping.get(objective, []))
+
+    @staticmethod
+    def _customer_facing_goal_for_objective(*, objective: str, memory_state: dict[str, Any]) -> str:
+        name = str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer"
+        goals = {
+            "collect_verification": "Ask only for the missing verification details needed to continue securely.",
+            "explain_dues": "Explain the overdue amount clearly and ask the next useful payment question.",
+            "assess_affordability": "Ask what monthly amount is realistically manageable after hardship disclosure.",
+            "present_arrangement_options": "Continue arrangement discussion with practical repayment options.",
+            "negotiate_installment": "Refine the repayment arrangement toward a manageable installment.",
+            "confirm_commitment": "Confirm the amount and payment date the customer can commit to.",
+            "capture_promise": "Capture the promise details and close on a specific commitment.",
+            "handoff_to_offer_agent": "Prepare a specialist handoff for offer or discount review.",
+            "close_conversation": "Close the conversation cleanly and professionally.",
+        }
+        goal = goals.get(objective, "Continue the conversation naturally.")
+        return f"{name}: {goal}" if name else goal
 
     def _llm_render_from_proposal(
         self,
         *,
         state: AgentState,
         proposal: dict[str, Any],
-        verification_guard_context: dict[str, Any] | None = None,
+        render_context: dict[str, Any] | None = None,
+        response_directive: dict[str, Any] | None = None,
     ) -> str | None:
-        user_input = str(state.get("user_input", ""))
-        observation = None
-        observations = state.get("observations")
-        if isinstance(observations, list):
-            for item in reversed(observations):
-                if isinstance(item, dict):
-                    observation = item
-                    break
+        context = dict(render_context) if isinstance(render_context, dict) else self._resolve_render_context(state=state, proposal=proposal)
+        memory_state = dict(context.get("memory_state", {})) if isinstance(context.get("memory_state"), dict) else {}
+        user_input = str(context.get("user_input", ""))
+        observation = context.get("observation")
         if observation is None:
-            observation = state.get("observation")
-        memory = state.get("memory")
-        memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
-        response_target = str(proposal.get("target", state.get("response_target", "customer"))).strip().lower() or "customer"
-        conversation_plan = (
-            proposal.get("conversation_plan")
-            if isinstance(proposal.get("conversation_plan"), dict)
-            else (state.get("conversation_plan") if isinstance(state.get("conversation_plan"), dict) else {})
-        )
-        current_plan_node_id = str(conversation_plan.get("current_node_id", "")).strip() if isinstance(conversation_plan, dict) else ""
+            observations = context.get("observations")
+            if isinstance(observations, list):
+                for item in reversed(observations):
+                    if isinstance(item, dict):
+                        observation = item
+                        break
+        response_target = str(context.get("response_target", "customer")).strip().lower() or "customer"
+        conversation_plan = context.get("conversation_plan") if isinstance(context.get("conversation_plan"), dict) else {}
+        current_plan_node_id = str(context.get("current_plan_node_id", "")).strip()
         current_plan_node_label = self._resolve_plan_node_label(conversation_plan, current_plan_node_id)
-        facts = self._resolve_case_facts(state=state, proposal=proposal)
-        customer_name = facts["customer_name"]
-        case_id = facts["case_id"]
-        overdue_amount = facts["overdue_amount"]
+        facts = context.get("facts") if isinstance(context.get("facts"), dict) else self._resolve_case_facts(state=state, proposal=proposal)
+        customer_name = str(facts.get("customer_name", "Customer"))
+        case_id = str(facts.get("case_id", "COLL-1001"))
+        overdue_amount = float(facts.get("overdue_amount", 0.0) or 0.0)
         prior_agent_response = str(memory_state.get("last_agent_response", "")).strip()
         turn_index = int(memory_state.get("turn_index", state.get("turn_index", 0)) or 0)
         is_opening_turn = turn_index <= 0
-        verification_context = verification_guard_context if isinstance(verification_guard_context, dict) else {}
-        extracted_entities = state.get("extracted_entities")
+        conversation_mode = str(context.get("conversation_mode", memory_state.get("conversation_mode", "collections"))).strip()
+        negotiation_stage = str(context.get("negotiation_stage", memory_state.get("negotiation_stage", "none"))).strip()
+        customer_payment_posture = str(
+            context.get("customer_payment_posture", memory_state.get("customer_payment_posture", "unknown"))
+        ).strip()
+        hardship_context = (
+            context.get("hardship_context")
+            if isinstance(context.get("hardship_context"), dict)
+            else (
+                memory_state.get("hardship_context")
+                if isinstance(memory_state.get("hardship_context"), dict)
+                else {}
+            )
+        )
+        response_mode = str(context.get("response_mode", memory_state.get("response_mode", "informational"))).strip()
+        active_dialogue_owner = str(
+            context.get("active_dialogue_owner", memory_state.get("active_dialogue_owner", "collections"))
+        ).strip()
+        verification_context_merged = self._build_verification_context(state=state, memory_state=memory_state, proposal=proposal)
+        response_directive = (
+            dict(response_directive)
+            if isinstance(response_directive, dict)
+            else self._resolve_response_directive(state=state, proposal=proposal, context=context)
+        )
+        extracted_entities = context.get("extracted_entities")
         if not isinstance(extracted_entities, dict):
             extracted_entities = memory_state.get("extracted_entities", {}) if isinstance(memory_state.get("extracted_entities"), dict) else {}
-        extracted_entities_turn = state.get("extracted_entities_turn")
+        extracted_entities_turn = context.get("extracted_entities_turn")
         if not isinstance(extracted_entities_turn, dict):
             extracted_entities_turn = (
                 memory_state.get("extracted_entities_turn", {})
                 if isinstance(memory_state.get("extracted_entities_turn"), dict)
                 else {}
             )
-        extracted_entity_descriptions = state.get("extracted_entity_descriptions")
+        extracted_entity_descriptions = context.get("extracted_entity_descriptions")
         if not isinstance(extracted_entity_descriptions, dict):
             extracted_entity_descriptions = (
                 memory_state.get("extracted_entity_descriptions", {})
                 if isinstance(memory_state.get("extracted_entity_descriptions"), dict)
                 else {}
             )
-        verification_entities = state.get("verification_entities")
-        if not isinstance(verification_entities, dict):
-            verification_entities = memory_state.get("verification_entities", {}) if isinstance(memory_state.get("verification_entities"), dict) else {}
-        verification_missing_fields = state.get("verification_missing_fields")
-        if not isinstance(verification_missing_fields, list):
-            verification_missing_fields = [
-                str(x).strip()
-                for x in memory_state.get("active_verification_required_fields", [])
-                if str(x).strip() and not str(verification_entities.get(str(x).strip(), "")).strip()
-            ]
-        required_fields = [
-            str(x).strip()
-            for x in memory_state.get("active_verification_required_fields", [])
-            if str(x).strip()
-        ]
-        verification_context_merged: dict[str, Any] = {
-            "identity_verified": bool(state.get("identity_verified", memory_state.get("identity_verified", False))),
-            "required_fields": required_fields,
-            "verification_entities": verification_entities,
-            "verification_missing_fields": verification_missing_fields,
-        }
-        if isinstance(verification_context, dict):
-            verification_context_merged.update(verification_context)
+        verification_entities = verification_context_merged.get("verification_entities", {})
+        verification_missing_fields = verification_context_merged.get("verification_missing_fields", [])
+        required_fields = verification_context_merged.get("required_fields", [])
         compact_plan = self._compact_conversation_plan(conversation_plan)
         compact_proposal = self._compact_plan_proposal(proposal=proposal)
         compact_observation = self._compact_observation(observation)
@@ -279,6 +534,23 @@ class CollectionResponseNode(ResponseNode):
                 "verification_entities_json": self._json_compact(verification_entities, max_chars=500),
                 "verification_missing_fields_json": self._json_compact(verification_missing_fields, max_chars=300),
                 "observation_json": self._json_compact(compact_observation, max_chars=700),
+                "conversation_mode": conversation_mode,
+                "negotiation_stage": negotiation_stage,
+                "customer_payment_posture": customer_payment_posture,
+                "hardship_context_json": self._json_compact(hardship_context, max_chars=400),
+                "response_mode": response_mode,
+                "active_dialogue_owner": active_dialogue_owner,
+                "response_directive_json": self._json_compact(response_directive, max_chars=800),
+                "conversation_objective": str(response_directive.get("conversation_objective", "")).strip(),
+                "dialogue_action": str(response_directive.get("dialogue_action", "")).strip(),
+                "required_response_elements_json": self._json_compact(
+                    response_directive.get("required_response_elements", []),
+                    max_chars=300,
+                ),
+                "forbidden_dialogue_actions_json": self._json_compact(
+                    response_directive.get("forbidden_dialogue_actions", []),
+                    max_chars=300,
+                ),
             },
         )
         if len(user_prompt) > self.max_prompt_chars:
@@ -303,10 +575,6 @@ class CollectionResponseNode(ResponseNode):
             if self._is_provider_rate_limit_error(err_text):
                 self.last_render_debug["fallback_reason"] = "provider_rate_limit"
                 return None
-            if self.strict_llm_mode:
-                raise RuntimeError(
-                    f"Structured response generation failed: {exc}"
-                ) from exc
             return None
         response = str(payload.message).strip()
         response_target_payload = str(payload.response_target).strip().lower()
@@ -314,36 +582,60 @@ class CollectionResponseNode(ResponseNode):
             proposal["target"] = response_target_payload
         if not response:
             return None
-        if isinstance(verification_context_merged, dict) and verification_context_merged.get("verification_incomplete"):
-            sanitized = self._enforce_verification_field_scope(
-                text=response,
-                verification_context=verification_context_merged,
-                customer_name=customer_name,
+        return response
+
+    def _build_verification_context(
+        self,
+        *,
+        state: AgentState,
+        memory_state: dict[str, Any],
+        proposal: dict[str, Any],
+    ) -> dict[str, Any]:
+        verification_entities = state.get("verification_entities")
+        if not isinstance(verification_entities, dict):
+            verification_entities = (
+                memory_state.get("verification_entities", {})
+                if isinstance(memory_state.get("verification_entities"), dict)
+                else {}
             )
-            if sanitized:
-                response = sanitized
-        response = self._enforce_commitment_stage_scope(
-            text=response,
-            current_plan_node_id=current_plan_node_id,
-            user_input=user_input,
-            verification_context=verification_context_merged,
+        required = memory_state.get("active_verification_required_fields")
+        required_fields = [str(x).strip().lower() for x in required if str(x).strip()] if isinstance(required, list) else []
+        if not required_fields:
+            required_fields = ["dob", "phone"]
+        missing_raw = state.get("verification_missing_fields")
+        if not isinstance(missing_raw, list):
+            missing_raw = memory_state.get("verification_missing_fields")
+        missing_fields = (
+            [str(x).strip().lower() for x in missing_raw if str(x).strip()]
+            if isinstance(missing_raw, list)
+            else [field for field in required_fields if not str(verification_entities.get(field, "")).strip()]
         )
-        response = self._enforce_post_verification_scope(
-            text=response,
-            current_plan_node_id=current_plan_node_id,
-            verification_context=verification_context_merged,
-            customer_name=customer_name,
-            case_id=case_id,
-            overdue_amount=overdue_amount,
-            user_input=user_input,
+        verified_raw = state.get("verification_verified_fields")
+        if not isinstance(verified_raw, list):
+            verified_raw = memory_state.get("verification_verified_fields")
+        verified_fields = (
+            [str(x).strip().lower() for x in verified_raw if str(x).strip()]
+            if isinstance(verified_raw, list)
+            else [field for field in required_fields if field not in missing_fields]
         )
-        return self._post_process_rendered_response(
-            text=response,
-            customer_name=customer_name,
-            overdue_amount=overdue_amount,
-            is_opening_turn=is_opening_turn,
-            ensure_intro=bool(is_opening_turn and response_target == "customer"),
-        )
+        identity_verified = bool(state.get("identity_verified", memory_state.get("identity_verified", False)))
+        verification_incomplete = (not identity_verified) or bool(missing_fields)
+        return {
+            "identity_verified": identity_verified,
+            "required_fields": required_fields,
+            "verification_entities": verification_entities,
+            "verification_missing_fields": missing_fields,
+            "verification_verified_fields": verified_fields,
+            "verification_incomplete": verification_incomplete,
+            "current_plan_node_id": str(
+                (
+                    proposal.get("conversation_plan", {}).get("current_node_id")
+                    if isinstance(proposal.get("conversation_plan"), dict)
+                    else ""
+                )
+                or ""
+            ).strip(),
+        }
 
     def _build_verification_guard_context(
         self,
@@ -410,6 +702,15 @@ class CollectionResponseNode(ResponseNode):
             missing_labels = mismatch_labels
             mismatch_mode = True
 
+        hardship_context = (
+            state.get("hardship_context")
+            if isinstance(state.get("hardship_context"), dict)
+            else (
+                memory_state.get("hardship_context")
+                if isinstance(memory_state.get("hardship_context"), dict)
+                else {}
+            )
+        )
         lowered_input = str(user_input or "").lower()
         hardship_tokens = (
             "job loss",
@@ -423,7 +724,9 @@ class CollectionResponseNode(ResponseNode):
             "salary cut",
             "income loss",
         )
-        hardship_signal = any(token in lowered_input for token in hardship_tokens)
+        hardship_signal = bool(hardship_context.get("hardship_detected", False)) or any(
+            token in lowered_input for token in hardship_tokens
+        )
         turn_index = int(memory_state.get("turn_index", state.get("turn_index", 0)) or 0)
         is_opening_turn = turn_index <= 0
 
@@ -476,138 +779,387 @@ class CollectionResponseNode(ResponseNode):
             },
         ).strip()
 
+    def _apply_customer_continuity_policy(
+        self,
+        *,
+        text: str,
+        state: AgentState,
+        proposal: dict[str, Any],
+        response_target: str,
+    ) -> str:
+        if str(response_target).strip().lower() != "customer":
+            return text
+
+        context = self._resolve_render_context(state=state, proposal=proposal)
+        directive = self._resolve_response_directive(state=state, proposal=proposal, context=context)
+        rendered = self._apply_minimal_safety_cleanup(text=str(text or ""), context=context, directive=directive)
+        validated = self._validate_response_against_directive(text=rendered, directive=directive, context=context)
+        if validated:
+            return validated
+        return self._fallback_from_directive(
+            directive=directive,
+            context=context,
+            response_target=str(response_target).strip().lower() or "customer",
+        )
+
+    @staticmethod
+    def _resolve_negotiation_render_context(*, state: AgentState, proposal: dict[str, Any]) -> dict[str, Any]:
+        memory = state.get("memory")
+        memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
+        proposal_context = proposal.get("context") if isinstance(proposal.get("context"), dict) else {}
+        resolved = {
+            "customer_name": str(
+                proposal_context.get("customer_name", memory_state.get("active_customer_name", "Customer"))
+            ).strip()
+            or "Customer",
+            "conversation_mode": str(
+                state.get(
+                    "conversation_mode",
+                    proposal_context.get("conversation_mode", memory_state.get("conversation_mode", "collections")),
+                )
+            ).strip().lower(),
+            "negotiation_stage": str(
+                state.get(
+                    "negotiation_stage",
+                    proposal_context.get("negotiation_stage", memory_state.get("negotiation_stage", "none")),
+                )
+            ).strip().lower(),
+            "customer_payment_posture": str(
+                state.get(
+                    "customer_payment_posture",
+                    proposal_context.get("customer_payment_posture", memory_state.get("customer_payment_posture", "unknown")),
+                )
+            ).strip().lower(),
+            "hardship_context": (
+                state.get("hardship_context")
+                if isinstance(state.get("hardship_context"), dict)
+                else (
+                    proposal_context.get("hardship_context")
+                    if isinstance(proposal_context.get("hardship_context"), dict)
+                    else (
+                        memory_state.get("hardship_context")
+                        if isinstance(memory_state.get("hardship_context"), dict)
+                        else {}
+                    )
+                )
+            ),
+            "response_mode": str(
+                state.get("response_mode", proposal_context.get("response_mode", memory_state.get("response_mode", "informational")))
+            ).strip().lower(),
+            "active_dialogue_owner": str(
+                state.get(
+                    "active_dialogue_owner",
+                    proposal_context.get("active_dialogue_owner", memory_state.get("active_dialogue_owner", "collections")),
+                )
+            ).strip().lower(),
+        }
+        return resolved
+
+    @staticmethod
+    def _strip_orchestration_leakage(text: str) -> str:
+        cleaned = str(text or "").strip()
+        leak_patterns = [
+            r"(?i)\bplease wait while i evaluate\b[^\.\!\?]*[\.\!\?]?\s*",
+            r"(?i)\bi am processing internal steps\b[^\.\!\?]*[\.\!\?]?\s*",
+            r"(?i)\bchecking backend systems\b[^\.\!\?]*[\.\!\?]?\s*",
+            r"(?i)\binternal processing\b[^\.\!\?]*[\.\!\?]?\s*",
+            r"(?i)\bcontinue internal planning using latest context and determine next execution step\b[^\.\!\?]*[\.\!\?]?\s*",
+        ]
+        for pattern in leak_patterns:
+            cleaned = re.sub(pattern, "", cleaned).strip()
+        return cleaned
+
+    def _requires_negotiation_continuity_rewrite(self, text: str, *, context: dict[str, Any]) -> bool:
+        conversation_mode = str(context.get("conversation_mode", "collections")).strip().lower()
+        payment_posture = str(context.get("customer_payment_posture", "unknown")).strip().lower()
+        hardship_context = context.get("hardship_context") if isinstance(context.get("hardship_context"), dict) else {}
+        active_dialogue_owner = str(context.get("active_dialogue_owner", "collections")).strip().lower()
+        hardship_active = conversation_mode == "hardship_negotiation" or bool(hardship_context.get("hardship_detected", False))
+        arrangement_active = payment_posture == "needs_arrangement"
+        if not hardship_active and not arrangement_active:
+            return False
+        if active_dialogue_owner not in {"plan_proposal", "promise_capture", "collections"}:
+            return False
+        lowered = str(text or "").lower()
+        return (
+            not lowered
+            or self._contains_internal_processing(text)
+            or self._looks_like_root_menu(text)
+        )
+
+    def _render_negotiation_stage_followup(self, *, customer_name: str, context: dict[str, Any]) -> str:
+        del customer_name
+        directive = self._resolve_response_directive(
+            state=context.get("state") if isinstance(context.get("state"), dict) else {},
+            proposal=context.get("proposal") if isinstance(context.get("proposal"), dict) else {},
+            context=context,
+        )
+        return self._fallback_from_directive(
+            directive=directive,
+            context=context,
+            response_target="customer",
+        )
+
     def _fallback_render_from_proposal(self, *, proposal: dict[str, Any]) -> str:
-        target = str(proposal.get("target", "customer")).strip().lower() or "customer"
-        if target == "self":
-            return "Continue internal planning using latest context and determine next execution step."
+        context = proposal.get("context") if isinstance(proposal.get("context"), dict) else {}
+        memory_state = {
+            "active_customer_name": context.get("customer_name", "Customer"),
+            "active_case_id": context.get("case_id", "COLL-1001"),
+            "active_overdue_amount": context.get("overdue_amount", 0.0),
+            "conversation_mode": context.get("conversation_mode", "collections"),
+            "negotiation_stage": context.get("negotiation_stage", "none"),
+            "customer_payment_posture": context.get("customer_payment_posture", "unknown"),
+            "hardship_context": context.get("hardship_context", {}),
+            "response_mode": context.get("response_mode", "informational"),
+            "active_dialogue_owner": context.get("active_dialogue_owner", "collections"),
+            "identity_verified": context.get("identity_verified", False),
+            "active_verification_required_fields": context.get("required_fields", ["dob", "phone"]),
+            "verification_missing_fields": context.get("verification_missing_fields", []),
+            "verification_verified_fields": context.get("verification_verified_fields", []),
+            "verification_entities": context.get("verification_entities", {}),
+        }
+        facts = {
+            "customer_name": str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer",
+            "case_id": str(memory_state.get("active_case_id", "COLL-1001")).strip() or "COLL-1001",
+            "overdue_amount": float(memory_state.get("active_overdue_amount", 0.0) or 0.0),
+        }
+        verification_context = {
+            "identity_verified": bool(memory_state.get("identity_verified", False)),
+            "required_fields": list(memory_state.get("active_verification_required_fields", []))
+            if isinstance(memory_state.get("active_verification_required_fields"), list)
+            else ["dob", "phone"],
+            "verification_entities": dict(memory_state.get("verification_entities", {})),
+            "verification_missing_fields": list(memory_state.get("verification_missing_fields", []))
+            if isinstance(memory_state.get("verification_missing_fields"), list)
+            else [],
+        }
+        directive = self._resolve_response_directive(
+            state={"memory": None},
+            proposal=proposal,
+            context={
+                "memory_state": memory_state,
+                "response_target": str(proposal.get("target", "customer")).strip().lower() or "customer",
+                "conversation_mode": str(context.get("conversation_mode", "collections")).strip(),
+                "negotiation_stage": str(context.get("negotiation_stage", "none")).strip(),
+                "customer_payment_posture": str(context.get("customer_payment_posture", "unknown")).strip(),
+                "hardship_context": context.get("hardship_context", {}),
+                "response_mode": str(context.get("response_mode", "informational")).strip(),
+                "active_dialogue_owner": str(context.get("active_dialogue_owner", "collections")).strip(),
+            },
+        )
+        return self._fallback_from_directive(
+            directive=directive,
+            context={
+                "memory_state": memory_state,
+                "facts": facts,
+                "verification_context": verification_context,
+                "response_target": str(proposal.get("target", "customer")).strip().lower() or "customer",
+            },
+            response_target=str(proposal.get("target", "customer")).strip().lower() or "customer",
+        )
 
-        intent = str(proposal.get("intent", "")).strip().lower()
-        if intent == "generic_plan":
-            draft = str(proposal.get("draft_response", "")).strip()
-            if draft and not draft.lower().startswith("proposed plan for "):
-                return draft
+    def _fallback_from_directive(
+        self,
+        *,
+        directive: dict[str, Any],
+        context: dict[str, Any],
+        response_target: str,
+    ) -> str:
+        objective = str(directive.get("conversation_objective", "close_conversation")).strip().lower()
+        response_target = str(response_target).strip().lower() or "customer"
+        if response_target == "self":
+            return "Continue internal planning using the current directive and determine the next execution step."
+        if response_target == "discount_planning_agent":
+            return "Prepare specialist handoff payload and wait for discount recommendation."
 
-            context = proposal.get("context") if isinstance(proposal.get("context"), dict) else {}
-            name = str(context.get("customer_name", "Customer")).strip() or "Customer"
-            case_id = str(context.get("case_id", "COLL-1001")).strip() or "COLL-1001"
-            overdue = float(context.get("overdue_amount", 0.0) or 0.0)
-            observed_tool = str(context.get("observed_tool", "")).strip()
-            plan_outline = str(proposal.get("plan_outline", "")).strip()
-            next_actions = proposal.get("next_actions") if isinstance(proposal.get("next_actions"), list) else []
+        facts = context.get("facts") if isinstance(context.get("facts"), dict) else {}
+        verification_context = (
+            context.get("verification_context")
+            if isinstance(context.get("verification_context"), dict)
+            else {}
+        )
+        memory_state = context.get("memory_state") if isinstance(context.get("memory_state"), dict) else {}
+        customer_name = str(facts.get("customer_name", memory_state.get("active_customer_name", "Customer"))).strip() or "Customer"
+        case_id = str(facts.get("case_id", memory_state.get("active_case_id", "COLL-1001"))).strip() or "COLL-1001"
+        overdue_amount = float(facts.get("overdue_amount", memory_state.get("active_overdue_amount", 0.0)) or 0.0)
+        missing_fields = verification_context.get("missing_fields_human")
+        if not missing_fields:
+            labels = verification_context.get("missing_field_labels")
+            if isinstance(labels, list):
+                missing_fields = self._join_human_list([str(x) for x in labels if str(x).strip()])
+        missing_fields = str(missing_fields or self.verification_default_missing_text).strip()
+        response_mode = str(directive.get("response_mode", context.get("response_mode", "informational"))).strip().lower()
+        hardship_context = context.get("hardship_context") if isinstance(context.get("hardship_context"), dict) else {}
+        hardship_active = bool(hardship_context.get("hardship_detected", False)) or str(context.get("conversation_mode", "")).strip().lower() == "hardship_negotiation"
+        negotiation_stage = str(context.get("negotiation_stage", "none")).strip().lower()
 
-            if observed_tool == "case_fetch":
-                return (
-                    f"Hello {name}, this is Alex from collections. For case {case_id}, the current overdue amount is INR {overdue:.2f}. "
-                    "Would you like to pay now, request an arrangement, or schedule a follow-up?"
-                )
-
-            if any(str(item).strip() == "complete_payment_flow" for item in next_actions):
-                return (
-                    f"Thank you {name}. Your current due amount is INR {overdue:.2f}. "
-                    "I can generate a secure payment link right now. Would you like it via SMS or email?"
-                )
-
-            if plan_outline:
-                return self._render_plan_outline(plan_outline)
-            return "Please confirm how you would like to proceed with your dues."
-
-        if intent == "outbound_opening":
-            ctx = proposal.get("opening_context") if isinstance(proposal.get("opening_context"), dict) else {}
-            name = str(ctx.get("customer_name", "Customer")).strip() or "Customer"
-            case_id = str(ctx.get("case_id", "COLL-1001"))
-            overdue = float(ctx.get("overdue_amount", 0.0))
-            prior_signal = str(ctx.get("prior_signal", "")).strip()
-            extra = f" {prior_signal}" if prior_signal else ""
+        if objective == "collect_verification":
+            prefix = self.verification_hardship_prefix if hardship_active else ""
             return (
-                f"Hello {name}, this is Alex from the collections team calling regarding case {case_id}. "
-                f"Our records show an overdue amount of INR {overdue:.2f}. "
-                "I can help you clear dues now or discuss a suitable repayment arrangement."
-                f"{extra} Are you available to proceed with payment today?"
-            )
-
-        if intent == "help_options":
-            ctx = proposal.get("help_context") if isinstance(proposal.get("help_context"), dict) else {}
-            name = str(ctx.get("customer_name", "Customer")).strip() or "Customer"
-            case_id = str(ctx.get("case_id", "COLL-1001"))
+                f"Hello {customer_name}, this is Alex from the bank's collections team. "
+                f"{prefix}Before I share details, please confirm {missing_fields}."
+            ).strip()
+        if objective == "explain_dues":
             return (
-                f"Sure {name}, I can help you in three ways for case {case_id}: "
-                "1) pay dues now, 2) set a repayment arrangement if full payment is difficult, "
-                "or 3) schedule a follow-up date. "
-                "If you want, I can first verify your identity and then share exact due details."
-            )
-
-        if intent == "conversation_termination":
+                f"Thank you {customer_name}. Your overdue amount is INR {overdue_amount:.2f}. "
+                "What would you like to do next to bring the account current?"
+            ).strip()
+        if objective == "assess_affordability":
+            if response_mode == "empathetic" or hardship_active:
+                return (
+                    f"I am sorry to hear that, {customer_name}. "
+                    "To explore a manageable arrangement, what monthly amount would realistically work for you right now?"
+                ).strip()
+            return "To explore a manageable arrangement, what monthly amount would realistically work for you right now?"
+        if objective == "present_arrangement_options":
+            return "Let us work toward a practical repayment option. What installment amount would you be comfortable committing to?"
+        if objective == "negotiate_installment":
+            return "What installment amount would feel manageable for you at the moment?"
+        if objective == "confirm_commitment":
+            return "Thank you. What amount and payment date can you confidently commit to for the next step?"
+        if objective == "capture_promise":
+            return "Please confirm the amount and payment date you can commit to so I can capture your promise."
+        if objective == "handoff_to_offer_agent":
+            return "Prepare specialist handoff payload and wait for discount recommendation."
+        if objective == "close_conversation":
             return "Thank you. I am closing this conversation now."
 
-        if intent == "loop_guard":
-            return (
-                "Please confirm one concrete next step: pay now, request a revised arrangement, or schedule follow-up."
-            )
-
-        if intent == "discount_recommendation":
-            rec = (
-                proposal.get("discount_recommendation", {}).get("recommended_offer", {})
-                if isinstance(proposal.get("discount_recommendation"), dict)
-                else {}
-            )
-            monthly = rec.get("monthly_emi")
-            tenure = rec.get("tenure_months")
-            if monthly is not None and tenure is not None:
-                return (
-                    f"I can offer a revised plan at INR {float(monthly):.2f} per month for {int(tenure)} months. "
-                    "If this works for you, I will capture your promise-to-pay and schedule follow-up."
-                )
-            return "I have prepared revised discount and EMI options. Please confirm if you want to proceed."
-
-        if intent == "case_not_found":
-            return "I could not find an active dues case right now. Please confirm your case ID or customer ID."
-
-        if intent == "case_snapshot":
-            snap = proposal.get("case_snapshot") if isinstance(proposal.get("case_snapshot"), dict) else {}
-            customer_name = str(snap.get("customer_name", "Customer")).strip() or "Customer"
-            case_id = str(snap.get("case_id", "COLL-1001"))
-            overdue = float(snap.get("overdue_amount", 0.0))
-            emi = float(snap.get("emi_amount", 0.0))
-            late = float(snap.get("late_fee", 0.0))
-            dpd = int(snap.get("dpd", 0))
-            return (
-                f"Hello {customer_name}, this is Alex from the collections desk regarding case {case_id}. "
-                f"Overdue amount is INR {overdue:.2f}, EMI is INR {emi:.2f}, late fee is INR {late:.2f}, "
-                f"and the account is {dpd} days past due. "
-                "Would you like to pay now, request a repayment arrangement, or schedule a follow-up?"
-            )
-
-        if intent == "plan_offer":
-            offer = proposal.get("plan_offer") if isinstance(proposal.get("plan_offer"), dict) else {}
-            months = offer.get("months")
-            monthly = offer.get("monthly_amount")
-            first_due = offer.get("first_due_date")
-            if months is not None and monthly is not None:
-                return (
-                    f"I can offer a {int(months)}-month plan at INR {float(monthly):.2f} per month. "
-                    f"First due date is {first_due}. Does this work for you?"
-                )
-            return "I can share a repayment plan option now. Would you like me to proceed?"
-
-        if intent == "payment_collection_prompt":
-            ctx = proposal.get("payment_context") if isinstance(proposal.get("payment_context"), dict) else {}
-            name = str(ctx.get("customer_name", "Customer")).strip() or "Customer"
-            amount = float(ctx.get("overdue_amount", 0.0) or 0.0)
-            return (
-                f"Thank you {name}. Your current due amount is INR {amount:.2f}. "
-                "I can generate a secure payment link right now. "
-                "Would you like the link via SMS or email?"
-            )
-
-        draft = str(proposal.get("draft_response", "")).strip()
-        if draft:
-            return draft
-
-        plan_outline = str(proposal.get("plan_outline", "")).strip()
-        if plan_outline:
-            return self._render_plan_outline(plan_outline)
-
+        if hardship_active and negotiation_stage in {"discovering_hardship", "assessing_capacity"}:
+            return "What monthly amount would realistically work for you right now?"
+        if hardship_active and negotiation_stage in {"evaluating_options", "negotiating_plan", "awaiting_customer_decision"}:
+            return "What installment amount would you be comfortable committing to?"
         return "Please confirm how you would like to proceed with your dues."
+
+    def _validate_response_against_directive(
+        self,
+        *,
+        text: str,
+        directive: dict[str, Any],
+        context: dict[str, Any],
+    ) -> str | None:
+        rendered = self._apply_minimal_safety_cleanup(text=text, context=context, directive=directive)
+        if not rendered:
+            return None
+        forbidden = {
+            str(item).strip().lower()
+            for item in (directive.get("forbidden_dialogue_actions") or [])
+            if str(item).strip()
+        }
+        verification_context = (
+            context.get("verification_context")
+            if isinstance(context.get("verification_context"), dict)
+            else {}
+        )
+        identity_verified = bool(verification_context.get("identity_verified", False))
+        if "mention_internal_processing" in forbidden and self._contains_internal_processing(rendered):
+            return None
+        if "restart_collections_menu" in forbidden and self._looks_like_root_menu(rendered):
+            return None
+        if "ask_pay_now_or_arrangement" in forbidden and self._looks_like_root_menu(rendered):
+            return None
+        if "disclose_dues_before_verification" in forbidden and not identity_verified:
+            lowered = rendered.lower()
+            if any(token in lowered for token in ["inr ", "overdue", "dues", "amount", "emi", "late fee"]):
+                return None
+
+        required = [
+            str(item).strip().lower()
+            for item in (directive.get("required_response_elements") or [])
+            if str(item).strip()
+        ]
+        if required and not self._meets_required_response_elements(rendered, required=required, context=context):
+            return None
+        return rendered
+
+    def _apply_minimal_safety_cleanup(
+        self,
+        *,
+        text: str,
+        context: dict[str, Any],
+        directive: dict[str, Any],
+    ) -> str:
+        del context, directive
+        cleaned = str(text or "").strip()
+        if not cleaned:
+            return ""
+        cleaned = re.sub(r"```(?:json)?", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"```", "", cleaned)
+        cleaned = self._strip_orchestration_leakage(cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned
+
+    @staticmethod
+    def _contains_internal_processing(text: str) -> bool:
+        lowered = str(text or "").lower()
+        return any(
+            token in lowered
+            for token in [
+                "internal processing",
+                "backend",
+                "workflow",
+                "tool call",
+                "node",
+                "prompt",
+                "orchestration",
+            ]
+        )
+
+    @staticmethod
+    def _looks_like_root_menu(text: str) -> bool:
+        lowered = str(text or "").lower()
+        patterns = [
+            r"pay now.*arrangement",
+            r"arrangement.*follow[- ]?up",
+            r"request an arrangement",
+            r"schedule a follow[- ]?up",
+            r"what would you like to do",
+            r"which would you prefer",
+            r"please choose one next step",
+            r"please confirm how you would like to proceed",
+            r"would you like to.*pay",
+        ]
+        return any(re.search(pattern, lowered, flags=re.IGNORECASE) for pattern in patterns)
+
+    def _meets_required_response_elements(
+        self,
+        rendered: str,
+        *,
+        required: list[str],
+        context: dict[str, Any],
+    ) -> bool:
+        lowered = rendered.lower()
+        response_mode = str(context.get("response_mode", "")).strip().lower()
+        hardship_active = bool(
+            (context.get("hardship_context") or {}).get("hardship_detected", False)
+        ) or str(context.get("conversation_mode", "")).strip().lower() == "hardship_negotiation"
+        checks = {
+            "acknowledge_hardship": any(token in lowered for token in ["sorry", "understand", "appreciate", "difficult"]),
+            "mention_due_amount": any(token in lowered for token in ["inr", "overdue", "due", "dues"]),
+            "ask_affordable_amount": any(token in lowered for token in ["monthly amount", "manageable", "what amount", "realistically work"]),
+            "ask_verification": "please confirm" in lowered or "confirm your" in lowered,
+            "ask_commitment_date": any(token in lowered for token in ["payment date", "date can you", "when can you", "commit to"]),
+            "discuss_arrangement": any(token in lowered for token in ["arrangement", "installment", "repayment", "plan"]),
+            "present_offer": any(token in lowered for token in ["offer", "plan", "option", "arrangement"]),
+            "ask_next_step": any(
+                token in lowered
+                for token in [
+                    "what next",
+                    "what would you like",
+                    "would you like",
+                    "please confirm",
+                    "?",
+                ]
+            ),
+            "confirm_amount_or_date": any(token in lowered for token in ["amount", "payment date", "date", "commit"]),
+            "handoff_payload": context.get("response_target") == "discount_planning_agent",
+            "closure": any(token in lowered for token in ["closing this conversation", "thank you"]),
+        }
+        if response_mode == "empathetic" or hardship_active:
+            checks.setdefault("acknowledge_hardship", True)
+        for item in required:
+            if not checks.get(item, True):
+                return False
+        return True
 
     @staticmethod
     def _render_plan_outline(plan_outline: str) -> str:

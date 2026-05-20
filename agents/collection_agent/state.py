@@ -24,6 +24,7 @@ class CollectionGraphState(AgentState, total=False):
     # Namespaced intent outputs to avoid key overwrite between stages
     relevance_intent: dict[str, Any]
     pre_plan_intent: dict[str, Any]
+    negotiation_classification: dict[str, Any]
     execution_path_intent: dict[str, Any]
     post_memory_plan_intent: dict[str, Any]
     post_verification_intent: dict[str, Any]
@@ -46,6 +47,12 @@ class CollectionGraphState(AgentState, total=False):
     verified_dob: bool
     verified_mobile: bool
     identity_verified: bool
+    conversation_mode: str
+    negotiation_stage: str
+    customer_payment_posture: str
+    hardship_context: dict[str, Any]
+    response_mode: str
+    active_dialogue_owner: str
     reflection_retry_count: int
     reflection_plan_retry_count: int
     reflection_feedback: dict[str, Any]

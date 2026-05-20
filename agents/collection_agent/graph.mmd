@@ -4,22 +4,35 @@ flowchart TD
   IR --> End["END"]
 
   IN -->|relevant| EN["CollectionEntityExtractNode"]
-  EN --> PG["IntentNode (Pre-Plan Gate)\nplan | decide"]
-  PG -->|plan| PP["PlanProposalNode"]
-  PG -->|decide| XP["IntentNode (Execution Path)\nneed_memory | need_tool"]
+  EN --> NC["NegotiationClassificationNode"]
+  NC --> PG["IntentNode (Pre-Plan Gate)\nplan | decide"]
+  PG -->|plan| PS["PlanProposalStateNode"]
+  PG -->|decide| XP["IntentNode (Execution Path)\nneed_memory | verification_react | react"]
 
   XP -->|need_memory| MR["MemoryRetrieveNode"]
-  MR --> PM["IntentNode (Post-Memory Gate)\nplan | react"]
-  PM -->|plan| PP
-  PM -->|react| RN["ReactNode"]
+  MR --> PM["IntentNode (Post-Memory Gate)\nplan | verification_react | react"]
+  PM -->|plan| PS
+  PM -->|verification_react| VR["VerificationReactNode"]
+  PM -->|react| RN["CollectionReactNode"]
 
-  XP -->|need_tool| RN
+  XP -->|verification needed| VR
+  XP -->|non-verification tooling| RN
+
   RN -->|act| TE["ToolExecutionNode"]
-  TE --> RN
-  RN -->|respond/end| PP
+  RN -->|respond/end| PS
 
-  PP -->|continue| RF["CollectionReflectNode"]
-  RF -->|retry_plan_proposal| PP
+  VR -->|act| TE
+  VR -->|respond/end| PVI["IntentNode (Post-Verification Gate)\nplan | react"]
+  PVI -->|plan| PS
+  PVI -->|react| RN
+
+  TE -->|verification tool result| VR
+  TE -->|other tool result| RN
+
+  PS -->|continue| PGN["PlanProposalGraphNode"]
+  PGN -->|continue| PD["PlanProposalDirectiveNode"]
+  PD -->|continue| RF["CollectionReflectNode"]
+  RF -->|retry_plan_proposal| PS
   RF -->|complete| RR["RelevantResponseNode\nresponse + response_target (+ additional_targets)"]
   RR --> End
 
@@ -28,15 +41,21 @@ flowchart TD
   End -. external orchestration in main .-> X3["Target: discount_planning_agent"]
   End -. external orchestration in main .-> X4["Additional target: collection_memory_helper_agent"]
 
-  subgraph TBOX["Collection Tool Box (React/ToolExecution)"]
-    T1["verify_dob"]
-    T2["verify_mobile"]
-    T3["loan_policy_lookup"]
-    T4["offer_eligibility"]
-    T5["plan_propose"]
-    T6["payment_link_create"]
-    T7["promise_capture"]
-    T8["human_escalation"]
+  subgraph VTBOX["Verification Tool Catalog"]
+    VT1["verify_dob"]
+    VT2["verify_mobile"]
   end
 
-  TE -. uses .-> TBOX
+  subgraph NTBOX["Non-Verification Tool Catalog"]
+    NT1["loan_policy_lookup"]
+    NT2["offer_eligibility"]
+    NT3["plan_propose"]
+    NT4["payment_link_create"]
+    NT5["promise_capture"]
+    NT6["human_escalation"]
+  end
+
+  VR -. selects from .-> VTBOX
+  RN -. selects from .-> NTBOX
+  TE -. executes .-> VTBOX
+  TE -. executes .-> NTBOX

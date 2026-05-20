@@ -47,15 +47,15 @@ Human collections-team actions mapped to graph + tools:
 
 | Human activity | Graph phase | Main node/tool |
 | --- | --- | --- |
-| Select case and understand delinquency context | plan/bootstrap | `plan_proposal`, `case_fetch` |
+| Select case and understand delinquency context | plan/bootstrap | `plan_proposal_state -> plan_proposal_graph -> plan_proposal_directive` |
 | Contact borrower and establish call context | response packaging | `relevant_response` |
-| Verify identity before details | plan + verify gate | `verify_identity` plan step + `customer_verify` |
-| Explain dues and options | execution + response | `dues_explain_build`, `loan_policy_lookup`, `relevant_response` |
-| Ask payment intent and collect payment | execution | `payment_link_create`, `pay_by_phone_collect`, `payment_status_check` |
+| Verify identity before details | plan + verify gate | `verify_identity` plan step + `verify_dob` / `verify_mobile` |
+| Explain dues and options | planning + response | `plan_proposal_directive`, `loan_policy_lookup`, `relevant_response` |
+| Ask payment intent and collect payment | execution | `payment_link_create` |
 | If cannot pay, offer policy-compliant options | planning + tooling | `offer_eligibility`, `plan_propose` |
-| Capture promise-to-pay and schedule follow-up | execution | `promise_capture`, `followup_schedule` |
+| Capture promise-to-pay commitment | execution | `promise_capture` |
 | Escalate sensitive disputes | execution | `human_escalation` |
-| Finalize and log outcome | execution | `disposition_update` |
+| Finalize and route response | planning + response | `plan_proposal_directive`, `relevant_response` |
 
 ---
 
@@ -73,7 +73,10 @@ Human collections-team actions mapped to graph + tools:
 ### 3.2 Primary execution assets
 
 - Graph definition: `agents/collection_agent/agent.py`
-- Plan logic: `agents/collection_agent/nodes/plan_proposal_node.py`
+- Plan logic:
+  - `agents/collection_agent/nodes/plan_proposal_state_node.py`
+  - `agents/collection_agent/nodes/plan_proposal_graph_node.py`
+  - `agents/collection_agent/nodes/plan_proposal_directive_node.py`
 - Intent logic: `agents/collection_agent/nodes/collection_intent_node.py`
 - Response packaging: `agents/collection_agent/nodes/collection_response_node.py`
 - Prompt definitions: `agents/collection_agent/prompts/agent_prompts.yml`
@@ -97,9 +100,13 @@ Also available:
 
 - Start at `relevance_intent`
 - Out-of-scope path terminates quickly through `irrelevant_response`
-- In-scope path routes through pre-plan and execution gating
-- `react` + `tool_execution` loop handles tool selection and execution
-- `plan_proposal` creates/updates plan tree and routing intent
+- In-scope path routes through `entity_extract`, then `negotiation_classification`, then pre-plan and execution gating
+- Verification is isolated into `verification_react`
+- Non-verification tools are isolated into `react`
+- `tool_execution` routes back to the correct React node based on which tool just ran
+- `plan_proposal_state` prepares planning state and classifies plan signals
+- `plan_proposal_graph` creates/updates the plan tree and routing context
+- `plan_proposal_directive` creates the final proposal and response directive
 - `reflect` validates completion and may route back
 - `relevant_response` packages final outward message
 
@@ -129,18 +136,32 @@ Outer controller decides next recipient.
 ### 5.2 Namespaced intent outputs
 
 - `relevance_intent`
+- `negotiation_classification`
 - `pre_plan_intent`
 - `execution_path_intent`
 - `post_memory_plan_intent`
+- `post_verification_intent`
 
 ### 5.3 Verification state (important)
 
 - `identity_verified` (boolean)
-- `verification_collected` (partial details detected from borrower utterances)
+- `verified_dob`
+- `verified_mobile`
+- `verification_verified_fields`
+- `verification_missing_fields`
 - `active_verification_required_fields` (required challenge keys)
-- `verification_failed_attempts`
+- owned by `verification_react`
 
-### 5.4 Plan tree state
+### 5.4 Negotiation cognition state
+
+- `conversation_mode`
+- `negotiation_stage`
+- `customer_payment_posture`
+- `hardship_context`
+- `response_mode`
+- `active_dialogue_owner`
+
+### 5.5 Plan tree state
 
 - `plan_id`, `version`, `status`
 - `nodes[]`, `edges[]`
@@ -177,65 +198,115 @@ Outputs:
 Responsibilities:
 
 - classify `plan|decide`
-- route directly to plan proposal or deeper execution path
+- route directly to `plan_proposal_state` or deeper execution path
 
-### 6.3 `execution_path_intent` (`CollectionIntentNode`)
+### 6.3 `negotiation_classification` (`NegotiationClassificationNode`)
 
 Responsibilities:
 
-- classify `need_memory|need_tool`
-- avoids unnecessary memory retrieval when direct tool action is enough
+- classify persistent conversation-level negotiation state
+- detect and preserve hardship context across turns
+- update `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `hardship_context`, `response_mode`, and `active_dialogue_owner`
+- influence downstream planning and tone without selecting tools directly
 
-### 6.4 `memory_retrieve` (`MemoryRetrieveNode`)
+### 6.4 `execution_path_intent` (`CollectionIntentNode`)
+
+Responsibilities:
+
+- classify `need_memory|verification_react|react`
+- route verification candidates to verification flow when identity is still incomplete
+- avoid unnecessary memory retrieval when direct tool action is enough
+
+### 6.5 `memory_retrieve` (`MemoryRetrieveNode`)
 
 Responsibilities:
 
 - loads working memory context into graph state
 - informs post-memory routing and planning
 
-### 6.5 `post_memory_plan_intent` (`CollectionIntentNode`)
+### 6.6 `post_memory_plan_intent` (`CollectionIntentNode`)
 
 Responsibilities:
 
-- classify `plan|react` after memory hydration
-- if plan-ready, route to `plan_proposal`; else route to `react`
+- classify `plan|verification_react|react` after memory hydration
+- if plan-ready, route to `plan_proposal_state`
+- if verification is still the blocker, route to `verification_react`
+- otherwise route to non-verification `react`
 
-### 6.6 `react` (`ReactNode`)
+### 6.7 `verification_react` (`VerificationReactNode`)
+
+Responsibilities:
+
+- own verification progression state
+- recompute `verified_dob`, `verified_mobile`, `verification_verified_fields`, `verification_missing_fields`, and `identity_verified` from `observations`
+- choose one of: `act`, `respond`, `end`
+- only select verification tools (`verify_dob`, `verify_mobile`)
+
+### 6.8 `post_verification_intent` (`CollectionIntentNode`)
+
+Responsibilities:
+
+- classify `plan|react` after verification work pauses or completes
+- route back to `plan_proposal_state` when verification context is ready for planning
+- route to non-verification `react` when immediate non-verification tooling is still required
+
+### 6.9 `react` (`CollectionReactNode`)
 
 Responsibilities:
 
 - choose one of: `act`, `respond`, `end`
-- when `act`, produce tool name + arguments
-- when `respond/end`, hand control to plan proposal for structured response planning
+- when `act`, produce non-verification tool name + arguments
+- when `respond/end`, hand control to `plan_proposal_state` for structured response planning
+- consume negotiation continuity context without owning it
 
-### 6.7 `tool_execution` (`ToolExecutionNode`)
+### 6.10 `tool_execution` (`ToolExecutionNode`)
 
 Responsibilities:
 
 - execute selected tool through registry/executor
-- emit structured `observation.tool_phase`
+- emit structured observation entries with `tool_name`, `input`, and `output`
+- append those entries to canonical `observations`
 
-### 6.8 `plan_proposal` (`PlanProposalNode`)
+### 6.11 `plan_proposal_state` (`PlanProposalStateNode`)
+
+Responsibilities:
+
+- overlay verification and negotiation state into a prepared planning snapshot
+- classify plan signals and effective planning mode
+- expose plan-state debug artifacts
+- avoid mutating the conversation plan graph directly
+
+### 6.12 `plan_proposal_graph` (`PlanProposalGraphNode`)
+
+Responsibilities:
+
+- build and update conversation plan tree
+- maintain step markers and enforce predecessor gating
+- preserve plan history and revise only current/future path
+- use `identity_verified` as the primary verification gate for leaving `verify_identity`
+
+Critical guardrail:
+
+- `verify_identity` cannot be marked done unless verification progression state marks `identity_verified=true`
+
+### 6.13 `plan_proposal_directive` (`PlanProposalDirectiveNode`)
 
 Responsibilities:
 
 - propose plan intent and next actions
-- build and update conversation plan tree
-- maintain step markers and enforce predecessor gating
+- attach `response_directive`
 - assign `response_target`
+- emit specialist handoff payloads and termination/loop-guard proposals
+- consume persistent negotiation cognition state to preserve hardship continuity
 
-Critical guardrail added:
-
-- `verify_identity` cannot be marked done unless `customer_verify` tool returns `status="verified"`
-
-### 6.9 `reflect` (`CollectionReflectNode`)
+### 6.14 `reflect` (`CollectionReflectNode`)
 
 Responsibilities:
 
 - assess whether output is complete
-- route to `retry_react`, `retry_plan_proposal`, or `complete`
+- route to `retry_plan_proposal` (`plan_proposal_state`) or `complete`
 
-### 6.10 `relevant_response` (`CollectionResponseNode`)
+### 6.15 `relevant_response` (`CollectionResponseNode`)
 
 Responsibilities:
 
@@ -243,13 +314,14 @@ Responsibilities:
 - enforce target-safe message packaging (`customer` vs `self`)
 - prevent internal graph/tool jargon leakage
 - enforce verification guard before dues explanation
+- apply `response_mode` and `active_dialogue_owner` to preserve negotiation tone and continuity
 
 Verification guard behavior:
 
 - if current step is `verify_identity` and `identity_verified=false`, response requests missing verification fields
 - does not advance to dues explanation prematurely
 
-### 6.11 `irrelevant_response` (`CollectionResponseNode` static mode)
+### 6.16 `irrelevant_response` (`CollectionResponseNode` static mode)
 
 Responsibilities:
 
@@ -262,22 +334,14 @@ Responsibilities:
 
 | Tool | Primary role | Inputs | Output contract | Notes |
 | --- | --- | --- | --- | --- |
-| `case_fetch` | fetch case facts | `case_id?`, `customer_id?`, `portfolio_id?` | `total`, `cases[]` | base case context |
-| `case_prioritize` | queue ranking | `case_ids?`, `portfolio_id?` | `total`, `queue[]` | prioritization |
-| `contact_attempt` | outreach log | `case_id`, `channel?`, `reached?` | `attempt_id`, `status` | compliance trail |
-| `customer_verify` | identity verification | `case_id?`, `customer_id?`, `challenge_answers?` | `status`, `failed_attempts`, `required_fields` | must be `verified` to complete verify step |
-| `loan_policy_lookup` | policy constraints | `case_id?`, `loan_id?` | policy object | governance layer |
-| `dues_explain_build` | dues narration | `case_id` | `total_due`, `explanation` | borrower-safe summary |
-| `offer_eligibility` | concession eligibility | `case_id`, `hardship_flag?`, `requested_waiver_pct?` | `allowed`, `offer_type` | policy-aware assistance |
-| `plan_propose` | EMI plan proposal | `case_id`, `hardship_reason?`, `revision_index?`, `max_installment_amount?` | `plan_id`, `monthly_amount`, `first_due_date` | hardship path |
-| `payment_link_create` | digital payment | `case_id`, `amount`, `channel?` | `payment_reference_id`, `payment_url` | pay-now path |
-| `pay_by_phone_collect` | call payment simulation | `case_id`, `amount`, `consent_confirmed?` | `payment_id`, `status`, `receipt_reference` | voice path |
-| `payment_status_check` | settlement confirmation | `payment_reference_id` | `status`, `needs_additional_action` | reconciliation |
-| `promise_capture` | promise logging | `case_id`, `promised_date`, `promised_amount` | `promise_id`, `status` | follow-up anchor |
-| `followup_schedule` | callback scheduling | `case_id`, `scheduled_for`, `preferred_channel?` | `schedule_id` | deferred collection |
-| `disposition_update` | final outcome log | `case_id`, `disposition_code`, `notes` | `audit_id`, `updated_at` | reporting |
-| `channel_switch` | channel transition | `case_id`, `from_channel?`, `to_channel?` | `switch_id`, `carried_context_summary` | continuity |
-| `human_escalation` | specialist escalation | `case_id`, `reason` | `escalation_id`, `queue`, `priority` | exception path |
+| `verify_dob` | DOB challenge verification | `case_id?`, `customer_id?`, `dob` | `status`, `field=dob`, `failed_attempts` | verification-only catalog |
+| `verify_mobile` | mobile challenge verification | `case_id?`, `customer_id?`, `phone` | `status`, `field=phone`, `failed_attempts` | verification-only catalog |
+| `loan_policy_lookup` | policy constraints | `case_id?`, `loan_id?` | policy object | non-verification catalog |
+| `offer_eligibility` | concession eligibility | `case_id`, `hardship_flag?`, `requested_waiver_pct?` | `allowed`, `offer_type`, `approved_waiver_pct` | non-verification catalog |
+| `plan_propose` | EMI plan proposal | `case_id`, `hardship_reason?`, `revision_index?`, `max_installment_amount?` | `plan_id`, `monthly_amount`, `first_due_date`, `status` | non-verification catalog |
+| `payment_link_create` | digital payment | `case_id`, `amount`, `channel?` | `payment_reference_id`, `payment_url` | non-verification catalog |
+| `promise_capture` | promise logging | `case_id`, `promised_date`, `promised_amount` | `promise_id`, `status` | non-verification catalog |
+| `human_escalation` | specialist escalation | `case_id`, `reason` | `escalation_id`, `queue`, `priority` | non-verification catalog |
 
 ---
 
@@ -290,7 +354,7 @@ Responsibilities:
 3. Borrower asks for help
 4. Agent asks identity verification details
 5. Borrower provides required details
-6. `customer_verify` confirms verification
+6. `verify_dob` and `verify_mobile` confirm verification
 7. Agent explains dues and proposes payment
 8. Borrower chooses pay-now or follow-up
 9. Tool path executes and response closes turn
@@ -299,7 +363,7 @@ Responsibilities:
 
 1. Borrower gives only name
 2. Plan remains at `verify_identity`
-3. Response asks for missing DOB / PAN last4 / ZIP
+3. Response asks for missing DOB / registered mobile number
 4. No dues disclosure yet
 
 ### Flow C: Hardship route
@@ -315,19 +379,19 @@ Responsibilities:
 
 ### 9.1 Correct verification progression
 
-Agent: This is Alex from collections. Your overdue amount is INR 12500. Are you available to discuss payment today?
+Agent: Hello Aditi, this is Alex from the bank's collections team. I am calling regarding your loan account dues. Before I share details, please confirm your date of birth and registered phone number.
 
 Customer: Sorry for the delay, how can you help me?
 
-Agent: I can help with payment now or a repayment arrangement. Before I share details, please confirm your full name and the last 4 of your PAN, plus date of birth and ZIP.
+Agent: Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.
 
 Customer: My name is Aditi Sharma.
 
-Agent: Thank you, Aditi Sharma. To complete verification, please also share your date of birth (YYYY-MM-DD), the last 4 characters of your PAN, and your registered ZIP/pincode.
+Agent: Thank you for confirming your name. To complete verification, please also share your date of birth (YYYY-MM-DD) and your registered phone number.
 
 ### 9.2 Verified and dues explanation
 
-Customer: DOB 1991-08-19, PAN last 4 AF4K, ZIP 560102.
+Customer: DOB 1991-08-19 and my phone is 919900001001.
 
 Agent: Thank you, verification is complete. Your total due is INR 13350. Would you like a payment link now, or do you need an arrangement?
 
@@ -345,7 +409,7 @@ Agent: This request is outside collections scope. I can only help with loan dues
 
 - LLM used for classification, planning, and message composition
 - deterministic guards enforce compliance-critical transitions
-- example: verify step cannot complete without `customer_verify=verified`
+- example: verify step cannot complete without verification progression state setting `identity_verified=true`
 
 ### 10.2 One-pass graph, explicit outer orchestration
 
@@ -389,8 +453,8 @@ Agent: This request is outside collections scope. I can only help with loan dues
 ### 11.3 Change verification policy
 
 - customer challenge fields live in `agents/collection_agent/data/customers.json`
-- verification output contract in `customer_verify_tool.py`
-- plan completion gating in `plan_proposal_node.py`
+- verification output contracts live in `verify_dob_tool.py` and `verify_mobile_tool.py`
+- plan completion gating in `plan_proposal_graph_node.py` and `plan_proposal_directive_node.py`
 - customer-facing guard in `collection_response_node.py`
 
 ### 11.4 Add specialist agent handoff
@@ -465,7 +529,7 @@ curl http://127.0.0.1:8060/health
 ### 14.2 Verify completion test
 
 - send full verification details
-- run `customer_verify`
+- run `verify_dob` and `verify_mobile`
 - expected marker for `verify_identity`: `done`
 - expected next node: `explain_dues`
 
@@ -482,11 +546,14 @@ curl http://127.0.0.1:8060/health
 - `agents/collection_agent/agent.py`
 - `agents/collection_agent/state.py`
 - `agents/collection_agent/nodes/collection_intent_node.py`
-- `agents/collection_agent/nodes/plan_proposal_node.py`
+- `agents/collection_agent/nodes/plan_proposal_state_node.py`
+- `agents/collection_agent/nodes/plan_proposal_graph_node.py`
+- `agents/collection_agent/nodes/plan_proposal_directive_node.py`
 - `agents/collection_agent/nodes/collection_response_node.py`
 - `agents/collection_agent/prompts/agent_prompts.yml`
 - `agents/collection_agent/prompts/tool_catalog.yml`
-- `agents/collection_agent/tools/customer_verify_tool.py`
+- `agents/collection_agent/tools/verify_dob_tool.py`
+- `agents/collection_agent/tools/verify_mobile_tool.py`
 - `agents/collection_agent/ui/server.py`
 - `agents/collection_agent/ui/app.js`
 

@@ -203,7 +203,7 @@ class CollectionReflectNode(ReflectNode):
             )
         ):
             # For iterative verification tools, observation itself is valid progression input.
-            # PlanProposalNode should decide next step using updated verification state.
+            # The plan proposal directive stage should decide next step using updated verification state.
             complete = True
             reason = "Verification tool observation is valid; continue with updated verification state."
             failure_type = "none"

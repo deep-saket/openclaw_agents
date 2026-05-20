@@ -64,7 +64,7 @@ def main() -> None:
     inputs = [
         "Yes this is Aditi.",
         "My phone number is : 9900001001and date of birth is  1991-08-19",
-        "what do you want me to verify"
+        "Actually, I recently lost my job, so I’m facing some financial problems."
     ]
 
     i = 0

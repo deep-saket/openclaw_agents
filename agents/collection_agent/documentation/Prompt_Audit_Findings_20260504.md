@@ -100,7 +100,7 @@ These are reliability architecture issues and must be fixed before deeper prompt
 | `post_memory_plan_intent` | adapts after memory | may bounce to react unnecessarily | yes | no |
 | `react` | picks action/tool | hard-fails if planner LLM unavailable | no | yes |
 | `tool_execution` | structured tool outputs | malformed args can fail repeated turns | small | optional |
-| `plan_proposal` | plan tree progression | can over-eagerly request full verification repeatedly | yes | no |
+| `plan_proposal_directive` | proposal/direction packaging | can over-eagerly request full verification repeatedly if upstream planning context is wrong | yes | no |
 | `reflect` | quality gate | weak criteria can accept under-specified response | yes | no |
 | `relevant_response` | user-safe packaging | tone can feel robotic / too rigid | yes | no |
 
@@ -145,7 +145,7 @@ Add stronger criteria:
 - `need_memory` when prior commitments/follow-up dates are referenced.
 - avoid `need_tool` when evidence is partial and only clarifying question is required.
 
-### 4) `plan_proposal` prompt (in `PlanProposalNode._build_plan_proposal`)
+### 4) `plan_proposal_directive` prompt (current plan proposal render path)
 
 Add strict planning instructions:
 
@@ -207,4 +207,3 @@ Without these, prompt tuning impact cannot be reliably validated end-to-end.
 - Hardship request with revised EMI branch.
 - Scam/trust concern escalation.
 - Human escalation request.
-

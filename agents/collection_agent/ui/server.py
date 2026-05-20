@@ -472,7 +472,7 @@ class CollectionDebugRuntime:
         )
 
         for hop_index in range(1, hard_cap + 1):
-            if (time.monotonic() - started_at) >= timeout_seconds:
+            '''if (time.monotonic() - started_at) >= timeout_seconds:
                 timeout_response = (
                     "I am still processing internal steps and do not want to keep you waiting. "
                     "Please choose one next step: pay now, request arrangement, or schedule follow-up."
@@ -490,7 +490,7 @@ class CollectionDebugRuntime:
                     "final_state": {"timeout": {"seconds": timeout_seconds, "hop": hop_index}},
                     "final_working_memory_state": self._memory_state(session_id=session_id),
                     "llm": self._llm_meta(),
-                }
+                }'''
 
             self._emit_progress(
                 event_callback,

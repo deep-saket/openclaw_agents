@@ -216,12 +216,12 @@ def _route_internal_turn(
     started_at = time.monotonic()
 
     for hop in range(1, hard_cap + 1):
-        if (time.monotonic() - started_at) >= timeout_seconds:
+        '''if (time.monotonic() - started_at) >= timeout_seconds:
             memory.set_state(agent_loop_blocked=True, agent_loop_count=hop, agent_timeout_triggered=True)
             return (
                 "I am still processing internal steps and do not want to keep you waiting. "
                 "Please choose one next step: pay now, request arrangement, or schedule follow-up."
-            )
+            )'''
 
         state = collection_agent.run_turn(current_input, session_id=session_id, sender=current_sender)
         response = str(state.get("response", "No response generated."))

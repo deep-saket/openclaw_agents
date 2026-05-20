@@ -20,10 +20,13 @@ from agents.collection_agent.nodes import (
     CollectionReactNode,
     CollectionResponseNode,
     ExecutionPathIntentNode,
+    NegotiationClassificationNode,
     PostMemoryPlanIntentNode,
     PostVerificationIntentNode,
     PrePlanIntentNode,
-    PlanProposalNode,
+    PlanProposalDirectiveNode,
+    PlanProposalGraphNode,
+    PlanProposalStateNode,
     RelevanceIntentNode,
     VerificationReactNode,
 )
@@ -89,7 +92,8 @@ class CollectionAgent(BaseAgent):
     _session_locks_guard: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     _STATIC_NEXT_NODE_MAP: ClassVar[dict[str, str]] = {
-        "entity_extract": "pre_plan_intent",
+        "entity_extract": "negotiation_classification",
+        "negotiation_classification": "pre_plan_intent",
         "memory_retrieve": "post_memory_plan_intent",
         "relevant_response": "END",
         "irrelevant_response": "END",
@@ -102,7 +106,7 @@ class CollectionAgent(BaseAgent):
             "empty": "irrelevant_response",
         },
         "pre_plan_intent": {
-            "plan": "plan_proposal",
+            "plan": "plan_proposal_state",
             "decide": "execution_path_intent",
         },
         "execution_path_intent": {
@@ -112,18 +116,18 @@ class CollectionAgent(BaseAgent):
             "react": "react",
         },
         "post_memory_plan_intent": {
-            "plan": "plan_proposal",
+            "plan": "plan_proposal_state",
             "verification_react": "verification_react",
             "react": "react",
         },
         "post_verification_intent": {
-            "plan": "plan_proposal",
+            "plan": "plan_proposal_state",
             "react": "react",
         },
         "react": {
             "act": "tool_execution",
-            "respond": "plan_proposal",
-            "end": "plan_proposal",
+            "respond": "plan_proposal_state",
+            "end": "plan_proposal_state",
         },
         "verification_react": {
             "act": "tool_execution",
@@ -134,11 +138,17 @@ class CollectionAgent(BaseAgent):
             "react": "react",
             "verification_react": "verification_react",
         },
-        "plan_proposal": {
+        "plan_proposal_state": {
+            "continue": "plan_proposal_graph",
+        },
+        "plan_proposal_graph": {
+            "continue": "plan_proposal_directive",
+        },
+        "plan_proposal_directive": {
             "continue": "reflect",
         },
         "reflect": {
-            "retry_plan_proposal": "plan_proposal",
+            "retry_plan_proposal": "plan_proposal_state",
             "complete": "relevant_response",
         },
     }
@@ -146,8 +156,12 @@ class CollectionAgent(BaseAgent):
     def __post_init__(self) -> None:
         prompts = load_collection_agent_prompts()
         intent_prompts = prompts.get("intent", {})
+        negotiation_prompts = prompts.get("negotiation_classification", {})
         react_prompts = prompts.get("react", {})
         plan_proposal_prompts = prompts.get("plan_proposal", {})
+        plan_state_prompts = prompts.get("plan_proposal_state", {})
+        plan_graph_prompts = prompts.get("plan_proposal_graph", {})
+        plan_directive_prompts = prompts.get("plan_proposal_directive", {})
         reflect_prompts = prompts.get("reflect", {})
         response_prompts = prompts.get("response", {})
         entity_extract_prompts = prompts.get("entity_extract", {})
@@ -188,6 +202,12 @@ class CollectionAgent(BaseAgent):
             system_prompt=str(intent_prompts.get("pre_plan_system_prompt", "")),
             user_prompt=str(intent_prompts.get("pre_plan_user_prompt", "")),
         )
+        self.negotiation_classification_node = NegotiationClassificationNode(
+            llm=self.llm,
+            system_prompt=str(negotiation_prompts.get("system_prompt", "")),
+            user_prompt=str(negotiation_prompts.get("user_prompt", "")),
+            strict_llm_mode=self.strict_llm_mode,
+        )
         self.execution_path_intent_node = ExecutionPathIntentNode(
             llm=self.llm,
             allow_deterministic_fallback=deterministic_fallback_enabled,
@@ -227,12 +247,28 @@ class CollectionAgent(BaseAgent):
             tool_registry=self.tool_registry,
             max_steps=8,
         )
-        self.plan_node = PlanProposalNode(
+        self.plan_state_node = PlanProposalStateNode(
             llm=self.llm,
-            system_prompt=str(plan_proposal_prompts.get("system_prompt", "")),
-            user_prompt=str(plan_proposal_prompts.get("user_prompt", "")),
-            classifier_system_prompt=str(plan_proposal_prompts.get("classifier_system_prompt", "")),
-            classifier_user_prompt=str(plan_proposal_prompts.get("classifier_user_prompt", "")),
+            system_prompt=str(plan_state_prompts.get("classifier_system_prompt", plan_proposal_prompts.get("classifier_system_prompt", ""))),
+            user_prompt=str(plan_state_prompts.get("classifier_user_prompt", plan_proposal_prompts.get("classifier_user_prompt", ""))),
+            classifier_system_prompt=str(plan_state_prompts.get("classifier_system_prompt", plan_proposal_prompts.get("classifier_system_prompt", ""))),
+            classifier_user_prompt=str(plan_state_prompts.get("classifier_user_prompt", plan_proposal_prompts.get("classifier_user_prompt", ""))),
+            strict_llm_mode=self.strict_llm_mode,
+        )
+        self.plan_graph_node = PlanProposalGraphNode(
+            llm=None,
+            system_prompt=str(plan_graph_prompts.get("system_prompt", "")),
+            user_prompt=str(plan_graph_prompts.get("user_prompt", "")),
+            classifier_system_prompt=str(plan_graph_prompts.get("classifier_system_prompt", "")),
+            classifier_user_prompt=str(plan_graph_prompts.get("classifier_user_prompt", "")),
+            strict_llm_mode=self.strict_llm_mode,
+        )
+        self.plan_node = PlanProposalDirectiveNode(
+            llm=self.llm,
+            system_prompt=str(plan_directive_prompts.get("system_prompt", "")),
+            user_prompt=str(plan_directive_prompts.get("user_prompt", "")),
+            classifier_system_prompt=str(plan_directive_prompts.get("classifier_system_prompt", "")),
+            classifier_user_prompt=str(plan_directive_prompts.get("classifier_user_prompt", "")),
             strict_llm_mode=self.strict_llm_mode,
         )
         self.tool_execution_node = ToolExecutionNode(executor=self.tool_executor)
@@ -299,6 +335,10 @@ class CollectionAgent(BaseAgent):
         graph = StateGraph(CollectionGraphState)
         graph.add_node("relevance_intent", self._wrap_node("relevance_intent", self.relevance_intent_node.execute))
         graph.add_node("entity_extract", self._wrap_node("entity_extract", self.entity_extract_node.execute))
+        graph.add_node(
+            "negotiation_classification",
+            self._wrap_node("negotiation_classification", self.negotiation_classification_node.execute),
+        )
         graph.add_node("pre_plan_intent", self._wrap_node("pre_plan_intent", self.pre_plan_intent_node.execute))
         graph.add_node(
             "execution_path_intent", self._wrap_node("execution_path_intent", self.execution_path_intent_node.execute)
@@ -317,7 +357,18 @@ class CollectionAgent(BaseAgent):
             "verification_react",
             self._wrap_node("verification_react", self.verification_react_node.execute),
         )
-        graph.add_node("plan_proposal", self._wrap_node("plan_proposal", self.plan_node.execute))
+        graph.add_node(
+            "plan_proposal_state",
+            self._wrap_node("plan_proposal_state", self.plan_state_node.execute),
+        )
+        graph.add_node(
+            "plan_proposal_graph",
+            self._wrap_node("plan_proposal_graph", self.plan_graph_node.execute),
+        )
+        graph.add_node(
+            "plan_proposal_directive",
+            self._wrap_node("plan_proposal_directive", self.plan_node.execute),
+        )
         graph.add_node("tool_execution", self._wrap_node("tool_execution", self.tool_execution_node.execute))
         graph.add_node("reflect", self._wrap_node("reflect", self.reflect_node.execute))
         graph.add_node("relevant_response", self._wrap_node("relevant_response", self.relevant_response_node.execute))
@@ -335,12 +386,13 @@ class CollectionAgent(BaseAgent):
                 "empty": "irrelevant_response",
             },
         )
-        graph.add_edge("entity_extract", "pre_plan_intent")
+        graph.add_edge("entity_extract", "negotiation_classification")
+        graph.add_edge("negotiation_classification", "pre_plan_intent")
         graph.add_conditional_edges(
             "pre_plan_intent",
             self.pre_plan_intent_node.route,
             {
-                "plan": "plan_proposal",
+                "plan": "plan_proposal_state",
                 "decide": "execution_path_intent",
             },
         )
@@ -359,7 +411,7 @@ class CollectionAgent(BaseAgent):
             "post_memory_plan_intent",
             self._route_post_memory_plan_intent,
             {
-                "plan": "plan_proposal",
+                "plan": "plan_proposal_state",
                 "verification_react": "verification_react",
                 "react": "react",
             },
@@ -369,8 +421,8 @@ class CollectionAgent(BaseAgent):
             self.react_node.route,
             {
                 "act": "tool_execution",
-                "respond": "plan_proposal",
-                "end": "plan_proposal",
+                "respond": "plan_proposal_state",
+                "end": "plan_proposal_state",
             },
         )
         graph.add_conditional_edges(
@@ -386,12 +438,26 @@ class CollectionAgent(BaseAgent):
             "post_verification_intent",
             self.post_verification_intent_node.route,
             {
-                "plan": "plan_proposal",
+                "plan": "plan_proposal_state",
                 "react": "react",
             },
         )
         graph.add_conditional_edges(
-            "plan_proposal",
+            "plan_proposal_state",
+            self.plan_state_node.route,
+            {
+                "continue": "plan_proposal_graph",
+            },
+        )
+        graph.add_conditional_edges(
+            "plan_proposal_graph",
+            self.plan_graph_node.route,
+            {
+                "continue": "plan_proposal_directive",
+            },
+        )
+        graph.add_conditional_edges(
+            "plan_proposal_directive",
             self.plan_node.route,
             {
                 "continue": "reflect",
@@ -409,7 +475,7 @@ class CollectionAgent(BaseAgent):
             "reflect",
             self.reflect_node.route,
             {
-                "retry_plan_proposal": "plan_proposal",
+                "retry_plan_proposal": "plan_proposal_state",
                 "complete": "relevant_response",
             },
         )
@@ -593,6 +659,8 @@ class CollectionAgent(BaseAgent):
             return str(self.pre_plan_intent_node.route(merged_state)).strip().lower()
         if node_name == "execution_path_intent":
             return str(self._route_execution_path_intent(merged_state)).strip().lower()
+        if node_name == "negotiation_classification":
+            return None
         if node_name == "post_memory_plan_intent":
             return str(self._route_post_memory_plan_intent(merged_state)).strip().lower()
         if node_name == "post_verification_intent":
@@ -601,10 +669,14 @@ class CollectionAgent(BaseAgent):
             return str(self.react_node.route(merged_state)).strip().lower()
         if node_name == "verification_react":
             return str(self.verification_react_node.route(merged_state)).strip().lower()
+        if node_name == "plan_proposal_state":
+            return str(self.plan_state_node.route(merged_state)).strip().lower()
+        if node_name == "plan_proposal_graph":
+            return str(self.plan_graph_node.route(merged_state)).strip().lower()
+        if node_name == "plan_proposal_directive":
+            return str(self.plan_node.route(merged_state)).strip().lower()
         if node_name == "tool_execution":
             return str(self._route_after_tool_execution(merged_state)).strip().lower()
-        if node_name == "plan_proposal":
-            return str(self.plan_node.route(merged_state)).strip().lower()
         if node_name == "reflect":
             return str(self.reflect_node.route(merged_state)).strip().lower()
         return None
@@ -677,6 +749,17 @@ class CollectionAgent(BaseAgent):
             route_part = f", route={route}" if route else ""
             return f"{node_name}: classified intent={intent}{route_part}.{reason_part}".strip()
 
+        if node_name == "negotiation_classification":
+            mode = str(update.get("conversation_mode", "collections")).strip()
+            stage = str(update.get("negotiation_stage", "none")).strip()
+            posture = str(update.get("customer_payment_posture", "unknown")).strip()
+            hardship = update.get("hardship_context") if isinstance(update.get("hardship_context"), dict) else {}
+            hardship_detected = bool(hardship.get("hardship_detected", False))
+            return (
+                f"negotiation_classification: mode={mode}; stage={stage}; "
+                f"posture={posture}; hardship_detected={hardship_detected}."
+            )
+
         if node_name == "entity_extract":
             extracted_turn = (
                 update.get("extracted_entities_turn")
@@ -743,13 +826,25 @@ class CollectionAgent(BaseAgent):
             tool_name = str(phase.get("tool_name", "unknown_tool")) if isinstance(phase, dict) else "unknown_tool"
             return f"tool_execution: executed `{tool_name}` and captured observation."
 
-        if node_name == "plan_proposal":
+        if node_name == "plan_proposal_state":
+            return (
+                f"plan_proposal_state: prepared mode={str(update.get('plan_mode', 'strict_collections')).strip()}; "
+                f"signals={str(update.get('plan_signals', {}))}."
+            )
+
+        if node_name == "plan_proposal_graph":
+            context = update.get("plan_tree_context") if isinstance(update.get("plan_tree_context"), dict) else {}
+            current = str(context.get("current_node_id", update.get("conversation_plan", {}).get("current_node_id", ""))).strip()
+            next_nodes = context.get("next_node_ids") if isinstance(context.get("next_node_ids"), list) else []
+            return f"plan_proposal_graph: current={current}; next={next_nodes}."
+
+        if node_name == "plan_proposal_directive":
             proposal = update.get("plan_proposal") if isinstance(update.get("plan_proposal"), dict) else {}
             outline = str(proposal.get("plan_outline", "")).strip()
             if outline:
-                return f"plan_proposal: built plan outline - {outline}"
+                return f"plan_proposal_directive: built plan outline - {outline}"
             intent = str(proposal.get("intent", "generic_plan"))
-            return f"plan_proposal: built proposal intent={intent}."
+            return f"plan_proposal_directive: built proposal intent={intent}."
 
         if node_name == "reflect":
             feedback = update.get("reflection_feedback") if isinstance(update.get("reflection_feedback"), dict) else {}
@@ -781,6 +876,7 @@ class CollectionAgent(BaseAgent):
             memory = self.session_store.load(session_key)
             if "mode" not in memory.state:
                 memory.set_state(mode="strict_collections", active_channel="sms", active_case_id="COLL-1001")
+            self._ensure_negotiation_state_defaults(memory=memory)
             admin_state = self._maybe_handle_admin_message(user_input=user_input, sender=sender, memory=memory, session_key=session_key)
             if admin_state is not None:
                 return admin_state
@@ -847,6 +943,21 @@ class CollectionAgent(BaseAgent):
                             "verified_dob": bool(memory.state.get("verified_dob", False)),
                             "verified_mobile": bool(memory.state.get("verified_mobile", False)),
                             "identity_verified": bool(memory.state.get("identity_verified", False)),
+                            "conversation_mode": str(memory.state.get("conversation_mode", "collections")).strip()
+                            or "collections",
+                            "negotiation_stage": str(memory.state.get("negotiation_stage", "none")).strip()
+                            or "none",
+                            "customer_payment_posture": str(memory.state.get("customer_payment_posture", "unknown")).strip()
+                            or "unknown",
+                            "hardship_context": (
+                                dict(memory.state.get("hardship_context", {}))
+                                if isinstance(memory.state.get("hardship_context"), dict)
+                                else {"hardship_detected": False, "hardship_reason": None, "confidence": 0.0}
+                            ),
+                            "response_mode": str(memory.state.get("response_mode", "informational")).strip()
+                            or "informational",
+                            "active_dialogue_owner": str(memory.state.get("active_dialogue_owner", "collections")).strip()
+                            or "collections",
                             "node_history": [],
                             "conversation_phase": "turn_started",
                             "tool_errors": [],
@@ -937,6 +1048,29 @@ class CollectionAgent(BaseAgent):
                 output["response"] = decision_text or fallback_outline or "No response generated."
         return output
 
+    @staticmethod
+    def _ensure_negotiation_state_defaults(*, memory: Any) -> None:
+        memory_state = dict(getattr(memory, "state", {}))
+        defaults: dict[str, Any] = {}
+        if "conversation_mode" not in memory_state:
+            defaults["conversation_mode"] = "collections"
+        if "negotiation_stage" not in memory_state:
+            defaults["negotiation_stage"] = "none"
+        if "customer_payment_posture" not in memory_state:
+            defaults["customer_payment_posture"] = "unknown"
+        if not isinstance(memory_state.get("hardship_context"), dict):
+            defaults["hardship_context"] = {
+                "hardship_detected": False,
+                "hardship_reason": None,
+                "confidence": 0.0,
+            }
+        if "response_mode" not in memory_state:
+            defaults["response_mode"] = "informational"
+        if "active_dialogue_owner" not in memory_state:
+            defaults["active_dialogue_owner"] = "collections"
+        if defaults:
+            memory.set_state(**defaults)
+
     def _maybe_handle_admin_message(
         self,
         *,
@@ -974,6 +1108,12 @@ class CollectionAgent(BaseAgent):
             active_conversation_plan={},
             verification_collected={},
             last_admin_message=user_input,
+            conversation_mode="collections",
+            negotiation_stage="none",
+            customer_payment_posture="unknown",
+            hardship_context={"hardship_detected": False, "hardship_reason": None, "confidence": 0.0},
+            response_mode="informational",
+            active_dialogue_owner="collections",
         )
         self._hydrate_case_context(memory=memory)
 
@@ -1354,6 +1494,7 @@ class CollectionAgent(BaseAgent):
         phase_map = {
             "relevance_intent": "relevance_classification",
             "entity_extract": "entity_extraction",
+            "negotiation_classification": "negotiation_classification",
             "pre_plan_intent": "pre_plan_routing",
             "execution_path_intent": "execution_routing",
             "memory_retrieve": "memory_hydration",
@@ -1362,6 +1503,9 @@ class CollectionAgent(BaseAgent):
             "react": "action_planning",
             "verification_react": "verification_action_planning",
             "tool_execution": "tool_execution",
+            "plan_proposal_state": "plan_proposal_state",
+            "plan_proposal_graph": "plan_proposal_graph",
+            "plan_proposal_directive": "plan_proposal_directive",
             "plan_proposal": "plan_proposal",
             "reflect": "quality_reflection",
             "relevant_response": "response_packaging",
