@@ -77,6 +77,7 @@ class CollectionResponseNode(ResponseNode):
             "system_prompt": None,
             "llm_response": None,
             "llm_error": None,
+            "response_render_debug": None,
         }
         plan = state.get("plan_proposal") if isinstance(state.get("plan_proposal"), dict) else {}
         if plan:
@@ -95,6 +96,7 @@ class CollectionResponseNode(ResponseNode):
         update["system_prompt"] = self.last_render_debug.get("system_prompt")
         update["llm_response"] = self.last_render_debug.get("llm_response")
         update["llm_error"] = self.last_render_debug.get("llm_error")
+        update["response_render_debug"] = self.last_render_debug.get("response_render_debug")
         if self.last_render_debug.get("fallback_reason"):
             update["fallback_reason"] = self.last_render_debug.get("fallback_reason")
         self._update_conversation_history_memory(state=state, update=update)
@@ -145,8 +147,14 @@ class CollectionResponseNode(ResponseNode):
             proposal=proposal,
             context=render_context,
         )
+        render_debug = self._build_response_render_debug(
+            directive=directive,
+            response_target=str(render_context.get("response_target", "customer")).strip().lower() or "customer",
+        )
         response_target = str(render_context.get("response_target", "customer")).strip().lower() or "customer"
         if response_target == "discount_planning_agent":
+            render_debug["renderer_fallback_used"] = True
+            self.last_render_debug["response_render_debug"] = render_debug
             return self._fallback_from_directive(
                 directive=directive,
                 context=render_context,
@@ -161,18 +169,24 @@ class CollectionResponseNode(ResponseNode):
                 response_directive=directive,
             )
             if llm_response:
-                validated = self._validate_response_against_directive(
+                validation = self._validate_response_against_directive(
                     text=llm_response,
                     directive=directive,
                     context=render_context,
                 )
-                if validated:
+                render_debug["policy_filters_applied"] = validation["policy_filters_applied"]
+                render_debug["forbidden_actions_blocked"] = validation["forbidden_actions_blocked"]
+                if validation["text"]:
+                    render_debug["renderer_fallback_used"] = False
+                    self.last_render_debug["response_render_debug"] = render_debug
                     return self._apply_minimal_safety_cleanup(
-                        text=validated,
+                        text=validation["text"],
                         context=render_context,
                         directive=directive,
                     )
                 self.last_render_debug["fallback_reason"] = "directive_validation_failed"
+            else:
+                render_debug["policy_filters_applied"] = ["llm_render_attempt"]
             if self.strict_llm_mode:
                 fallback_reason = str(self.last_render_debug.get("fallback_reason", "")).strip()
                 if fallback_reason == "provider_rate_limit":
@@ -180,6 +194,8 @@ class CollectionResponseNode(ResponseNode):
                         "CollectionResponseNode rate-limited by provider while strict_llm_mode is enabled. "
                         f"Underlying error: {self.last_render_debug.get('llm_error', 'unknown')}"
                     )
+        render_debug["renderer_fallback_used"] = True
+        self.last_render_debug["response_render_debug"] = render_debug
         return self._fallback_from_directive(
             directive=directive,
             context=render_context,
@@ -202,13 +218,10 @@ class CollectionResponseNode(ResponseNode):
             if isinstance(conversation_plan, dict)
             else ""
         )
-        verification_guard_context = self._build_verification_guard_context(
+        verification_context = self._build_verification_context(
             state=state,
             memory_state=memory_state,
-            response_target=response_target,
-            conversation_plan=conversation_plan,
-            customer_name=str(facts.get("customer_name", "Customer")).strip() or "Customer",
-            user_input=user_input,
+            proposal=proposal,
         )
         return {
             "memory_state": memory_state,
@@ -217,25 +230,8 @@ class CollectionResponseNode(ResponseNode):
             "conversation_plan": conversation_plan,
             "facts": facts,
             "current_plan_node_id": current_plan_node_id,
-            "verification_guard_context": verification_guard_context,
-            "conversation_mode": str(state.get("conversation_mode", memory_state.get("conversation_mode", "collections"))).strip(),
+            "verification_context": verification_context,
             "negotiation_stage": str(state.get("negotiation_stage", memory_state.get("negotiation_stage", "none"))).strip(),
-            "customer_payment_posture": str(
-                state.get("customer_payment_posture", memory_state.get("customer_payment_posture", "unknown"))
-            ).strip(),
-            "hardship_context": (
-                state.get("hardship_context")
-                if isinstance(state.get("hardship_context"), dict)
-                else (
-                    memory_state.get("hardship_context")
-                    if isinstance(memory_state.get("hardship_context"), dict)
-                    else {}
-                )
-            ),
-            "response_mode": str(state.get("response_mode", memory_state.get("response_mode", "informational"))).strip(),
-            "active_dialogue_owner": str(
-                state.get("active_dialogue_owner", memory_state.get("active_dialogue_owner", "collections"))
-            ).strip(),
             "observations": state.get("observations") if isinstance(state.get("observations"), list) else [],
             "observation": state.get("observation"),
             "plan_proposal": proposal,
@@ -248,7 +244,6 @@ class CollectionResponseNode(ResponseNode):
         proposal: dict[str, Any],
         context: dict[str, Any],
     ) -> dict[str, Any]:
-        memory_state = context.get("memory_state") if isinstance(context.get("memory_state"), dict) else {}
         raw_directive = proposal.get("response_directive")
         if not isinstance(raw_directive, dict):
             raw_directive = {
@@ -262,176 +257,147 @@ class CollectionResponseNode(ResponseNode):
                 "handoff_target": proposal.get("handoff_target"),
             }
         raw_directive = {key: value for key, value in raw_directive.items() if value is not None}
-        if not raw_directive:
-            directive = self._build_response_directive_from_context(
+        directive = self._normalize_response_directive(raw_directive)
+        if directive is None:
+            directive = self._safe_renderer_fallback_directive(
                 state=state,
-                memory_state=memory_state,
-                response_target=str(context.get("response_target", "customer")).strip().lower() or "customer",
+                proposal=proposal,
+                context=context,
             )
-            if str(context.get("response_target", "")).strip().lower() == "discount_planning_agent":
-                directive["conversation_objective"] = "handoff_to_offer_agent"
-                directive["dialogue_action"] = "handoff"
-                directive["response_mode"] = "firm"
-                directive["handoff_target"] = "discount_planning_agent"
-            return directive
+        return directive
+
+    @staticmethod
+    def _normalize_response_directive(raw_directive: dict[str, Any]) -> dict[str, Any] | None:
+        if not isinstance(raw_directive, dict) or not raw_directive:
+            return None
         try:
             payload = _ResponseDirectivePayload.model_validate(raw_directive)
-            directive = payload.model_dump(mode="json")
         except Exception:
-            directive = self._build_response_directive_from_context(
-                state=state,
-                memory_state=memory_state,
-                response_target=str(context.get("response_target", "customer")).strip().lower() or "customer",
-            )
-        if not directive.get("conversation_objective"):
-            directive = self._build_response_directive_from_context(
-                state=state,
-                memory_state=memory_state,
-                response_target=str(context.get("response_target", "customer")).strip().lower() or "customer",
-            )
-        if str(context.get("response_target", "")).strip().lower() == "discount_planning_agent":
-            directive["conversation_objective"] = "handoff_to_offer_agent"
-            directive["dialogue_action"] = "handoff"
-            directive["response_mode"] = "firm"
-            directive["handoff_target"] = "discount_planning_agent"
-        directive.setdefault("required_response_elements", [])
-        directive.setdefault("forbidden_dialogue_actions", [])
-        directive.setdefault("allowed_dialogue_actions", [])
+            return None
+        directive = payload.model_dump(mode="json")
+        if not str(directive.get("conversation_objective", "")).strip():
+            return None
+        if not str(directive.get("dialogue_action", "")).strip():
+            return None
+        directive["required_response_elements"] = [
+            str(item).strip()
+            for item in directive.get("required_response_elements", [])
+            if str(item).strip()
+        ]
+        directive["forbidden_dialogue_actions"] = [
+            str(item).strip()
+            for item in directive.get("forbidden_dialogue_actions", [])
+            if str(item).strip()
+        ]
+        directive["allowed_dialogue_actions"] = [
+            str(item).strip()
+            for item in directive.get("allowed_dialogue_actions", [])
+            if str(item).strip()
+        ]
         directive.setdefault("customer_facing_goal", None)
         directive.setdefault("handoff_target", None)
         return directive
 
-    def _build_response_directive_from_context(
+    def _safe_renderer_fallback_directive(
         self,
         *,
         state: AgentState,
-        memory_state: dict[str, Any],
+        proposal: dict[str, Any],
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        response_target = str(context.get("response_target", "customer")).strip().lower() or "customer"
+        verification_context = (
+            context.get("verification_context")
+            if isinstance(context.get("verification_context"), dict)
+            else self._build_verification_context(
+                state=state,
+                memory_state=context.get("memory_state") if isinstance(context.get("memory_state"), dict) else {},
+                proposal=proposal,
+            )
+        )
+        if response_target == "discount_planning_agent":
+            return {
+                "conversation_objective": "handoff_to_offer_agent",
+                "dialogue_action": "handoff",
+                "response_mode": "firm",
+                "required_response_elements": ["handoff_payload"],
+                "forbidden_dialogue_actions": ["restart_collections_menu", "mention_internal_processing"],
+                "allowed_dialogue_actions": ["handoff"],
+                "customer_facing_goal": "Prepare a specialist handoff without changing customer dialogue direction.",
+                "handoff_target": "discount_planning_agent",
+            }
+        if not bool(verification_context.get("identity_verified", False)):
+            return {
+                "conversation_objective": "collect_verification",
+                "dialogue_action": "ask_verification",
+                "response_mode": "compliance",
+                "required_response_elements": ["ask_only_missing_verification_fields"],
+                "forbidden_dialogue_actions": [
+                    "disclose_dues_before_verification",
+                    "restart_collections_menu",
+                    "mention_internal_processing",
+                ],
+                "allowed_dialogue_actions": ["ask_verification"],
+                "customer_facing_goal": "Ask only for the missing verification details needed to continue securely.",
+                "handoff_target": None,
+            }
+        return {
+            "conversation_objective": "close_conversation",
+            "dialogue_action": "ask_next_step",
+            "response_mode": "informational",
+            "required_response_elements": [],
+            "forbidden_dialogue_actions": ["restart_collections_menu", "mention_internal_processing"],
+            "allowed_dialogue_actions": ["ask_next_step"],
+            "customer_facing_goal": "Please let me know how you would like to proceed.",
+            "handoff_target": None,
+        }
+
+    @staticmethod
+    def _select_template_name(*, directive: dict[str, Any], response_target: str) -> str:
+        if response_target == "discount_planning_agent":
+            return "handoff_payload"
+        objective = str(directive.get("conversation_objective", "")).strip().lower()
+        action = str(directive.get("dialogue_action", "")).strip().lower()
+        if action == "ask_verification" or objective == "collect_verification":
+            return "verification_request"
+        if action == "ask_affordable_amount" or objective == "assess_affordability":
+            return "affordability_question"
+        if action in {"present_offer", "discuss_arrangement"} or objective in {
+            "present_arrangement_options",
+            "negotiate_installment",
+        }:
+            return "arrangement_discussion"
+        if action in {"ask_commitment_date", "confirm_payment_intent"} or objective in {
+            "confirm_commitment",
+            "capture_promise",
+        }:
+            return "commitment_confirmation"
+        if objective == "explain_dues" or action == "present_due_amount":
+            return "dues_explanation"
+        if objective == "handoff_to_offer_agent" or action == "handoff":
+            return "handoff_payload"
+        if objective == "close_conversation":
+            return "safe_follow_up"
+        return "safe_follow_up"
+
+    def _build_response_render_debug(
+        self,
+        *,
+        directive: dict[str, Any],
         response_target: str,
     ) -> dict[str, Any]:
-        objective, action, mode = self._infer_response_objective(
-            memory_state=memory_state,
-            response_target=response_target,
-        )
-        if response_target == "discount_planning_agent":
-            objective = "handoff_to_offer_agent"
-            action = "handoff"
-            mode = "firm"
-        directive = {
-            "conversation_objective": objective,
-            "dialogue_action": action,
-            "response_mode": mode,
-            "required_response_elements": self._required_response_elements_for_objective(objective=objective),
-            "forbidden_dialogue_actions": self._forbidden_dialogue_actions_for_objective(objective=objective),
-            "allowed_dialogue_actions": self._allowed_dialogue_actions_for_objective(objective=objective),
-            "customer_facing_goal": self._customer_facing_goal_for_objective(
-                objective=objective,
-                memory_state=memory_state,
+        return {
+            "conversation_objective": str(directive.get("conversation_objective", "")).strip(),
+            "dialogue_action": str(directive.get("dialogue_action", "")).strip(),
+            "response_mode": str(directive.get("response_mode", "")).strip(),
+            "template_selected": self._select_template_name(
+                directive=directive,
+                response_target=response_target,
             ),
-            "handoff_target": ("discount_planning_agent" if response_target == "discount_planning_agent" else None),
+            "policy_filters_applied": [],
+            "forbidden_actions_blocked": [],
+            "renderer_fallback_used": False,
         }
-        del state
-        return directive
-
-    @staticmethod
-    def _infer_response_objective(
-        *,
-        memory_state: dict[str, Any],
-        response_target: str,
-    ) -> tuple[str, str, str]:
-        if response_target == "discount_planning_agent":
-            return "handoff_to_offer_agent", "handoff", "firm"
-
-        identity_verified = bool(memory_state.get("identity_verified", False))
-        conversation_mode = str(memory_state.get("conversation_mode", "collections")).strip().lower()
-        negotiation_stage = str(memory_state.get("negotiation_stage", "none")).strip().lower()
-        customer_payment_posture = str(memory_state.get("customer_payment_posture", "unknown")).strip().lower()
-        hardship_context = (
-            memory_state.get("hardship_context")
-            if isinstance(memory_state.get("hardship_context"), dict)
-            else {}
-        )
-        hardship_active = conversation_mode == "hardship_negotiation" or bool(hardship_context.get("hardship_detected", False))
-        if not identity_verified:
-            return "collect_verification", "ask_verification", "compliance"
-        if hardship_active:
-            if negotiation_stage in {"discovering_hardship", "assessing_capacity"}:
-                return "assess_affordability", "ask_affordable_amount", "empathetic"
-            if negotiation_stage in {"evaluating_options"}:
-                return "present_arrangement_options", "present_offer", "negotiation"
-            if negotiation_stage in {"negotiating_plan"}:
-                return "negotiate_installment", "discuss_arrangement", "negotiation"
-            if negotiation_stage in {"confirming_commitment"}:
-                return "confirm_commitment", "ask_commitment_date", "negotiation"
-            if negotiation_stage in {"awaiting_customer_decision"}:
-                return "present_arrangement_options", "ask_affordable_amount", "negotiation"
-            if customer_payment_posture == "needs_arrangement":
-                return "present_arrangement_options", "discuss_arrangement", "negotiation"
-            return "assess_affordability", "ask_affordable_amount", "empathetic"
-        if customer_payment_posture == "needs_arrangement":
-            return "present_arrangement_options", "present_offer", "negotiation"
-        return "explain_dues", "present_due_amount", "informational"
-
-    @staticmethod
-    def _required_response_elements_for_objective(*, objective: str) -> list[str]:
-        mapping = {
-            "collect_verification": ["ask_only_missing_verification_fields"],
-            "explain_dues": ["mention_due_amount", "ask_next_step"],
-            "assess_affordability": ["acknowledge_hardship", "ask_affordable_amount"],
-            "present_arrangement_options": ["discuss_arrangement", "ask_next_step"],
-            "negotiate_installment": ["ask_affordable_amount", "discuss_arrangement"],
-            "confirm_commitment": ["ask_commitment_date", "confirm_amount_or_date"],
-            "capture_promise": ["ask_commitment_date", "confirm_amount_or_date"],
-            "handoff_to_offer_agent": ["handoff_payload"],
-            "close_conversation": ["closure"],
-        }
-        return list(mapping.get(objective, []))
-
-    @staticmethod
-    def _forbidden_dialogue_actions_for_objective(*, objective: str) -> list[str]:
-        mapping = {
-            "collect_verification": ["disclose_dues_before_verification", "restart_collections_menu", "mention_internal_processing"],
-            "explain_dues": ["disclose_dues_before_verification", "mention_internal_processing"],
-            "assess_affordability": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
-            "present_arrangement_options": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
-            "negotiate_installment": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
-            "confirm_commitment": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
-            "capture_promise": ["restart_collections_menu", "ask_pay_now_or_arrangement", "mention_internal_processing"],
-            "handoff_to_offer_agent": ["restart_collections_menu", "mention_internal_processing"],
-            "close_conversation": ["restart_collections_menu", "mention_internal_processing"],
-        }
-        return list(mapping.get(objective, []))
-
-    @staticmethod
-    def _allowed_dialogue_actions_for_objective(*, objective: str) -> list[str]:
-        mapping = {
-            "collect_verification": ["ask_verification"],
-            "explain_dues": ["present_due_amount", "ask_next_step"],
-            "assess_affordability": ["acknowledge_hardship", "ask_affordable_amount"],
-            "present_arrangement_options": ["present_offer", "discuss_arrangement"],
-            "negotiate_installment": ["discuss_arrangement", "ask_affordable_amount"],
-            "confirm_commitment": ["ask_commitment_date", "confirm_payment_intent"],
-            "capture_promise": ["ask_commitment_date", "confirm_payment_intent"],
-            "handoff_to_offer_agent": ["handoff"],
-            "close_conversation": ["close_conversation"],
-        }
-        return list(mapping.get(objective, []))
-
-    @staticmethod
-    def _customer_facing_goal_for_objective(*, objective: str, memory_state: dict[str, Any]) -> str:
-        name = str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer"
-        goals = {
-            "collect_verification": "Ask only for the missing verification details needed to continue securely.",
-            "explain_dues": "Explain the overdue amount clearly and ask the next useful payment question.",
-            "assess_affordability": "Ask what monthly amount is realistically manageable after hardship disclosure.",
-            "present_arrangement_options": "Continue arrangement discussion with practical repayment options.",
-            "negotiate_installment": "Refine the repayment arrangement toward a manageable installment.",
-            "confirm_commitment": "Confirm the amount and payment date the customer can commit to.",
-            "capture_promise": "Capture the promise details and close on a specific commitment.",
-            "handoff_to_offer_agent": "Prepare a specialist handoff for offer or discount review.",
-            "close_conversation": "Close the conversation cleanly and professionally.",
-        }
-        goal = goals.get(objective, "Continue the conversation naturally.")
-        return f"{name}: {goal}" if name else goal
 
     def _llm_render_from_proposal(
         self,
@@ -463,24 +429,6 @@ class CollectionResponseNode(ResponseNode):
         prior_agent_response = str(memory_state.get("last_agent_response", "")).strip()
         turn_index = int(memory_state.get("turn_index", state.get("turn_index", 0)) or 0)
         is_opening_turn = turn_index <= 0
-        conversation_mode = str(context.get("conversation_mode", memory_state.get("conversation_mode", "collections"))).strip()
-        negotiation_stage = str(context.get("negotiation_stage", memory_state.get("negotiation_stage", "none"))).strip()
-        customer_payment_posture = str(
-            context.get("customer_payment_posture", memory_state.get("customer_payment_posture", "unknown"))
-        ).strip()
-        hardship_context = (
-            context.get("hardship_context")
-            if isinstance(context.get("hardship_context"), dict)
-            else (
-                memory_state.get("hardship_context")
-                if isinstance(memory_state.get("hardship_context"), dict)
-                else {}
-            )
-        )
-        response_mode = str(context.get("response_mode", memory_state.get("response_mode", "informational"))).strip()
-        active_dialogue_owner = str(
-            context.get("active_dialogue_owner", memory_state.get("active_dialogue_owner", "collections"))
-        ).strip()
         verification_context_merged = self._build_verification_context(state=state, memory_state=memory_state, proposal=proposal)
         response_directive = (
             dict(response_directive)
@@ -534,15 +482,10 @@ class CollectionResponseNode(ResponseNode):
                 "verification_entities_json": self._json_compact(verification_entities, max_chars=500),
                 "verification_missing_fields_json": self._json_compact(verification_missing_fields, max_chars=300),
                 "observation_json": self._json_compact(compact_observation, max_chars=700),
-                "conversation_mode": conversation_mode,
-                "negotiation_stage": negotiation_stage,
-                "customer_payment_posture": customer_payment_posture,
-                "hardship_context_json": self._json_compact(hardship_context, max_chars=400),
-                "response_mode": response_mode,
-                "active_dialogue_owner": active_dialogue_owner,
                 "response_directive_json": self._json_compact(response_directive, max_chars=800),
                 "conversation_objective": str(response_directive.get("conversation_objective", "")).strip(),
                 "dialogue_action": str(response_directive.get("dialogue_action", "")).strip(),
+                "response_mode": str(response_directive.get("response_mode", "")).strip(),
                 "required_response_elements_json": self._json_compact(
                     response_directive.get("required_response_elements", []),
                     max_chars=300,
@@ -637,223 +580,6 @@ class CollectionResponseNode(ResponseNode):
             ).strip(),
         }
 
-    def _build_verification_guard_context(
-        self,
-        *,
-        state: AgentState,
-        memory_state: dict[str, Any],
-        response_target: str,
-        conversation_plan: dict[str, Any],
-        customer_name: str,
-        user_input: str,
-    ) -> dict[str, Any] | None:
-        if response_target != "customer":
-            return None
-        if bool(state.get("identity_verified", memory_state.get("identity_verified", False))):
-            return None
-
-        collected = (
-            state.get("verification_entities")
-            if isinstance(state.get("verification_entities"), dict)
-            else (
-                memory_state.get("verification_collected")
-                if isinstance(memory_state.get("verification_collected"), dict)
-                else {}
-            )
-        )
-        required = memory_state.get("active_verification_required_fields")
-        required_fields = [str(x).strip() for x in required if str(x).strip()] if isinstance(required, list) else []
-        # Safety clamp: verification scope for this agent must stay within supported identity fields.
-        allowed_identity_fields = {"dob", "phone", "last4_pan", "zip", "name"}
-        required_fields = [field for field in required_fields if field in allowed_identity_fields]
-        missing_from_state_raw = state.get("verification_missing_fields")
-        if not isinstance(missing_from_state_raw, list):
-            missing_from_state_raw = memory_state.get("verification_missing_fields")
-        missing_from_state = (
-            [str(x).strip() for x in missing_from_state_raw if str(x).strip()]
-            if isinstance(missing_from_state_raw, list)
-            else []
-        )
-
-        missing_labels: list[str] = []
-        name_confirmed = bool(collected.get("name_confirmed"))
-        # Prefer tool-driven missing fields from state (source of truth under iterative verify_dob/verify_mobile flow).
-        if missing_from_state:
-            for field in missing_from_state:
-                if field in {"name", "name_confirmed"}:
-                    continue
-                missing_labels.append(self._verification_field_label(field))
-        else:
-            for field in required_fields:
-                if field in {"name", "name_confirmed"}:
-                    continue
-                if collected.get(field):
-                    continue
-                missing_labels.append(self._verification_field_label(field))
-        mismatched_raw = (
-            memory_state.get("verification_mismatched_fields")
-            if isinstance(memory_state.get("verification_mismatched_fields"), list)
-            else []
-        )
-        mismatched_fields = [str(x).strip() for x in mismatched_raw if str(x).strip()]
-        mismatch_labels = [self._verification_field_label(field) for field in mismatched_fields]
-        mismatch_mode = False
-        if not missing_labels and mismatch_labels:
-            missing_labels = mismatch_labels
-            mismatch_mode = True
-
-        hardship_context = (
-            state.get("hardship_context")
-            if isinstance(state.get("hardship_context"), dict)
-            else (
-                memory_state.get("hardship_context")
-                if isinstance(memory_state.get("hardship_context"), dict)
-                else {}
-            )
-        )
-        lowered_input = str(user_input or "").lower()
-        hardship_tokens = (
-            "job loss",
-            "lost my job",
-            "lost job",
-            "cannot pay",
-            "can't pay",
-            "hardship",
-            "vulnerable",
-            "medical",
-            "salary cut",
-            "income loss",
-        )
-        hardship_signal = bool(hardship_context.get("hardship_detected", False)) or any(
-            token in lowered_input for token in hardship_tokens
-        )
-        turn_index = int(memory_state.get("turn_index", state.get("turn_index", 0)) or 0)
-        is_opening_turn = turn_index <= 0
-
-        return {
-            "verification_incomplete": True,
-            "is_opening_turn": is_opening_turn,
-            "name_confirmed": bool(name_confirmed),
-            "customer_name": customer_name,
-            "required_fields": required_fields,
-            "missing_field_labels": missing_labels,
-            "missing_fields_human": self._join_human_list(missing_labels) if missing_labels else "",
-            "mismatch_mode": mismatch_mode,
-            "hardship_signal": hardship_signal,
-            "guidance": (
-                "Ask only for missing verification fields in a natural conversational way. "
-                "Do not disclose dues or policy-sensitive details until verification completes."
-            ),
-            "current_plan_node_id": str(conversation_plan.get("current_node_id", "")).strip(),
-            "collected_fields": collected,
-        }
-
-    def _render_verification_first_message(self, *, customer_name: str, guard: dict[str, Any]) -> str:
-        missing_labels = guard.get("missing_field_labels") if isinstance(guard.get("missing_field_labels"), list) else []
-        missing_human = str(guard.get("missing_fields_human", "")).strip()
-        hardship_signal = bool(guard.get("hardship_signal", False))
-        is_opening_turn = bool(guard.get("is_opening_turn", False))
-        hardship_prefix = self.verification_hardship_prefix if hardship_signal else ""
-        customer_suffix = f", {customer_name}" if customer_name else ""
-        ack_prefix = self._render_template(
-            self.verification_ack_template,
-            {"customer_suffix": customer_suffix},
-        ).strip()
-        if ack_prefix:
-            ack_prefix = f"{ack_prefix} "
-        if missing_human:
-            ask_target = missing_human
-        elif missing_labels:
-            ask_target = self._join_human_list([str(x) for x in missing_labels if str(x).strip()])
-        else:
-            ask_target = self.verification_default_missing_text
-
-        template = self.verification_opening_template if is_opening_turn else self.verification_followup_template
-        return self._render_template(
-            template,
-            {
-                "customer_name": customer_name,
-                "hardship_prefix": hardship_prefix,
-                "missing_human": ask_target,
-                "ack_prefix": ack_prefix,
-            },
-        ).strip()
-
-    def _apply_customer_continuity_policy(
-        self,
-        *,
-        text: str,
-        state: AgentState,
-        proposal: dict[str, Any],
-        response_target: str,
-    ) -> str:
-        if str(response_target).strip().lower() != "customer":
-            return text
-
-        context = self._resolve_render_context(state=state, proposal=proposal)
-        directive = self._resolve_response_directive(state=state, proposal=proposal, context=context)
-        rendered = self._apply_minimal_safety_cleanup(text=str(text or ""), context=context, directive=directive)
-        validated = self._validate_response_against_directive(text=rendered, directive=directive, context=context)
-        if validated:
-            return validated
-        return self._fallback_from_directive(
-            directive=directive,
-            context=context,
-            response_target=str(response_target).strip().lower() or "customer",
-        )
-
-    @staticmethod
-    def _resolve_negotiation_render_context(*, state: AgentState, proposal: dict[str, Any]) -> dict[str, Any]:
-        memory = state.get("memory")
-        memory_state = dict(getattr(memory, "state", {})) if memory is not None else {}
-        proposal_context = proposal.get("context") if isinstance(proposal.get("context"), dict) else {}
-        resolved = {
-            "customer_name": str(
-                proposal_context.get("customer_name", memory_state.get("active_customer_name", "Customer"))
-            ).strip()
-            or "Customer",
-            "conversation_mode": str(
-                state.get(
-                    "conversation_mode",
-                    proposal_context.get("conversation_mode", memory_state.get("conversation_mode", "collections")),
-                )
-            ).strip().lower(),
-            "negotiation_stage": str(
-                state.get(
-                    "negotiation_stage",
-                    proposal_context.get("negotiation_stage", memory_state.get("negotiation_stage", "none")),
-                )
-            ).strip().lower(),
-            "customer_payment_posture": str(
-                state.get(
-                    "customer_payment_posture",
-                    proposal_context.get("customer_payment_posture", memory_state.get("customer_payment_posture", "unknown")),
-                )
-            ).strip().lower(),
-            "hardship_context": (
-                state.get("hardship_context")
-                if isinstance(state.get("hardship_context"), dict)
-                else (
-                    proposal_context.get("hardship_context")
-                    if isinstance(proposal_context.get("hardship_context"), dict)
-                    else (
-                        memory_state.get("hardship_context")
-                        if isinstance(memory_state.get("hardship_context"), dict)
-                        else {}
-                    )
-                )
-            ),
-            "response_mode": str(
-                state.get("response_mode", proposal_context.get("response_mode", memory_state.get("response_mode", "informational")))
-            ).strip().lower(),
-            "active_dialogue_owner": str(
-                state.get(
-                    "active_dialogue_owner",
-                    proposal_context.get("active_dialogue_owner", memory_state.get("active_dialogue_owner", "collections")),
-                )
-            ).strip().lower(),
-        }
-        return resolved
 
     @staticmethod
     def _strip_orchestration_leakage(text: str) -> str:
@@ -869,94 +595,6 @@ class CollectionResponseNode(ResponseNode):
             cleaned = re.sub(pattern, "", cleaned).strip()
         return cleaned
 
-    def _requires_negotiation_continuity_rewrite(self, text: str, *, context: dict[str, Any]) -> bool:
-        conversation_mode = str(context.get("conversation_mode", "collections")).strip().lower()
-        payment_posture = str(context.get("customer_payment_posture", "unknown")).strip().lower()
-        hardship_context = context.get("hardship_context") if isinstance(context.get("hardship_context"), dict) else {}
-        active_dialogue_owner = str(context.get("active_dialogue_owner", "collections")).strip().lower()
-        hardship_active = conversation_mode == "hardship_negotiation" or bool(hardship_context.get("hardship_detected", False))
-        arrangement_active = payment_posture == "needs_arrangement"
-        if not hardship_active and not arrangement_active:
-            return False
-        if active_dialogue_owner not in {"plan_proposal", "promise_capture", "collections"}:
-            return False
-        lowered = str(text or "").lower()
-        return (
-            not lowered
-            or self._contains_internal_processing(text)
-            or self._looks_like_root_menu(text)
-        )
-
-    def _render_negotiation_stage_followup(self, *, customer_name: str, context: dict[str, Any]) -> str:
-        del customer_name
-        directive = self._resolve_response_directive(
-            state=context.get("state") if isinstance(context.get("state"), dict) else {},
-            proposal=context.get("proposal") if isinstance(context.get("proposal"), dict) else {},
-            context=context,
-        )
-        return self._fallback_from_directive(
-            directive=directive,
-            context=context,
-            response_target="customer",
-        )
-
-    def _fallback_render_from_proposal(self, *, proposal: dict[str, Any]) -> str:
-        context = proposal.get("context") if isinstance(proposal.get("context"), dict) else {}
-        memory_state = {
-            "active_customer_name": context.get("customer_name", "Customer"),
-            "active_case_id": context.get("case_id", "COLL-1001"),
-            "active_overdue_amount": context.get("overdue_amount", 0.0),
-            "conversation_mode": context.get("conversation_mode", "collections"),
-            "negotiation_stage": context.get("negotiation_stage", "none"),
-            "customer_payment_posture": context.get("customer_payment_posture", "unknown"),
-            "hardship_context": context.get("hardship_context", {}),
-            "response_mode": context.get("response_mode", "informational"),
-            "active_dialogue_owner": context.get("active_dialogue_owner", "collections"),
-            "identity_verified": context.get("identity_verified", False),
-            "active_verification_required_fields": context.get("required_fields", ["dob", "phone"]),
-            "verification_missing_fields": context.get("verification_missing_fields", []),
-            "verification_verified_fields": context.get("verification_verified_fields", []),
-            "verification_entities": context.get("verification_entities", {}),
-        }
-        facts = {
-            "customer_name": str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer",
-            "case_id": str(memory_state.get("active_case_id", "COLL-1001")).strip() or "COLL-1001",
-            "overdue_amount": float(memory_state.get("active_overdue_amount", 0.0) or 0.0),
-        }
-        verification_context = {
-            "identity_verified": bool(memory_state.get("identity_verified", False)),
-            "required_fields": list(memory_state.get("active_verification_required_fields", []))
-            if isinstance(memory_state.get("active_verification_required_fields"), list)
-            else ["dob", "phone"],
-            "verification_entities": dict(memory_state.get("verification_entities", {})),
-            "verification_missing_fields": list(memory_state.get("verification_missing_fields", []))
-            if isinstance(memory_state.get("verification_missing_fields"), list)
-            else [],
-        }
-        directive = self._resolve_response_directive(
-            state={"memory": None},
-            proposal=proposal,
-            context={
-                "memory_state": memory_state,
-                "response_target": str(proposal.get("target", "customer")).strip().lower() or "customer",
-                "conversation_mode": str(context.get("conversation_mode", "collections")).strip(),
-                "negotiation_stage": str(context.get("negotiation_stage", "none")).strip(),
-                "customer_payment_posture": str(context.get("customer_payment_posture", "unknown")).strip(),
-                "hardship_context": context.get("hardship_context", {}),
-                "response_mode": str(context.get("response_mode", "informational")).strip(),
-                "active_dialogue_owner": str(context.get("active_dialogue_owner", "collections")).strip(),
-            },
-        )
-        return self._fallback_from_directive(
-            directive=directive,
-            context={
-                "memory_state": memory_state,
-                "facts": facts,
-                "verification_context": verification_context,
-                "response_target": str(proposal.get("target", "customer")).strip().lower() or "customer",
-            },
-            response_target=str(proposal.get("target", "customer")).strip().lower() or "customer",
-        )
 
     def _fallback_from_directive(
         self,
@@ -966,6 +604,7 @@ class CollectionResponseNode(ResponseNode):
         response_target: str,
     ) -> str:
         objective = str(directive.get("conversation_objective", "close_conversation")).strip().lower()
+        dialogue_action = str(directive.get("dialogue_action", "")).strip().lower()
         response_target = str(response_target).strip().lower() or "customer"
         if response_target == "self":
             return "Continue internal planning using the current directive and determine the next execution step."
@@ -989,46 +628,39 @@ class CollectionResponseNode(ResponseNode):
                 missing_fields = self._join_human_list([str(x) for x in labels if str(x).strip()])
         missing_fields = str(missing_fields or self.verification_default_missing_text).strip()
         response_mode = str(directive.get("response_mode", context.get("response_mode", "informational"))).strip().lower()
-        hardship_context = context.get("hardship_context") if isinstance(context.get("hardship_context"), dict) else {}
-        hardship_active = bool(hardship_context.get("hardship_detected", False)) or str(context.get("conversation_mode", "")).strip().lower() == "hardship_negotiation"
-        negotiation_stage = str(context.get("negotiation_stage", "none")).strip().lower()
+        empathy_prefix = "I am sorry to hear that. " if response_mode == "empathetic" else ""
 
-        if objective == "collect_verification":
-            prefix = self.verification_hardship_prefix if hardship_active else ""
+        if objective == "collect_verification" or dialogue_action == "ask_verification":
+            prefix = self.verification_hardship_prefix if response_mode == "empathetic" else ""
             return (
                 f"Hello {customer_name}, this is Alex from the bank's collections team. "
                 f"{prefix}Before I share details, please confirm {missing_fields}."
             ).strip()
-        if objective == "explain_dues":
+        if objective == "explain_dues" or dialogue_action == "present_due_amount":
             return (
                 f"Thank you {customer_name}. Your overdue amount is INR {overdue_amount:.2f}. "
                 "What would you like to do next to bring the account current?"
             ).strip()
-        if objective == "assess_affordability":
-            if response_mode == "empathetic" or hardship_active:
-                return (
-                    f"I am sorry to hear that, {customer_name}. "
-                    "To explore a manageable arrangement, what monthly amount would realistically work for you right now?"
-                ).strip()
-            return "To explore a manageable arrangement, what monthly amount would realistically work for you right now?"
-        if objective == "present_arrangement_options":
+        if objective == "assess_affordability" or dialogue_action == "ask_affordable_amount":
+            return (
+                f"{empathy_prefix}To explore a manageable arrangement, what monthly amount would realistically work for you right now?"
+            ).strip()
+        if objective == "present_arrangement_options" or dialogue_action == "present_offer":
             return "Let us work toward a practical repayment option. What installment amount would you be comfortable committing to?"
-        if objective == "negotiate_installment":
+        if objective == "negotiate_installment" or dialogue_action == "discuss_arrangement":
             return "What installment amount would feel manageable for you at the moment?"
-        if objective == "confirm_commitment":
+        if objective == "confirm_commitment" or dialogue_action == "ask_commitment_date":
             return "Thank you. What amount and payment date can you confidently commit to for the next step?"
         if objective == "capture_promise":
             return "Please confirm the amount and payment date you can commit to so I can capture your promise."
         if objective == "handoff_to_offer_agent":
             return "Prepare specialist handoff payload and wait for discount recommendation."
         if objective == "close_conversation":
-            return "Thank you. I am closing this conversation now."
+            goal = str(directive.get("customer_facing_goal", "")).strip()
+            return goal or "Please let me know how you would like to proceed."
 
-        if hardship_active and negotiation_stage in {"discovering_hardship", "assessing_capacity"}:
-            return "What monthly amount would realistically work for you right now?"
-        if hardship_active and negotiation_stage in {"evaluating_options", "negotiating_plan", "awaiting_customer_decision"}:
-            return "What installment amount would you be comfortable committing to?"
-        return "Please confirm how you would like to proceed with your dues."
+        goal = str(directive.get("customer_facing_goal", "")).strip()
+        return goal or "Please let me know how you would like to proceed."
 
     def _validate_response_against_directive(
         self,
@@ -1036,10 +668,21 @@ class CollectionResponseNode(ResponseNode):
         text: str,
         directive: dict[str, Any],
         context: dict[str, Any],
-    ) -> str | None:
+    ) -> dict[str, Any]:
         rendered = self._apply_minimal_safety_cleanup(text=text, context=context, directive=directive)
+        result = {
+            "text": None,
+            "policy_filters_applied": [
+                "minimal_safety_cleanup",
+                "forbidden_dialogue_actions",
+                "required_response_elements",
+                "dialogue_action_alignment",
+                "stage_consistency",
+            ],
+            "forbidden_actions_blocked": [],
+        }
         if not rendered:
-            return None
+            return result
         forbidden = {
             str(item).strip().lower()
             for item in (directive.get("forbidden_dialogue_actions") or [])
@@ -1052,24 +695,30 @@ class CollectionResponseNode(ResponseNode):
         )
         identity_verified = bool(verification_context.get("identity_verified", False))
         if "mention_internal_processing" in forbidden and self._contains_internal_processing(rendered):
-            return None
+            result["forbidden_actions_blocked"].append("mention_internal_processing")
         if "restart_collections_menu" in forbidden and self._looks_like_root_menu(rendered):
-            return None
+            result["forbidden_actions_blocked"].append("restart_collections_menu")
         if "ask_pay_now_or_arrangement" in forbidden and self._looks_like_root_menu(rendered):
-            return None
+            result["forbidden_actions_blocked"].append("ask_pay_now_or_arrangement")
         if "disclose_dues_before_verification" in forbidden and not identity_verified:
             lowered = rendered.lower()
             if any(token in lowered for token in ["inr ", "overdue", "dues", "amount", "emi", "late fee"]):
-                return None
-
+                result["forbidden_actions_blocked"].append("disclose_dues_before_verification")
         required = [
             str(item).strip().lower()
             for item in (directive.get("required_response_elements") or [])
             if str(item).strip()
         ]
         if required and not self._meets_required_response_elements(rendered, required=required, context=context):
-            return None
-        return rendered
+            result["forbidden_actions_blocked"].append("missing_required_response_elements")
+        if not self._matches_dialogue_action(rendered=rendered, directive=directive, context=context):
+            result["forbidden_actions_blocked"].append("dialogue_action_mismatch")
+        if self._contradicts_stage_or_objective(rendered=rendered, directive=directive, context=context):
+            result["forbidden_actions_blocked"].append("stage_contradiction")
+        if result["forbidden_actions_blocked"]:
+            return result
+        result["text"] = rendered
+        return result
 
     def _apply_minimal_safety_cleanup(
         self,
@@ -1107,6 +756,8 @@ class CollectionResponseNode(ResponseNode):
     @staticmethod
     def _looks_like_root_menu(text: str) -> bool:
         lowered = str(text or "").lower()
+        # Broad phrase checks are a final safety filter only. The directive is
+        # still the authoritative source of conversation policy.
         patterns = [
             r"pay now.*arrangement",
             r"arrangement.*follow[- ]?up",
@@ -1128,10 +779,6 @@ class CollectionResponseNode(ResponseNode):
         context: dict[str, Any],
     ) -> bool:
         lowered = rendered.lower()
-        response_mode = str(context.get("response_mode", "")).strip().lower()
-        hardship_active = bool(
-            (context.get("hardship_context") or {}).get("hardship_detected", False)
-        ) or str(context.get("conversation_mode", "")).strip().lower() == "hardship_negotiation"
         checks = {
             "acknowledge_hardship": any(token in lowered for token in ["sorry", "understand", "appreciate", "difficult"]),
             "mention_due_amount": any(token in lowered for token in ["inr", "overdue", "due", "dues"]),
@@ -1154,50 +801,77 @@ class CollectionResponseNode(ResponseNode):
             "handoff_payload": context.get("response_target") == "discount_planning_agent",
             "closure": any(token in lowered for token in ["closing this conversation", "thank you"]),
         }
-        if response_mode == "empathetic" or hardship_active:
-            checks.setdefault("acknowledge_hardship", True)
         for item in required:
             if not checks.get(item, True):
                 return False
         return True
 
-    @staticmethod
-    def _render_plan_outline(plan_outline: str) -> str:
-        text = plan_outline.strip()
-        if not text:
-            return "Please confirm how you would like to proceed with your dues."
-
-        normalized = re.sub(r"^(?:Proposed\s+plan|Plan)\s+for\s+[^:]+:\s*", "", text, flags=re.IGNORECASE).strip()
-        executed_match = re.match(r"^Executed\s+([a-zA-Z0-9_]+)\s*:\s*(.*)$", text)
-        if executed_match:
-            details = executed_match.group(2).strip()
-            if details:
-                return (
-                    f"I checked this for you: {details}. "
-                    "Please tell me whether you want to pay now, request a revised arrangement, or schedule follow-up."
-                )
-            return "I completed the required verification step. Please tell me your preferred next action."
-
-        if not normalized:
-            normalized = text
-
-        # Convert planning language into delivery language for end-user/agent handoff.
-        normalized = normalized[0].upper() + normalized[1:] if len(normalized) > 1 else normalized.upper()
-        if normalized.endswith("."):
-            normalized = normalized[:-1]
-        return (
-            f"{normalized}. "
-            "Please confirm your preferred next step."
+    def _matches_dialogue_action(
+        self,
+        *,
+        rendered: str,
+        directive: dict[str, Any],
+        context: dict[str, Any],
+    ) -> bool:
+        response_target = str(context.get("response_target", "customer")).strip().lower() or "customer"
+        expected_template = self._select_template_name(
+            directive=directive,
+            response_target=response_target,
         )
+        actual_template = self._infer_rendered_template(rendered=rendered, response_target=response_target)
+        if expected_template == "safe_follow_up":
+            return actual_template in {"safe_follow_up", "dues_explanation"}
+        if actual_template is None:
+            return False
+        return actual_template == expected_template
+
+    def _contradicts_stage_or_objective(
+        self,
+        *,
+        rendered: str,
+        directive: dict[str, Any],
+        context: dict[str, Any],
+    ) -> bool:
+        objective = str(directive.get("conversation_objective", "")).strip().lower()
+        stage = str(context.get("negotiation_stage", "none")).strip().lower()
+        response_target = str(context.get("response_target", "customer")).strip().lower() or "customer"
+        actual_template = self._infer_rendered_template(rendered=rendered, response_target=response_target)
+        if actual_template is None:
+            return False
+        if stage in {"discovering_hardship", "assessing_capacity"} and actual_template == "commitment_confirmation":
+            return True
+        if objective == "assess_affordability" and actual_template in {"commitment_confirmation", "dues_explanation"}:
+            return True
+        if objective in {"present_arrangement_options", "negotiate_installment"} and actual_template == "dues_explanation":
+            return True
+        return False
 
     @staticmethod
-    def _verification_field_label(field_name: str) -> str:
-        key = str(field_name).strip().lower()
-        mapping = {
-            "dob": "your date of birth (YYYY-MM-DD)",
-            "phone": "your registered phone number",
-        }
-        return mapping.get(key, key.replace("_", " "))
+    def _infer_rendered_template(*, rendered: str, response_target: str) -> str | None:
+        response_target = str(response_target).strip().lower() or "customer"
+        if response_target == "discount_planning_agent":
+            return "handoff_payload"
+        lowered = str(rendered or "").lower()
+        if not lowered:
+            return None
+        if any(token in lowered for token in ["prepare specialist handoff payload", "discount recommendation"]):
+            return "handoff_payload"
+        if "please confirm" in lowered or "confirm your" in lowered:
+            if any(token in lowered for token in ["date of birth", "phone number", "registered phone"]):
+                return "verification_request"
+        if any(token in lowered for token in ["payment date", "when can you", "commit to", "can you confidently commit"]):
+            return "commitment_confirmation"
+        if any(token in lowered for token in ["monthly amount", "what amount would", "manageable arrangement", "realistically work for you"]):
+            return "affordability_question"
+        if any(token in lowered for token in ["installment", "repayment option", "repayment plan", "arrangement", "comfortable committing"]):
+            return "arrangement_discussion"
+        if any(token in lowered for token in ["overdue amount", "dues", "amount is inr", "inr "]):
+            return "dues_explanation"
+        if "next step" in lowered or "how you would like to proceed" in lowered or "what would you like to do next" in lowered:
+            return "safe_follow_up"
+        if "?" in lowered:
+            return "safe_follow_up"
+        return None
 
     @staticmethod
     def _join_human_list(items: list[str]) -> str:
@@ -1243,95 +917,6 @@ class CollectionResponseNode(ResponseNode):
         if any(flag and token in lowered for token, flag in disallowed_tokens.items()):
             return self._render_verification_first_message(customer_name=customer_name, guard=verification_context)
         return None
-
-    @staticmethod
-    def _enforce_commitment_stage_scope(
-        *,
-        text: str,
-        current_plan_node_id: str,
-        user_input: str,
-        verification_context: dict[str, Any],
-    ) -> str:
-        lowered = str(text or "").lower()
-        if not lowered:
-            return text
-        node_id = str(current_plan_node_id or "").strip().lower()
-        in_commitment_stage = node_id in {
-            "collect_payment_intent",
-            "resolve_outcome",
-            "capture_commitment_follow_up",
-            "capture_commitment",
-        }
-        if not in_commitment_stage:
-            return text
-        input_lower = str(user_input or "").lower()
-        requested_email_link = any(
-            token in input_lower
-            for token in ["send link to email", "email me the link", "payment link via email", "email link"]
-        )
-        if ("registered email" in lowered or "email address" in lowered) and not requested_email_link:
-            return (
-                "Please choose one next step: pay now, request a repayment arrangement, "
-                "or schedule a follow-up date."
-            )
-        return text
-
-    @staticmethod
-    def _enforce_post_verification_scope(
-        *,
-        text: str,
-        current_plan_node_id: str,
-        verification_context: dict[str, Any],
-        customer_name: str,
-        case_id: str,
-        overdue_amount: float,
-        user_input: str,
-    ) -> str:
-        lowered = str(text or "").lower()
-        if not lowered:
-            return text
-        identity_verified = bool(verification_context.get("identity_verified", False))
-        required_fields = verification_context.get("required_fields")
-        required_list = (
-            [str(x).strip().lower() for x in required_fields if str(x).strip()]
-            if isinstance(required_fields, list)
-            else []
-        )
-        asks_extra_email = (
-            ("registered email" in lowered or "email address" in lowered)
-            and "email" not in required_list
-        )
-        asks_any_verification = any(
-            token in lowered
-            for token in [
-                "confirm your date of birth",
-                "confirm your registered phone",
-                "confirm your identity",
-                "verify your identity",
-            ]
-        )
-        if not identity_verified:
-            return text
-        if asks_extra_email or asks_any_verification:
-            input_lower = str(user_input or "").lower()
-            requested_email_link = any(
-                token in input_lower
-                for token in ["send link to email", "email me the link", "payment link via email", "email link"]
-            )
-            if requested_email_link and "email" in lowered and not asks_any_verification:
-                return text
-            node_id = str(current_plan_node_id or "").strip().lower()
-            if node_id == "explain_dues":
-                return (
-                    f"Thank you for completing verification, {customer_name}. "
-                    f"For case {case_id}, your overdue amount is INR {overdue_amount:.2f}. "
-                    "Would you like to pay now, request an arrangement, or schedule a follow-up?"
-                )
-            return (
-                "Please choose one next step: pay now, request a repayment arrangement, "
-                "or schedule a follow-up date."
-            )
-        return text
 
     @staticmethod
     def _resolve_plan_node_label(conversation_plan: dict[str, Any], node_id: str) -> str:

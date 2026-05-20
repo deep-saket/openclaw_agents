@@ -64,7 +64,8 @@ def main() -> None:
     inputs = [
         "Yes this is Aditi.",
         "My phone number is : 9900001001and date of birth is  1991-08-19",
-        "Actually, I recently lost my job, so I’m facing some financial problems."
+        "Actually, I recently lost my job, so I’m facing some financial problems.",
+        "I can give 6000 dollars."
     ]
 
     i = 0

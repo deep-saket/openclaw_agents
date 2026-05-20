@@ -1101,6 +1101,10 @@ response:
     When response_target=customer: produce end-customer message only.
     When response_target=self: produce concise internal execution directive for next planner pass.
     The following fields are authoritative, in order: response_directive, conversation_objective, dialogue_action, response_mode, required_response_elements, forbidden_dialogue_actions, plan_proposal, conversation_plan, verification_context.
+    Treat response_directive as the source of truth for conversational policy.
+    Do not infer a new conversation objective or dialogue action from any background negotiation state if response_directive is already present.
+    If any hardship, payment-posture, or dialogue-owner context appears elsewhere, treat it as non-authoritative background only.
+    If response_directive is missing or malformed, produce the safest minimal compliant response instead of inventing a new conversation branch.
     Do not restart the collections flow unless the response_directive explicitly says to.
     If response_directive indicates hardship negotiation, continue the current negotiation stage rather than offering root-menu choices.
     If response_mode=empathetic, acknowledge hardship briefly and professionally before moving forward.
@@ -1161,15 +1165,10 @@ response:
     Extracted entity descriptions: {extracted_entity_descriptions_json}
     Verification entities: {verification_entities_json}
     Verification missing fields: {verification_missing_fields_json}
-    Conversation mode: {conversation_mode}
-    Negotiation stage: {negotiation_stage}
-    Customer payment posture: {customer_payment_posture}
-    Hardship context JSON: {hardship_context_json}
-    Response mode: {response_mode}
-    Active dialogue owner: {active_dialogue_owner}
     Response directive JSON: {response_directive_json}
     Conversation objective: {conversation_objective}
     Dialogue action: {dialogue_action}
+    Response mode: {response_mode}
     Required response elements: {required_response_elements_json}
     Forbidden dialogue actions: {forbidden_dialogue_actions_json}
     Observation: {observation_json}
