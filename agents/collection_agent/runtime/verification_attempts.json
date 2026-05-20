@@ -746,5 +746,21 @@
     "field": "phone",
     "status": "verified",
     "created_at": "2026-05-20T11:37:10.607875+00:00"
+  },
+  {
+    "attempt_id": "VER-54D856E4F8",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "dob",
+    "status": "verified",
+    "created_at": "2026-05-20T13:18:31.073333+00:00"
+  },
+  {
+    "attempt_id": "VER-690D27B5D3",
+    "customer_id": "CUST-2001",
+    "case_id": "COLL-1001",
+    "field": "phone",
+    "status": "verified",
+    "created_at": "2026-05-20T13:18:31.134674+00:00"
   }
 ]

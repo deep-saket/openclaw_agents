@@ -33697,18 +33697,18 @@
     "active_customer_name": "Aditi Sharma",
     "agent_loop_blocked": false,
     "agent_loop_count": 0,
-    "last_agent_response": "Thank you for sharing that you can afford 6000 dollars. I understand that you're going through a tough time, and we're here to help you find a manageable solution. Can you tell me what monthly amount you think you can realistically afford to pay towards your overdue amount of 12500.00 INR?",
+    "last_agent_response": "I'm so sorry to hear about your job loss. How are you managing financially right now?",
     "last_response_target": "customer",
-    "turn_index": 5,
+    "turn_index": 4,
     "conversation_mode": "hardship_negotiation",
     "negotiation_stage": "assessing_capacity",
     "customer_payment_posture": "needs_arrangement",
     "hardship_context": {
       "hardship_detected": true,
       "hardship_reason": "job_loss",
-      "confidence": 0.8
+      "confidence": 1.0
     },
-    "response_mode": "negotiation",
+    "response_mode": "empathetic",
     "active_dialogue_owner": "plan_proposal",
     "active_overdue_amount": 12500.0,
     "active_emi_amount": 12500.0,
@@ -33803,24 +33803,23 @@
       "react": "llama-3.1-8b-instant"
     },
     "extracted_entities": {
-      "customer_name": "Aditi",
+      "customer_name": "Aditi Sharma",
+      "customer_name_description": "Active customer name",
+      "field_evidence": "Yes this is Aditi.",
       "phone": "9900001001",
       "dob": "1991-08-19",
-      "relation": "self",
-      "amount": "6000"
+      "amount": "6000",
+      "amount_description": "Customer's proposed payment amount"
     },
     "extracted_entities_turn": {
       "amount": "6000",
-      "customer_name": "Aditi",
-      "phone": "9900001001",
-      "dob": "1991-08-19"
+      "amount_description": "Customer's proposed payment amount"
     },
     "extracted_entity_descriptions": {
-      "customer_name": "The name of the customer",
-      "phone": "The registered phone number of the customer",
-      "dob": "The date of birth of the customer",
-      "relation": "The relationship of the customer to the account",
-      "amount": "The amount that the customer can afford to pay"
+      "phone": "Customer's registered phone number",
+      "dob": "Customer's date of birth",
+      "customer_name": "Active customer name",
+      "amount": "Customer's proposed payment amount"
     },
     "verification_entities": {
       "dob": "1991-08-19",
@@ -33916,7 +33915,7 @@
       ],
       "timeline": [
         {
-          "at_utc": "2026-05-20T11:36:00.516419+00:00",
+          "at_utc": "2026-05-20T13:16:53.966467+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "open_and_context",
@@ -33934,7 +33933,25 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:37:53.236968+00:00",
+          "at_utc": "2026-05-20T13:17:30.170837+00:00",
+          "version": 1,
+          "status": "active",
+          "current_node_id": "open_and_context",
+          "next_node_ids": [
+            "verify_identity"
+          ],
+          "update": {
+            "origin": "react",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "open_and_context",
+            "plan_outline": "",
+            "operation": "advance"
+          }
+        },
+        {
+          "at_utc": "2026-05-20T13:19:17.452068+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -33952,7 +33969,7 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:39:50.077789+00:00",
+          "at_utc": "2026-05-20T13:20:09.228718+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -33970,7 +33987,7 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:40:27.586808+00:00",
+          "at_utc": "2026-05-20T13:21:56.954666+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -33988,7 +34005,7 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:42:15.492350+00:00",
+          "at_utc": "2026-05-20T13:22:34.302904+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -34006,7 +34023,7 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:43:02.303671+00:00",
+          "at_utc": "2026-05-20T13:24:10.699162+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -34030,44 +34047,44 @@
       "step_markers": {
         "open_and_context": {
           "state": "pending",
-          "updated_at": "2026-05-20T11:36:00.516248+00:00",
+          "updated_at": "2026-05-20T13:16:53.966302+00:00",
           "source": "reconciler",
           "reason": ""
         },
         "verify_identity": {
           "state": "done",
-          "updated_at": "2026-05-20T11:43:02.303633+00:00",
+          "updated_at": "2026-05-20T13:24:10.699119+00:00",
           "source": "memory_identity_verified",
           "reason": "memory_identity_verified"
         },
         "explain_dues": {
           "state": "pending",
-          "updated_at": "2026-05-20T11:36:00.516248+00:00",
+          "updated_at": "2026-05-20T13:16:53.966302+00:00",
           "source": "reconciler",
           "reason": ""
         },
         "collect_payment_intent": {
           "state": "pending",
-          "updated_at": "2026-05-20T11:36:00.516248+00:00",
+          "updated_at": "2026-05-20T13:16:53.966302+00:00",
           "source": "reconciler",
           "reason": ""
         },
         "evaluate_assistance": {
           "state": "pending",
-          "updated_at": "2026-05-20T11:36:00.516248+00:00",
+          "updated_at": "2026-05-20T13:16:53.966302+00:00",
           "source": "reconciler",
           "reason": ""
         },
         "resolve_outcome": {
           "state": "pending",
-          "updated_at": "2026-05-20T11:36:00.516248+00:00",
+          "updated_at": "2026-05-20T13:16:53.966302+00:00",
           "source": "reconciler",
           "reason": ""
         }
       },
       "timeline_snapshots": [
         {
-          "at_utc": "2026-05-20T11:36:00.516419+00:00",
+          "at_utc": "2026-05-20T13:16:53.966467+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "open_and_context",
@@ -34165,37 +34182,37 @@
             "step_markers": {
               "open_and_context": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "verify_identity": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "explain_dues": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "collect_payment_intent": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "evaluate_assistance": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "resolve_outcome": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               }
@@ -34205,7 +34222,145 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:37:53.236968+00:00",
+          "at_utc": "2026-05-20T13:17:30.170837+00:00",
+          "version": 1,
+          "status": "active",
+          "current_node_id": "open_and_context",
+          "update": {
+            "origin": "react",
+            "route": "continue",
+            "response_target": "customer",
+            "previous_node_id": "open_and_context",
+            "current_node_id": "open_and_context",
+            "plan_outline": "",
+            "operation": "advance"
+          },
+          "plan": {
+            "plan_id": "plan-COLL-1001",
+            "version": 1,
+            "status": "active",
+            "mode": "strict_collections",
+            "objective": "Move borrower conversation to payment, promise-to-pay, or compliant follow-up.",
+            "root_node_id": "open_and_context",
+            "current_node_id": "open_and_context",
+            "previous_node_id": "open_and_context",
+            "next_node_ids": [
+              "verify_identity"
+            ],
+            "nodes": [
+              {
+                "id": "open_and_context",
+                "label": "Initialize case context",
+                "owner": "collection_agent",
+                "status": "in_progress"
+              },
+              {
+                "id": "verify_identity",
+                "label": "Verify customer identity",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "explain_dues",
+                "label": "Explain dues and policy options",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "collect_payment_intent",
+                "label": "Collect payment intent",
+                "owner": "customer",
+                "status": "pending"
+              },
+              {
+                "id": "evaluate_assistance",
+                "label": "Evaluate discount/restructure assistance",
+                "owner": "collection_agent",
+                "status": "pending"
+              },
+              {
+                "id": "resolve_outcome",
+                "label": "Finalize payment, promise, or follow-up",
+                "owner": "customer",
+                "status": "pending"
+              }
+            ],
+            "edges": [
+              {
+                "from": "open_and_context",
+                "to": "verify_identity",
+                "condition": "case_context_ready"
+              },
+              {
+                "from": "verify_identity",
+                "to": "explain_dues",
+                "condition": "identity_verified"
+              },
+              {
+                "from": "explain_dues",
+                "to": "collect_payment_intent",
+                "condition": "dues_explained"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "resolve_outcome",
+                "condition": "pay_now"
+              },
+              {
+                "from": "collect_payment_intent",
+                "to": "evaluate_assistance",
+                "condition": "cannot_pay_full"
+              },
+              {
+                "from": "evaluate_assistance",
+                "to": "resolve_outcome",
+                "condition": "assistance_ready"
+              }
+            ],
+            "step_markers": {
+              "open_and_context": {
+                "state": "pending",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "verify_identity": {
+                "state": "pending",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "explain_dues": {
+                "state": "pending",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "collect_payment_intent": {
+                "state": "pending",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "evaluate_assistance": {
+                "state": "pending",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
+                "source": "reconciler",
+                "reason": ""
+              },
+              "resolve_outcome": {
+                "state": "pending",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
+                "source": "reconciler",
+                "reason": ""
+              }
+            },
+            "updated_from": "react",
+            "last_response_target": "customer"
+          }
+        },
+        {
+          "at_utc": "2026-05-20T13:19:17.452068+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -34303,37 +34458,37 @@
             "step_markers": {
               "open_and_context": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "verify_identity": {
                 "state": "done",
-                "updated_at": "2026-05-20T11:37:53.236836+00:00",
+                "updated_at": "2026-05-20T13:19:17.452030+00:00",
                 "source": "memory_identity_verified",
                 "reason": "memory_identity_verified"
               },
               "explain_dues": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "collect_payment_intent": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "evaluate_assistance": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "resolve_outcome": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               }
@@ -34343,7 +34498,7 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:39:50.077789+00:00",
+          "at_utc": "2026-05-20T13:20:09.228718+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -34441,37 +34596,37 @@
             "step_markers": {
               "open_and_context": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "verify_identity": {
                 "state": "done",
-                "updated_at": "2026-05-20T11:39:50.077732+00:00",
+                "updated_at": "2026-05-20T13:20:09.228669+00:00",
                 "source": "memory_identity_verified",
                 "reason": "memory_identity_verified"
               },
               "explain_dues": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "collect_payment_intent": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "evaluate_assistance": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "resolve_outcome": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               }
@@ -34481,7 +34636,7 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:40:27.586808+00:00",
+          "at_utc": "2026-05-20T13:21:56.954666+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -34579,37 +34734,37 @@
             "step_markers": {
               "open_and_context": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "verify_identity": {
                 "state": "done",
-                "updated_at": "2026-05-20T11:40:27.586757+00:00",
+                "updated_at": "2026-05-20T13:21:56.954572+00:00",
                 "source": "memory_identity_verified",
                 "reason": "memory_identity_verified"
               },
               "explain_dues": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "collect_payment_intent": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "evaluate_assistance": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "resolve_outcome": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               }
@@ -34619,7 +34774,7 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:42:15.492350+00:00",
+          "at_utc": "2026-05-20T13:22:34.302904+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -34717,37 +34872,37 @@
             "step_markers": {
               "open_and_context": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "verify_identity": {
                 "state": "done",
-                "updated_at": "2026-05-20T11:42:15.492305+00:00",
+                "updated_at": "2026-05-20T13:22:34.302859+00:00",
                 "source": "memory_identity_verified",
                 "reason": "memory_identity_verified"
               },
               "explain_dues": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "collect_payment_intent": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "evaluate_assistance": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "resolve_outcome": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               }
@@ -34757,7 +34912,7 @@
           }
         },
         {
-          "at_utc": "2026-05-20T11:43:02.303671+00:00",
+          "at_utc": "2026-05-20T13:24:10.699162+00:00",
           "version": 1,
           "status": "active",
           "current_node_id": "explain_dues",
@@ -34855,37 +35010,37 @@
             "step_markers": {
               "open_and_context": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "verify_identity": {
                 "state": "done",
-                "updated_at": "2026-05-20T11:43:02.303633+00:00",
+                "updated_at": "2026-05-20T13:24:10.699119+00:00",
                 "source": "memory_identity_verified",
                 "reason": "memory_identity_verified"
               },
               "explain_dues": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "collect_payment_intent": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "evaluate_assistance": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               },
               "resolve_outcome": {
                 "state": "pending",
-                "updated_at": "2026-05-20T11:36:00.516248+00:00",
+                "updated_at": "2026-05-20T13:16:53.966302+00:00",
                 "source": "reconciler",
                 "reason": ""
               }
@@ -34903,7 +35058,7 @@
       },
       {
         "role": "agent",
-        "content": "Thank you for confirming your name, Aditi. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number."
+        "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number."
       },
       {
         "role": "customer",
@@ -34911,7 +35066,7 @@
       },
       {
         "role": "agent",
-        "content": "Thank you Aditi Sharma. Your overdue amount is INR 12500.00. What would you like to do next to bring the account current?"
+        "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Your current overdue amount is $12,500. Please let me know if you'd like to discuss a payment plan. Would you like to make a payment today or would you like to discuss a payment plan?"
       },
       {
         "role": "customer",
@@ -34919,18 +35074,10 @@
       },
       {
         "role": "agent",
-        "content": "We understand that you've recently lost your job and are facing financial difficulties. Can you tell us more about what's happening? We're here to help you find a manageable solution. What is the monthly amount that you think you can realistically afford to pay towards your outstanding dues?"
-      },
-      {
-        "role": "customer",
-        "content": "I can give 6000 dollars."
-      },
-      {
-        "role": "agent",
-        "content": "Thank you for sharing that you can afford 6000 dollars. I understand that you're going through a tough time, and we're here to help you find a manageable solution. Can you tell me what monthly amount you think you can realistically afford to pay towards your overdue amount of 12500.00 INR?"
+        "content": "I'm so sorry to hear about your job loss. How are you managing financially right now?"
       }
     ],
-    "last_user_input": "I can give 6000 dollars.",
+    "last_user_input": "Actually, I recently lost my job, so I\u2019m facing some financial problems.",
     "verification_verified_fields": [
       "dob",
       "phone"
@@ -34954,7 +35101,7 @@
         "field": "phone",
         "failed_attempts": 0
       },
-      "timestamp_ms": 1779277030624
+      "timestamp_ms": 1779283111151
     },
     "tool_observations_history": [
       {
@@ -34971,7 +35118,7 @@
           "field": "dob",
           "failed_attempts": 0
         },
-        "timestamp_ms": 1779277030563
+        "timestamp_ms": 1779283111090
       },
       {
         "tool_name": "verify_mobile",
@@ -34987,7 +35134,7 @@
           "field": "phone",
           "failed_attempts": 0
         },
-        "timestamp_ms": 1779277030624
+        "timestamp_ms": 1779283111151
       }
     ]
   }

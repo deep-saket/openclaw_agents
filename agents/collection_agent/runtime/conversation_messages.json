@@ -1486,60 +1486,53 @@
   ],
   "collection-user_a-cli": [
     {
-      "id": "a3932235-bdfe-458f-b8f7-28367ff0090a",
+      "id": "719313e4-c0ab-403f-879e-ac8c97eced04",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "Yes this is Aditi.",
-      "created_at": "2026-05-20T11:35:57.741685Z"
+      "created_at": "2026-05-20T13:16:49.577471Z"
     },
     {
-      "id": "f52820dc-dceb-4832-8b0e-b62f5d7a8ae3",
+      "id": "6b92d1e9-fe72-4bfd-a8c4-9358acb13171",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "Thank you for confirming your name, Aditi. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
-      "created_at": "2026-05-20T11:36:47.936226Z"
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-20T13:18:10.409942Z"
     },
     {
-      "id": "f7df8aee-b9d8-40b0-a75e-83e392818668",
+      "id": "b541d519-082c-409a-b969-0e8c14b150fd",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "My phone number is : 9900001001and date of birth is  1991-08-19",
-      "created_at": "2026-05-20T11:36:47.937955Z"
+      "created_at": "2026-05-20T13:18:10.411746Z"
     },
     {
-      "id": "616f31b5-0902-4133-854b-7d1d27af3889",
+      "id": "eccd552a-f0a6-4e76-9980-e5d89eda01f1",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "Thank you Aditi Sharma. Your overdue amount is INR 12500.00. What would you like to do next to bring the account current?",
-      "created_at": "2026-05-20T11:38:47.951042Z"
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Your current overdue amount is $12,500. Please let me know if you'd like to discuss a payment plan. Would you like to make a payment today or would you like to discuss a payment plan?",
+      "created_at": "2026-05-20T13:20:51.126601Z"
     },
     {
-      "id": "40c8d2af-7d82-46b3-9312-7039b630d882",
+      "id": "c59b779c-3465-49d4-949c-558351f66b3a",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "Actually, I recently lost my job, so I\u2019m facing some financial problems.",
-      "created_at": "2026-05-20T11:38:47.953722Z"
+      "created_at": "2026-05-20T13:20:51.129105Z"
     },
     {
-      "id": "8ec0b8eb-1007-4e2e-bdb8-97dfd2650ce6",
+      "id": "2198be61-1448-40ef-af75-922e4ad10614",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "We understand that you've recently lost your job and are facing financial difficulties. Can you tell us more about what's happening? We're here to help you find a manageable solution. What is the monthly amount that you think you can realistically afford to pay towards your outstanding dues?",
-      "created_at": "2026-05-20T11:41:23.293752Z"
+      "content": "I'm so sorry to hear about your job loss. How are you managing financially right now?",
+      "created_at": "2026-05-20T13:23:18.603670Z"
     },
     {
-      "id": "4ce26209-f23c-477d-b8e9-40568b4f332d",
+      "id": "2a368aa8-e0fa-4901-a7a6-2539c6e50b72",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "I can give 6000 dollars.",
-      "created_at": "2026-05-20T11:41:23.296477Z"
-    },
-    {
-      "id": "2d8f173e-2f3a-41ab-b3ff-2f6beaa9d21b",
-      "session_id": "collection-user_a-cli",
-      "role": "agent",
-      "content": "Thank you for sharing that you can afford 6000 dollars. I understand that you're going through a tough time, and we're here to help you find a manageable solution. Can you tell me what monthly amount you think you can realistically afford to pay towards your overdue amount of 12500.00 INR?",
-      "created_at": "2026-05-20T11:43:58.346525Z"
+      "created_at": "2026-05-20T13:23:18.606621Z"
     }
   ]
 }

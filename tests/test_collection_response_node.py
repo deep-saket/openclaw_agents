@@ -59,8 +59,8 @@ def test_response_node_renders_from_hardship_response_directive() -> None:
     assert "schedule a follow-up" not in lowered
     assert "monthly amount" in lowered
     assert "realistically work for you right now" in lowered
-    assert update["response_render_debug"]["conversation_objective"] == "assess_affordability"
-    assert update["response_render_debug"]["template_selected"] == "affordability_question"
+    assert update["response_render_debug"]["template_selected"] == "capacity_question"
+    assert update["response_render_debug"]["response_mode"] == "empathetic"
     assert update["response_render_debug"]["renderer_fallback_used"] is True
 
 
@@ -140,7 +140,7 @@ def test_response_node_missing_directive_does_not_infer_hardship_objective() -> 
     assert "monthly amount" not in response
     assert "pay now" not in response
     assert "please let me know how you would like to proceed" in response
-    assert update["response_render_debug"]["conversation_objective"] == "close_conversation"
+    assert update["response_render_debug"]["template_selected"] == "safe_follow_up"
     assert update["response_render_debug"]["renderer_fallback_used"] is True
 
 
@@ -158,49 +158,124 @@ def test_response_node_minimal_safety_cleanup_strips_internal_leakage() -> None:
     assert "```" not in cleaned
 
 
-def test_response_node_validator_blocks_dialogue_action_mismatch() -> None:
+def test_response_node_validator_blocks_unresolved_placeholders() -> None:
     node = _build_node()
 
     validation = node._validate_response_against_directive(
-        text="Thank you. What amount and payment date can you confidently commit to for the next step?",
+        text="Hello [name], please confirm {missing_fields}.",
         directive={
-            "conversation_objective": "assess_affordability",
-            "dialogue_action": "ask_affordable_amount",
-            "response_mode": "empathetic",
-            "required_response_elements": ["ask_affordable_amount"],
-            "forbidden_dialogue_actions": [],
-            "allowed_dialogue_actions": ["ask_affordable_amount"],
+            "template_id": "verification_request",
+            "response_target": "customer",
+            "tone": "compliance",
+            "render_variables": {},
+            "response_constraints": {"avoid_placeholders": True},
+            "fallback_template_id": "verification_request",
         },
         context={
             "response_target": "customer",
-            "negotiation_stage": "assessing_capacity",
-            "verification_context": {"identity_verified": True},
+            "verification_context": {"identity_verified": False},
         },
     )
 
     assert validation["text"] is None
-    assert "dialogue_action_mismatch" in validation["forbidden_actions_blocked"]
+    assert "unresolved_placeholders" in validation["forbidden_actions_blocked"]
 
 
-def test_response_node_validator_blocks_stage_contradiction() -> None:
+def test_response_node_validator_blocks_dues_before_verification() -> None:
     node = _build_node()
 
     validation = node._validate_response_against_directive(
-        text="Thank you. Your overdue amount is INR 1200.00. What amount and payment date can you confidently commit to?",
+        text="Your overdue amount is INR 1200.00.",
         directive={
-            "conversation_objective": "assess_affordability",
-            "dialogue_action": "ask_affordable_amount",
-            "response_mode": "empathetic",
-            "required_response_elements": ["ask_affordable_amount"],
-            "forbidden_dialogue_actions": [],
-            "allowed_dialogue_actions": ["ask_affordable_amount"],
+            "template_id": "dues_explanation",
+            "response_target": "customer",
+            "tone": "informational",
+            "render_variables": {},
+            "response_constraints": {"no_dues_before_verification": True},
+            "fallback_template_id": "dues_explanation",
         },
         context={
             "response_target": "customer",
-            "negotiation_stage": "assessing_capacity",
-            "verification_context": {"identity_verified": True},
+            "verification_context": {"identity_verified": False},
         },
     )
 
     assert validation["text"] is None
-    assert "stage_contradiction" in validation["forbidden_actions_blocked"]
+    assert "disclose_dues_before_verification" in validation["forbidden_actions_blocked"]
+
+
+def test_response_node_negotiation_mode_does_not_add_empathy_language() -> None:
+    node = _build_node()
+    memory = WorkingMemory(
+        session_id="response-negotiation-tone",
+        state={
+            "active_customer_name": "Aditi",
+            "active_case_id": "COLL-1001",
+            "active_overdue_amount": 1200.0,
+            "identity_verified": True,
+        },
+    )
+    state = {
+        "user_input": "What arrangements can I request?",
+        "memory": memory,
+        "plan_proposal": {
+            "target": "customer",
+            "intent": "generic_plan",
+            "response_directive": {
+                "conversation_objective": "present_arrangement_options",
+                "dialogue_action": "discuss_arrangement",
+                "response_mode": "negotiation",
+                "required_response_elements": ["discuss_arrangement"],
+                "forbidden_dialogue_actions": ["restart_collections_menu"],
+                "allowed_dialogue_actions": ["discuss_arrangement"],
+                "customer_facing_goal": "Continue arrangement discussion directly.",
+                "handoff_target": None,
+            },
+        },
+    }
+
+    response = node.execute(state)["response"].lower()
+
+    assert "sorry" not in response
+    assert "appreciate you sharing" not in response
+    assert "installment" in response or "arrangement" in response
+
+
+def test_response_node_compliance_mode_stays_verification_focused() -> None:
+    node = _build_node()
+    memory = WorkingMemory(
+        session_id="response-compliance-tone",
+        state={
+            "active_customer_name": "Aditi",
+            "active_case_id": "COLL-1001",
+            "active_overdue_amount": 1200.0,
+            "identity_verified": False,
+            "active_verification_required_fields": ["dob"],
+            "verification_missing_fields": ["dob"],
+            "verification_entities": {},
+        },
+    )
+    state = {
+        "user_input": "Can you tell me the dues?",
+        "memory": memory,
+        "plan_proposal": {
+            "target": "customer",
+            "intent": "generic_plan",
+            "response_directive": {
+                "conversation_objective": "collect_verification",
+                "dialogue_action": "ask_verification",
+                "response_mode": "compliance",
+                "required_response_elements": ["ask_verification"],
+                "forbidden_dialogue_actions": ["disclose_dues_before_verification"],
+                "allowed_dialogue_actions": ["ask_verification"],
+                "customer_facing_goal": "Ask only for the missing verification detail.",
+                "handoff_target": None,
+            },
+        },
+    }
+
+    response = node.execute(state)["response"].lower()
+
+    assert "sorry" not in response
+    assert "overdue amount" not in response
+    assert "date of birth" in response

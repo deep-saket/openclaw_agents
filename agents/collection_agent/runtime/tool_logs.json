@@ -4983,5 +4983,41 @@
     "status": "completed",
     "error": null,
     "created_at": "2026-05-20T11:37:10.607698Z"
+  },
+  {
+    "id": "be434d65-0acd-49cc-82b6-d221f42e72f0",
+    "tool_name": "verify_dob",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "dob": "1991-08-19"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "dob",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-20T13:18:31.073117Z"
+  },
+  {
+    "id": "58279075-a68c-40c1-bd93-e21866a451ab",
+    "tool_name": "verify_mobile",
+    "input_payload": {
+      "case_id": "COLL-1001",
+      "customer_id": "CUST-2001",
+      "phone": "9900001001"
+    },
+    "output_payload": {
+      "customer_id": "CUST-2001",
+      "status": "verified",
+      "field": "phone",
+      "failed_attempts": 0
+    },
+    "status": "completed",
+    "error": null,
+    "created_at": "2026-05-20T13:18:31.134492Z"
   }
 ]
