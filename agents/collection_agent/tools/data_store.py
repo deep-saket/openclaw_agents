@@ -58,6 +58,18 @@ class CollectionDataStore:
     def load_policies(self) -> list[dict[str, Any]]:
         return list(self._read_json(self.data_dir / "policies.json", []))
 
+    def load_customer_profiles(self) -> list[dict[str, Any]]:
+        return list(self._read_json(self.data_dir / "customer_profile.json", []))
+
+    def load_payment_histories(self) -> list[dict[str, Any]]:
+        return list(self._read_json(self.data_dir / "payment_history.json", []))
+
+    def load_assistance_programs(self) -> list[dict[str, Any]]:
+        return list(self._read_json(self.data_dir / "assistance_programs.json", []))
+
+    def load_offer_histories(self) -> list[dict[str, Any]]:
+        return list(self._read_json(self.data_dir / "offer_history.json", []))
+
     def load_runtime(self, name: str) -> list[dict[str, Any]]:
         return list(self._read_json(self.runtime_dir / name, []))
 
@@ -88,3 +100,50 @@ class CollectionDataStore:
             if row.get("customer_id") == customer_id:
                 return row
         return None
+
+    def get_customer_profile(self, customer_id: str) -> dict[str, Any] | None:
+        for row in self.load_customer_profiles():
+            if row.get("customer_id") == customer_id:
+                return row
+        return None
+
+    def get_payment_history(self, customer_id: str) -> dict[str, Any] | None:
+        for row in self.load_payment_histories():
+            if row.get("customer_id") == customer_id:
+                return row
+        return None
+
+    def get_offer_history(self, case_id: str) -> dict[str, Any] | None:
+        for row in self.load_offer_histories():
+            if row.get("case_id") == case_id:
+                return row
+        return None
+
+    def get_assistance_programs(
+        self,
+        *,
+        product: str | None = None,
+        hardship_reason: str | None = None,
+    ) -> list[dict[str, Any]]:
+        normalized_product = str(product or "").strip().lower()
+        normalized_reason = str(hardship_reason or "").strip().lower()
+        matched: list[dict[str, Any]] = []
+        for row in self.load_assistance_programs():
+            if not isinstance(row, dict):
+                continue
+            eligible_products = [
+                str(item).strip().lower()
+                for item in row.get("eligible_products", [])
+                if str(item).strip()
+            ] if isinstance(row.get("eligible_products"), list) else []
+            hardship_reasons = [
+                str(item).strip().lower()
+                for item in row.get("hardship_reasons", [])
+                if str(item).strip()
+            ] if isinstance(row.get("hardship_reasons"), list) else []
+            if normalized_product and eligible_products and normalized_product not in eligible_products:
+                continue
+            if normalized_reason and hardship_reasons and normalized_reason not in hardship_reasons:
+                continue
+            matched.append(row)
+        return matched

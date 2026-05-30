@@ -32,6 +32,7 @@ from agents.collection_agent.nodes import (
 )
 from agents.collection_agent.prompts import load_collection_agent_prompts, render_collection_tool_catalog_yaml
 from agents.collection_agent.repository import CollectionRepository
+from agents.collection_agent.services import CollectionContextBuilder
 from agents.collection_agent.state import CollectionGraphState
 from agents.collection_agent.tools import (
     EntityExtractTool,
@@ -80,6 +81,7 @@ class CollectionAgent(BaseAgent):
     trace_sink: Any | None = None
     trace_output_dir: Path | None = None
     memory_repository: CollectionMemoryRepository | None = None
+    context_builder: CollectionContextBuilder | None = None
     verification_policy: dict[str, Any] | None = None
     entity_extract_tool: Any | None = None
     verification_entity_extract_tool: Any | None = None
@@ -184,6 +186,7 @@ class CollectionAgent(BaseAgent):
             memory_store=None,
             memory_policy=None,
         )
+        self.context_builder = self.context_builder or CollectionContextBuilder(store=self.data_store)
         self.entity_extract_tool = self.entity_extract_tool or EntityExtractTool()
         self.verification_entity_extract_tool = self.verification_entity_extract_tool or VerificationEntityExtractTool()
         self.verification_memory_verify_tool = self.verification_memory_verify_tool or VerificationMemoryVerifyTool()
@@ -753,11 +756,17 @@ class CollectionAgent(BaseAgent):
             mode = str(update.get("conversation_mode", "collections")).strip()
             stage = str(update.get("negotiation_stage", "none")).strip()
             posture = str(update.get("customer_payment_posture", "unknown")).strip()
+            discount_stage = str(update.get("discount_stage", "none")).strip()
+            capacity = update.get("customer_payment_capacity")
+            capacity_pct = update.get("customer_payment_capacity_pct")
+            willingness = update.get("customer_payment_willingness")
             hardship = update.get("hardship_context") if isinstance(update.get("hardship_context"), dict) else {}
             hardship_detected = bool(hardship.get("hardship_detected", False))
             return (
                 f"negotiation_classification: mode={mode}; stage={stage}; "
-                f"posture={posture}; hardship_detected={hardship_detected}."
+                f"posture={posture}; discount_stage={discount_stage}; "
+                f"capacity={capacity}; capacity_pct={capacity_pct}; willingness={willingness}; "
+                f"hardship_detected={hardship_detected}."
             )
 
         if node_name == "entity_extract":
@@ -904,6 +913,46 @@ class CollectionAgent(BaseAgent):
                 if isinstance(memory.state.get("active_conversation_plan"), dict)
                 else {}
             )
+            customer_profile = (
+                dict(memory.state.get("customer_profile", {}))
+                if isinstance(memory.state.get("customer_profile"), dict)
+                else {}
+            )
+            customer_profile_summary = (
+                dict(memory.state.get("customer_profile_summary", {}))
+                if isinstance(memory.state.get("customer_profile_summary"), dict)
+                else {}
+            )
+            payment_history = (
+                dict(memory.state.get("payment_history", {}))
+                if isinstance(memory.state.get("payment_history"), dict)
+                else {}
+            )
+            payment_history_summary = (
+                dict(memory.state.get("payment_history_summary", {}))
+                if isinstance(memory.state.get("payment_history_summary"), dict)
+                else {}
+            )
+            offer_history = (
+                dict(memory.state.get("offer_history", {}))
+                if isinstance(memory.state.get("offer_history"), dict)
+                else {}
+            )
+            offer_history_summary = (
+                dict(memory.state.get("offer_history_summary", {}))
+                if isinstance(memory.state.get("offer_history_summary"), dict)
+                else {}
+            )
+            assistance_programs = (
+                [dict(item) for item in memory.state.get("assistance_programs", []) if isinstance(item, dict)]
+                if isinstance(memory.state.get("assistance_programs"), list)
+                else []
+            )
+            active_collection_context = (
+                dict(memory.state.get("active_collection_context", {}))
+                if isinstance(memory.state.get("active_collection_context"), dict)
+                else {}
+            )
             trace = ExecutionTrace(agent_name=self.agent_name, session_id=session_key, user_input=user_input)
             try:
                 with trace_turn(trace, sink=self.trace_sink):
@@ -917,6 +966,7 @@ class CollectionAgent(BaseAgent):
                             "case_id": case_id,
                             "channel": channel,
                             "message_source": sender,
+                            "greeted": bool(memory.state.get("greeted", False)),
                             "conversation_history": (
                                 list(memory.state.get("conversation_history", []))
                                 if isinstance(memory.state.get("conversation_history"), list)
@@ -930,6 +980,14 @@ class CollectionAgent(BaseAgent):
                                 if isinstance(memory.state.get("verification_entities"), dict)
                                 else {}
                             ),
+                            "customer_profile": customer_profile,
+                            "customer_profile_summary": customer_profile_summary,
+                            "payment_history": payment_history,
+                            "payment_history_summary": payment_history_summary,
+                            "offer_history": offer_history,
+                            "offer_history_summary": offer_history_summary,
+                            "assistance_programs": assistance_programs,
+                            "active_collection_context": active_collection_context,
                             "verification_missing_fields": (
                                 [str(x).strip() for x in memory.state.get("verification_missing_fields", []) if str(x).strip()]
                                 if isinstance(memory.state.get("verification_missing_fields"), list)
@@ -949,11 +1007,28 @@ class CollectionAgent(BaseAgent):
                             or "none",
                             "customer_payment_posture": str(memory.state.get("customer_payment_posture", "unknown")).strip()
                             or "unknown",
+                            "customer_payment_posture_history": (
+                                list(memory.state.get("customer_payment_posture_history", []))
+                                if isinstance(memory.state.get("customer_payment_posture_history"), list)
+                                else []
+                            ),
+                            "customer_payment_capacity": memory.state.get("customer_payment_capacity"),
+                            "customer_payment_capacity_pct": memory.state.get("customer_payment_capacity_pct"),
+                            "discount_stage": str(memory.state.get("discount_stage", "none")).strip()
+                            or "none",
+                            "customer_payment_willingness": float(
+                                memory.state.get("customer_payment_willingness", 0.5) or 0.5
+                            ),
                             "hardship_context": (
                                 dict(memory.state.get("hardship_context", {}))
                                 if isinstance(memory.state.get("hardship_context"), dict)
                                 else {"hardship_detected": False, "hardship_reason": None, "confidence": 0.0}
                             ),
+                            "discount_requested": bool(memory.state.get("discount_requested", False)),
+                            "discount_offered": bool(memory.state.get("discount_offered", False)),
+                            "discount_accepted": bool(memory.state.get("discount_accepted", False)),
+                            "discount_rejected": bool(memory.state.get("discount_rejected", False)),
+                            "counter_offer_present": bool(memory.state.get("counter_offer_present", False)),
                             "response_mode": str(memory.state.get("response_mode", "informational")).strip()
                             or "informational",
                             "active_dialogue_owner": str(memory.state.get("active_dialogue_owner", "collections")).strip()
@@ -967,14 +1042,39 @@ class CollectionAgent(BaseAgent):
                         }
                     )
                     state = self._finalize_output_state(state)
+                    posture_history = self._append_customer_payment_posture_history(
+                        prior_history=(
+                            list(memory.state.get("customer_payment_posture_history", []))
+                            if isinstance(memory.state.get("customer_payment_posture_history"), list)
+                            else []
+                        ),
+                        prior_posture=str(memory.state.get("customer_payment_posture", "unknown")).strip().lower(),
+                        new_posture=str(state.get("customer_payment_posture", memory.state.get("customer_payment_posture", "unknown"))).strip().lower(),
+                        turn_index=turn_index + 1,
+                    )
+                    state["customer_payment_posture_history"] = posture_history
                     memory_updates: dict[str, Any] = {
                         "turn_index": turn_index + 1,
                         "last_user_input": user_input,
                         "last_agent_response": str(state.get("response", "")).strip(),
                         "last_response_target": str(state.get("response_target", "customer")).strip().lower() or "customer",
+                        "greeted": bool(memory.state.get("greeted", False)) or bool(str(state.get("response", "")).strip()),
+                        "customer_payment_posture_history": posture_history,
                     }
                     if isinstance(state.get("conversation_plan"), dict):
                         memory_updates["active_conversation_plan"] = dict(state["conversation_plan"])
+                    for key in (
+                        "customer_profile",
+                        "customer_profile_summary",
+                        "payment_history",
+                        "payment_history_summary",
+                        "offer_history",
+                        "offer_history_summary",
+                        "assistance_programs",
+                        "active_collection_context",
+                    ):
+                        if key in state:
+                            memory_updates[key] = state.get(key)
                     memory.set_state(**memory_updates)
                     if str(state.get("response_target", "customer")).strip().lower() == "customer":
                         response_text = str(state.get("response", "")).strip()
@@ -1048,26 +1148,82 @@ class CollectionAgent(BaseAgent):
                 output["response"] = decision_text or fallback_outline or "No response generated."
         return output
 
-    @staticmethod
-    def _ensure_negotiation_state_defaults(*, memory: Any) -> None:
+    def _ensure_negotiation_state_defaults(self, *, memory: Any) -> None:
         memory_state = dict(getattr(memory, "state", {}))
         defaults: dict[str, Any] = {}
         if "conversation_mode" not in memory_state:
             defaults["conversation_mode"] = "collections"
+        if "greeted" not in memory_state:
+            history = memory_state.get("conversation_history")
+            greeted = False
+            if isinstance(history, list):
+                greeted = any(
+                    isinstance(item, dict)
+                    and str(item.get("role", "")).strip().lower() == "agent"
+                    and bool(str(item.get("content", "")).strip())
+                    for item in history
+                )
+            if not greeted:
+                greeted = bool(str(memory_state.get("last_agent_response", "")).strip())
+            if not greeted:
+                greeted = int(memory_state.get("turn_index", 0) or 0) > 0
+            defaults["greeted"] = greeted
         if "negotiation_stage" not in memory_state:
             defaults["negotiation_stage"] = "none"
         if "customer_payment_posture" not in memory_state:
             defaults["customer_payment_posture"] = "unknown"
+        if not isinstance(memory_state.get("customer_payment_posture_history"), list):
+            defaults["customer_payment_posture_history"] = []
+        else:
+            normalized_posture_history = self._normalize_customer_payment_posture_history(
+                list(memory_state.get("customer_payment_posture_history", []))
+            )
+            if normalized_posture_history != memory_state.get("customer_payment_posture_history"):
+                defaults["customer_payment_posture_history"] = normalized_posture_history
+        if "customer_payment_capacity" not in memory_state:
+            defaults["customer_payment_capacity"] = None
+        if "customer_payment_capacity_pct" not in memory_state:
+            defaults["customer_payment_capacity_pct"] = None
+        if "discount_stage" not in memory_state:
+            defaults["discount_stage"] = "none"
+        if "customer_payment_willingness" not in memory_state:
+            defaults["customer_payment_willingness"] = 0.5
         if not isinstance(memory_state.get("hardship_context"), dict):
             defaults["hardship_context"] = {
                 "hardship_detected": False,
                 "hardship_reason": None,
                 "confidence": 0.0,
             }
+        if "discount_requested" not in memory_state:
+            defaults["discount_requested"] = False
+        if "discount_offered" not in memory_state:
+            defaults["discount_offered"] = False
+        if "discount_accepted" not in memory_state:
+            defaults["discount_accepted"] = False
+        if "discount_rejected" not in memory_state:
+            defaults["discount_rejected"] = False
+        if "counter_offer_present" not in memory_state:
+            defaults["counter_offer_present"] = False
         if "response_mode" not in memory_state:
             defaults["response_mode"] = "informational"
         if "active_dialogue_owner" not in memory_state:
             defaults["active_dialogue_owner"] = "collections"
+        if not isinstance(memory_state.get("customer_profile"), dict):
+            defaults["customer_profile"] = {}
+        if not isinstance(memory_state.get("customer_profile_summary"), dict):
+            defaults["customer_profile_summary"] = {}
+        if not isinstance(memory_state.get("payment_history"), dict):
+            defaults["payment_history"] = {}
+        if not isinstance(memory_state.get("payment_history_summary"), dict):
+            defaults["payment_history_summary"] = {}
+        if not isinstance(memory_state.get("offer_history"), dict):
+            defaults["offer_history"] = {}
+        if not isinstance(memory_state.get("offer_history_summary"), dict):
+            defaults["offer_history_summary"] = {}
+        if not isinstance(memory_state.get("assistance_programs"), list):
+            defaults["assistance_programs"] = []
+        if not isinstance(memory_state.get("active_collection_context"), dict):
+            defaults["active_collection_context"] = {}
         if defaults:
             memory.set_state(**defaults)
 
@@ -1111,9 +1267,27 @@ class CollectionAgent(BaseAgent):
             conversation_mode="collections",
             negotiation_stage="none",
             customer_payment_posture="unknown",
+            customer_payment_posture_history=[],
+            customer_payment_capacity=None,
+            customer_payment_capacity_pct=None,
+            discount_stage="none",
+            customer_payment_willingness=0.5,
             hardship_context={"hardship_detected": False, "hardship_reason": None, "confidence": 0.0},
+            discount_requested=False,
+            discount_offered=False,
+            discount_accepted=False,
+            discount_rejected=False,
+            counter_offer_present=False,
             response_mode="informational",
             active_dialogue_owner="collections",
+            customer_profile={},
+            customer_profile_summary={},
+            payment_history={},
+            payment_history_summary={},
+            offer_history={},
+            offer_history_summary={},
+            assistance_programs=[],
+            active_collection_context={},
         )
         self._hydrate_case_context(memory=memory)
 
@@ -1143,6 +1317,36 @@ class CollectionAgent(BaseAgent):
             "channel": str(memory.state.get("active_channel", "voice")),
             "timestamp_ms": int(time.time() * 1000),
         }
+
+    @staticmethod
+    def _append_customer_payment_posture_history(
+        *,
+        prior_history: list[Any],
+        prior_posture: str,
+        new_posture: str,
+        turn_index: int,
+    ) -> list[str]:
+        del turn_index
+        history = CollectionAgent._normalize_customer_payment_posture_history(prior_history)
+        normalized_prior = str(prior_posture or "").strip().lower() or "unknown"
+        normalized_new = str(new_posture or "").strip().lower() or "unknown"
+        if not history and normalized_prior != "unknown":
+            history.append(normalized_prior)
+        if normalized_new != "unknown" and (not history or history[-1] != normalized_new):
+            history.append(normalized_new)
+        return history
+
+    @staticmethod
+    def _normalize_customer_payment_posture_history(prior_history: list[Any]) -> list[str]:
+        normalized: list[str] = []
+        for item in prior_history:
+            if isinstance(item, dict):
+                posture = str(item.get("posture", "")).strip().lower()
+            else:
+                posture = str(item or "").strip().lower()
+            if posture and posture not in normalized:
+                normalized.append(posture)
+        return normalized
 
     def _persist_trace(self, trace: ExecutionTrace) -> None:
         target_dir = self.trace_output_dir
@@ -1246,6 +1450,16 @@ class CollectionAgent(BaseAgent):
                     active_verification_required_fields=required_fields,
                     active_verification_challenge=challenge_cache,
                 )
+
+        resolved_case_id = str(memory.state.get("active_case_id", active_case_id or "COLL-1001")).strip()
+        resolved_customer_id = str(memory.state.get("active_user_id", customer_id or active_user_id)).strip()
+        if not resolved_case_id or not resolved_customer_id or self.context_builder is None:
+            return
+        context_updates = self.context_builder.build_memory_updates(
+            customer_id=resolved_customer_id,
+            case_id=resolved_case_id,
+        )
+        memory.set_state(**context_updates)
 
     def _resolve_user_id(self, *, memory_state: dict[str, Any], user_input: str) -> str | None:
         from_state = memory_state.get("active_user_id") or memory_state.get("user_id")

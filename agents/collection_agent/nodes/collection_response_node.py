@@ -34,6 +34,7 @@ class CollectionResponseNode(ResponseNode):
 
     State Keys Read:
     - `user_input`
+    - `greeted`
     - `response_target`
     - `plan_proposal`
     - `conversation_plan`
@@ -48,6 +49,7 @@ class CollectionResponseNode(ResponseNode):
     State Keys Write:
     - `response`
     - `response_target`
+    - `greeted`
     - `conversation_history`
     - `prompt`
     - `system_prompt`
@@ -67,6 +69,7 @@ class CollectionResponseNode(ResponseNode):
     strict_llm_mode: bool = True
     max_prompt_chars: int = 4200
     max_json_chars: int = 800
+    recent_conversation_turns: int = 3
     last_render_debug: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
 
     def execute(self, state: AgentState) -> NodeUpdate:
@@ -129,8 +132,10 @@ class CollectionResponseNode(ResponseNode):
 
         # Keep bounded in memory.
         history = history[-40:]
-        memory.set_state(conversation_history=history)
+        greeted = bool(memory_state.get("greeted", False)) or bool(response_text and response_target == "customer")
+        memory.set_state(conversation_history=history, greeted=greeted)
         update["conversation_history"] = history
+        update["greeted"] = greeted
 
     def route(self, state: AgentState) -> str:
         target = str(state.get("response_target", self.default_target)).strip().lower()
@@ -222,14 +227,26 @@ class CollectionResponseNode(ResponseNode):
             memory_state=memory_state,
             proposal=proposal,
         )
+        conversation_history = (
+            list(state.get("conversation_history", []))
+            if isinstance(state.get("conversation_history"), list)
+            else (
+                list(memory_state.get("conversation_history", []))
+                if isinstance(memory_state.get("conversation_history"), list)
+                else []
+            )
+        )
         return {
             "memory_state": memory_state,
             "user_input": user_input,
+            "greeted": bool(state.get("greeted", memory_state.get("greeted", False))),
             "response_target": response_target,
             "facts": facts,
             "verification_context": verification_context,
             "observations": state.get("observations") if isinstance(state.get("observations"), list) else [],
             "observation": state.get("observation"),
+            "conversation_history": conversation_history,
+            "recent_conversation": self._recent_conversation(history=conversation_history),
             "plan_proposal": proposal,
             "conversation_plan": conversation_plan,
             "current_plan_node_id": current_plan_node_id,
@@ -454,14 +471,17 @@ class CollectionResponseNode(ResponseNode):
                         break
         response_target = str(context.get("response_target", "customer")).strip().lower() or "customer"
         facts = context.get("facts") if isinstance(context.get("facts"), dict) else self._resolve_case_facts(state=state, proposal=proposal)
-        prior_agent_response = str(memory_state.get("last_agent_response", "")).strip()
+        recent_conversation = (
+            list(context.get("recent_conversation", []))
+            if isinstance(context.get("recent_conversation"), list)
+            else []
+        )
         verification_context_merged = self._build_verification_context(state=state, memory_state=memory_state, proposal=proposal)
         response_directive = (
             dict(response_directive)
             if isinstance(response_directive, dict)
             else self._resolve_response_directive(state=state, proposal=proposal, context=context)
         )
-        prior_agent_response_short = self._truncate_text(prior_agent_response, 280)
         compact_observation = self._compact_observation(observation)
 
         system_prompt = (f"{self.system_prompt or ''}\n{self.render_system_prompt or ''}").strip()
@@ -470,7 +490,7 @@ class CollectionResponseNode(ResponseNode):
             {
                 "user_input": user_input,
                 "response_target": str(response_directive.get("response_target", response_target)).strip().lower() or response_target,
-                "prior_agent_response": prior_agent_response_short,
+                "recent_conversation_json": self._json_compact(recent_conversation, max_chars=1200),
                 "template_id": str(response_directive.get("template_id", "")).strip(),
                 "tone": str(response_directive.get("tone", "")).strip(),
                 "fallback_template_id": str(response_directive.get("fallback_template_id", "")).strip(),
@@ -674,6 +694,8 @@ class CollectionResponseNode(ResponseNode):
             lowered = rendered.lower()
             if any(token in lowered for token in ["inr ", "overdue", "dues", "amount", "emi", "late fee"]):
                 result["forbidden_actions_blocked"].append("disclose_dues_before_verification")
+        if bool(constraints.get("greeted", False)) and self._contains_repeat_greeting(rendered):
+            result["forbidden_actions_blocked"].append("repeat_greeting")
         if bool(constraints.get("avoid_internal_terms", True)) and self._contains_internal_processing(rendered):
             result["forbidden_actions_blocked"].append("mention_internal_processing")
         if result["forbidden_actions_blocked"]:
@@ -716,6 +738,11 @@ class CollectionResponseNode(ResponseNode):
         )
 
     @staticmethod
+    def _contains_repeat_greeting(text: str) -> bool:
+        lowered = str(text or "").strip().lower()
+        return lowered.startswith(("hi ", "hi,", "hello ", "hello,", "good morning", "good afternoon", "good evening"))
+
+    @staticmethod
     def _contains_unresolved_placeholders(text: str) -> bool:
         return bool(re.search(r"\{[^}]+\}|\[[^\]]+\]", str(text or "")))
 
@@ -746,6 +773,7 @@ class CollectionResponseNode(ResponseNode):
         if not missing_fields:
             missing_fields = self._join_human_list(verification_context.get("missing_field_labels", []))
         turn_index = int(memory_state.get("turn_index", 0) or 0)
+        greeted = bool(context.get("greeted", False))
         return {
             "customer_name": customer_name,
             "case_id": str(facts.get("case_id", memory_state.get("active_case_id", "COLL-1001"))).strip() or "COLL-1001",
@@ -753,7 +781,7 @@ class CollectionResponseNode(ResponseNode):
             "missing_fields": str(missing_fields or self.verification_default_missing_text).strip(),
             "customer_facing_goal": str(raw_directive.get("customer_facing_goal", "")).strip(),
             "message_hint": str(raw_directive.get("draft_response", proposal.get("draft_response", ""))).strip(),
-            "opening_turn": turn_index <= 0,
+            "opening_turn": (turn_index <= 0) and not greeted,
         }
 
     def _build_render_constraints(
@@ -767,10 +795,26 @@ class CollectionResponseNode(ResponseNode):
             "avoid_internal_terms": True,
             "avoid_placeholders": True,
             "avoid_verbatim_repeat": True,
+            "greeted": bool(context.get("greeted", False)),
             "ask_one_question": response_target == "customer",
             "no_dues_before_verification": not bool(verification_context.get("identity_verified", False)),
             "verification_incomplete": bool(verification_context.get("verification_incomplete", False)),
         }
+
+    def _recent_conversation(self, *, history: list[Any]) -> list[dict[str, str]]:
+        filtered: list[dict[str, str]] = []
+        for item in history:
+            if not isinstance(item, dict):
+                continue
+            role = str(item.get("role", "")).strip().lower()
+            content = str(item.get("content", "")).strip()
+            if role not in {"customer", "agent"} or not content:
+                continue
+            filtered.append({"role": role, "content": content})
+        if not filtered:
+            return []
+        max_messages = max(1, int(self.recent_conversation_turns or 1)) * 2
+        return filtered[-max_messages:]
 
     @staticmethod
     def _resolve_case_facts(*, state: AgentState, proposal: dict[str, Any]) -> dict[str, Any]:

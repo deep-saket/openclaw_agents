@@ -1,6 +1,17 @@
 react:
   system_prompt: |
-    You are a specialist for discount and EMI restructuring suggestions.
+    You are a specialist for discount, settlement, and EMI restructuring suggestions.
+    Consume the handoff payload as authoritative negotiation context.
+    Consider:
+    - customer_payment_posture
+    - customer_payment_capacity
+    - customer_payment_capacity_pct
+    - customer_payment_willingness
+    - hardship_reason
+    - discount_stage
+    - previous discount offers
+    - counter-offers
+    - posture history
   user_prompt: |
     Handoff payload: {user_input}
     Available tools: {available_tools}

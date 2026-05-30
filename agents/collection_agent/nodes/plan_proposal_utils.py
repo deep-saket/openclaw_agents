@@ -55,6 +55,12 @@ def needs_discount_specialist(text: str) -> bool:
         "lower emi",
         "reduce emi",
         "settlement",
+        "settle for",
+        "partial payment",
+        "part payment",
+        "counter offer",
+        "counter-offer",
+        "work something out",
     ]
     return any(keyword in lowered for keyword in keywords)
 
@@ -92,13 +98,41 @@ def overlay_negotiation_state_from_graph(*, state: AgentState, memory_state: dic
         "conversation_mode",
         "negotiation_stage",
         "customer_payment_posture",
+        "discount_stage",
         "response_mode",
         "active_dialogue_owner",
     ):
         if key in state and str(state.get(key, "")).strip():
             merged[key] = str(state.get(key, "")).strip()
+    for key in (
+        "customer_payment_capacity",
+        "customer_payment_capacity_pct",
+        "customer_payment_willingness",
+        "discount_requested",
+        "discount_offered",
+        "discount_accepted",
+        "discount_rejected",
+        "counter_offer_present",
+    ):
+        if key in state and state.get(key) is not None:
+            merged[key] = state.get(key)
+    if isinstance(state.get("customer_payment_posture_history"), list):
+        merged["customer_payment_posture_history"] = list(state.get("customer_payment_posture_history", []))
     if isinstance(state.get("hardship_context"), dict):
         merged["hardship_context"] = dict(state.get("hardship_context", {}))
+    for key in (
+        "customer_profile",
+        "customer_profile_summary",
+        "payment_history",
+        "payment_history_summary",
+        "offer_history",
+        "offer_history_summary",
+        "active_collection_context",
+    ):
+        if isinstance(state.get(key), dict):
+            merged[key] = dict(state.get(key, {}))
+    if isinstance(state.get("assistance_programs"), list):
+        merged["assistance_programs"] = [dict(item) for item in state.get("assistance_programs", []) if isinstance(item, dict)]
     return merged
 
 
@@ -230,5 +264,21 @@ def compact_memory_state_for_prompt(memory_state: dict[str, Any]) -> dict[str, A
         "verification_entities": memory_state.get("verification_entities", {}),
         "verification_missing_fields": memory_state.get("verification_missing_fields", []),
         "mode": str(memory_state.get("mode", "strict_collections")).strip(),
+        "conversation_mode": str(memory_state.get("conversation_mode", "collections")).strip(),
+        "negotiation_stage": str(memory_state.get("negotiation_stage", "none")).strip(),
+        "customer_payment_posture": str(memory_state.get("customer_payment_posture", "unknown")).strip(),
+        "customer_payment_capacity": memory_state.get("customer_payment_capacity"),
+        "customer_payment_capacity_pct": memory_state.get("customer_payment_capacity_pct"),
+        "discount_stage": str(memory_state.get("discount_stage", "none")).strip(),
+        "customer_payment_willingness": memory_state.get("customer_payment_willingness"),
+        "hardship_context": memory_state.get("hardship_context", {}),
+        "discount_requested": bool(memory_state.get("discount_requested", False)),
+        "discount_offered": bool(memory_state.get("discount_offered", False)),
+        "discount_accepted": bool(memory_state.get("discount_accepted", False)),
+        "discount_rejected": bool(memory_state.get("discount_rejected", False)),
+        "counter_offer_present": bool(memory_state.get("counter_offer_present", False)),
+        "customer_profile_summary": memory_state.get("customer_profile_summary", {}),
+        "payment_history_summary": memory_state.get("payment_history_summary", {}),
+        "offer_history_summary": memory_state.get("offer_history_summary", {}),
         "last_response_target": str(memory_state.get("last_response_target", "")).strip(),
     }

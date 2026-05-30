@@ -3,8 +3,8 @@ flowchart TD
   IN -->|irrelevant/empty| IR["IrrelevantResponseNode"]
   IR --> End["END"]
 
-  IN -->|relevant| EN["CollectionEntityExtractNode"]
-  EN --> NC["NegotiationClassificationNode"]
+  IN -->|relevant| EN["CollectionEntityExtractNode\nextract entities + payment capacity"]
+  EN --> NC["NegotiationClassificationNode\nposture + discount stage + willingness"]
   NC --> PG["IntentNode (Pre-Plan Gate)\nplan | decide"]
   PG -->|plan| PS["PlanProposalStateNode"]
   PG -->|decide| XP["IntentNode (Execution Path)\nneed_memory | verification_react | react"]
@@ -30,7 +30,7 @@ flowchart TD
   TE -->|other tool result| RN
 
   PS -->|continue| PGN["PlanProposalGraphNode"]
-  PGN -->|continue| PD["PlanProposalDirectiveNode"]
+  PGN -->|continue| PD["PlanProposalDirectiveNode\nproposal + directive + discount handoff"]
   PD -->|continue| RF["CollectionReflectNode"]
   RF -->|retry_plan_proposal| PS
   RF -->|complete| RR["RelevantResponseNode\nresponse + response_target (+ additional_targets)"]
@@ -38,7 +38,7 @@ flowchart TD
 
   End -. external orchestration in main .-> X1["Target: customer"]
   End -. external orchestration in main .-> X2["Target: self"]
-  End -. external orchestration in main .-> X3["Target: discount_planning_agent"]
+  End -. external orchestration in main .-> X3["Target: discount_planning_agent\npartial-payment / settlement / hardship assistance"]
   End -. external orchestration in main .-> X4["Additional target: collection_memory_helper_agent"]
 
   subgraph VTBOX["Verification Tool Catalog"]

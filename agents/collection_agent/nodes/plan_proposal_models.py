@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -35,6 +35,7 @@ class PlanTreeUpdate(BaseModel):
 
 class PlanProposalPayload(BaseModel):
     target: str = "customer"
+    response_target: str | None = None
     intent: str = "generic_plan"
     conversation_objective: str | None = None
     dialogue_action: str | None = None
@@ -45,6 +46,7 @@ class PlanProposalPayload(BaseModel):
     customer_facing_goal: str | None = None
     handoff_target: str | None = None
     response_directive: dict[str, Any] | None = None
+    handoff_payload: dict[str, Any] | None = None
     plan_outline: str
     draft_response: str | None = None
     next_actions: list[str] = Field(default_factory=list)
@@ -58,4 +60,27 @@ class PlanSignalPayload(BaseModel):
     hardship_signal: bool = False
     hardship_reason: str = "income_reduction"
     suggested_plan_mode: str = "strict_collections"
+    customer_payment_posture: Literal[
+        "unknown",
+        "pay_now",
+        "partial_now",
+        "promise_to_pay",
+        "cannot_pay",
+        "refuses_to_pay",
+        "negotiating",
+    ] | None = None
+    customer_payment_capacity: float | None = None
+    customer_payment_capacity_pct: float | None = None
+    discount_stage: Literal[
+        "none",
+        "requested",
+        "planning",
+        "offered",
+        "accepted",
+        "rejected",
+        "counter_offer",
+        "closed",
+    ] | None = None
+    discount_requested: bool | None = None
+    counter_offer_present: bool | None = None
     reason: str | None = None

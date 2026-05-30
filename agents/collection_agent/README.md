@@ -93,6 +93,28 @@ Expected response:
   - optional `additional_targets` (for example `collection_memory_helper_agent`)
 - Outer orchestration loop in `main.py` decides who gets that response next.
 
+## Collection Data Architecture
+
+Collection Agent is an outbound collections workflow. Most customer, case, policy, and negotiation-supporting facts are loaded before the graph starts.
+
+Preloaded datasets:
+
+- `customers.json`
+- `cases.json`
+- `policies.json`
+- `customer_profile.json`
+- `payment_history.json`
+- `offer_history.json`
+- `assistance_programs.json`
+
+`CollectionContextBuilder` aggregates those records into one `active_collection_context` object before graph execution. That context is injected into:
+
+- graph state for the current turn
+- session memory for cross-turn reuse
+- compact summaries used by negotiation classification and planning prompts
+
+As a result, nodes operate primarily on state rather than repeatedly reading JSON or calling retrieval-style tools. Verification and action execution remain external.
+
 ## Collection Graph State Contract
 
 Collection Agent uses:
@@ -141,6 +163,14 @@ Important: Graph state is rebuilt each run; session memory survives across turns
 | `extracted_entity_descriptions` | Descriptions/schema hints for extracted fields | `entity_extract` |
 | `extracted_entities_updated_fields` | Fields changed vs previous memory snapshot | `entity_extract` |
 | `verification_entities` | Verification-focused entity map (name/dob/phone, etc.) | `entity_extract` |
+| `customer_profile` | Loaded customer behavioral profile record | pre-turn context builder |
+| `customer_profile_summary` | Compact customer-profile summary for prompts/debugging | pre-turn context builder |
+| `payment_history` | Loaded payment-history record | pre-turn context builder |
+| `payment_history_summary` | Compact payment-history summary for prompts/debugging | pre-turn context builder |
+| `offer_history` | Loaded settlement / offer history record | pre-turn context builder |
+| `offer_history_summary` | Compact offer-history summary for prompts/debugging | pre-turn context builder |
+| `assistance_programs` | Assistance / hardship program records relevant to the case | pre-turn context builder |
+| `active_collection_context` | Aggregated customer+case+policy+history context payload | pre-turn context builder |
 | `verified_dob` | Boolean mirror for DOB verification success | `verification_react` |
 | `verified_mobile` | Boolean mirror for mobile verification success | `verification_react` |
 | `verification_missing_fields` | Verification fields still missing | `verification_react` |
@@ -149,7 +179,17 @@ Important: Graph state is rebuilt each run; session memory survives across turns
 | `conversation_mode` | Persistent collections / hardship / verification dialogue mode | `negotiation_classification` |
 | `negotiation_stage` | Negotiation-stage progression state | `negotiation_classification` |
 | `customer_payment_posture` | Customer payment posture classification | `negotiation_classification` |
+| `customer_payment_posture_history` | Historical posture transitions for analytics and continuity | memory layer |
+| `customer_payment_capacity` | Absolute amount the customer says they can pay | `entity_extract` |
+| `customer_payment_capacity_pct` | Percentage/proportion the customer says they can pay | `entity_extract` |
+| `discount_stage` | Discount / settlement negotiation lifecycle stage | `negotiation_classification` |
+| `customer_payment_willingness` | 0.0-1.0 willingness score for payment intent analytics | `negotiation_classification` |
 | `hardship_context` | Persistent hardship detection payload | `negotiation_classification` |
+| `discount_requested` | Sticky analytics flag that discount/settlement review has been requested | `negotiation_classification`, `plan_proposal_directive` |
+| `discount_offered` | Sticky analytics flag that a specialist recommendation has been returned | `negotiation_classification`, `plan_proposal_directive` |
+| `discount_accepted` | Sticky analytics flag that the customer accepted a discount outcome | `negotiation_classification` |
+| `discount_rejected` | Sticky analytics flag that the customer rejected a discount outcome | `negotiation_classification` |
+| `counter_offer_present` | Sticky analytics flag that the customer proposed an alternate amount | `negotiation_classification`, `plan_proposal_directive` |
 | `response_mode` | Downstream tone/response-mode hint | `negotiation_classification` |
 | `active_dialogue_owner` | Component that should lead the next customer-facing dialogue | `negotiation_classification` |
 | `plan_proposal` | Planner proposal payload (target, outline, next actions, tree update) | `plan_proposal_directive` |
@@ -164,7 +204,7 @@ Important: Graph state is rebuilt each run; session memory survives across turns
 | `reflection_complete` | Whether reflection accepted current proposal | `reflect` |
 | `reflection_retry_count` | Retry counter used by reflect loop guard | `reflect` |
 | `reflection_plan_retry_count` | Plan-specific retry counter | `reflect` |
-| `failure_type` | Reflection failure class (`none`, `plan_correction_needed`, etc.) | `reflect` |
+| `failure_type` | Reflection failure class (`none`, `invalid_json`, `empty_response`, `policy_violation`, `missing_required_action`, `unsafe_disclosure`, `placeholder_leakage`, `invalid_state_claim`) | `reflect` |
 | `correction_hints` | Reflect hints for planner retry | `reflect` |
 | `retry_target` | Retry destination (`plan_proposal_state` or `none`) | `reflect` |
 | `response` | Final customer/system response text for this pass | `relevant_response` / `irrelevant_response` |
@@ -185,8 +225,8 @@ Important: Graph state is rebuilt each run; session memory survives across turns
 | Node | Primary graph-state updates |
 | --- | --- |
 | `relevance_intent` | `relevance_intent`, `intent`, debug keys (`prompt`, `llm_*`) |
-| `entity_extract` | `extracted_entities`, `extracted_entities_turn`, `extracted_entity_descriptions`, `verification_entities`, `memory_context`, debug keys |
-| `negotiation_classification` | `negotiation_classification`, `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `hardship_context`, `response_mode`, `active_dialogue_owner` |
+| `entity_extract` | `extracted_entities`, `extracted_entities_turn`, `extracted_entity_descriptions`, `verification_entities`, `customer_payment_capacity`, `customer_payment_capacity_pct`, `memory_context`, debug keys |
+| `negotiation_classification` | `negotiation_classification`, `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `discount_stage`, `customer_payment_willingness`, `hardship_context`, explicit discount outcome flags, `response_mode`, `active_dialogue_owner` |
 | `pre_plan_intent` | `pre_plan_intent`, `intent`, debug keys |
 | `execution_path_intent` | `execution_path_intent`, `intent`, debug keys |
 | `memory_retrieve` | `memory_context`, `memory_retrievals` |
@@ -210,11 +250,19 @@ These are not graph-state-only, but they drive graph behavior every turn:
 - `active_user_id`, `active_case_id`, `active_channel`
 - `active_customer_name`, `active_overdue_amount`, `active_emi_amount`, `active_late_fee`, `active_dpd`
 - `active_verification_required_fields`, `active_verification_challenge`
+- `customer_profile`, `customer_profile_summary`
+- `payment_history`, `payment_history_summary`
+- `offer_history`, `offer_history_summary`
+- `assistance_programs`
+- `active_collection_context`
 - `verification_entities`, `verification_collected`
 - `verification_verified_fields`, `verification_missing_fields`, `verification_last_status`
 - `identity_verified`
 - `conversation_mode`, `negotiation_stage`, `customer_payment_posture`
-- `hardship_context`, `response_mode`, `active_dialogue_owner`
+- `customer_payment_posture_history`
+- `customer_payment_capacity`, `customer_payment_capacity_pct`
+- `discount_stage`, `customer_payment_willingness`
+- `hardship_context`, explicit discount outcome flags, `response_mode`, `active_dialogue_owner`
 - `active_conversation_plan`
 - `conversation_history` (bounded, currently last 40 entries)
 - `tool_observations_history` (bounded, currently last 40 entries)
@@ -227,10 +275,11 @@ When behavior looks wrong, inspect these first in order:
 1. `node_history` (did graph visit expected nodes?)
 2. `route`, `next_node`, `conversation_phase` (was routing correct?)
 3. `verification_entities`, `verification_missing_fields`, `verification_verified_fields`, `identity_verified` (verification stage truth)
-4. `conversation_mode`, `negotiation_stage`, `hardship_context`, `active_dialogue_owner` (negotiation continuity truth)
-5. `plan_proposal` + `conversation_plan.current_node_id` (planner stage)
-6. `reflection_feedback` + `reflection_complete` (retry loop reason)
-7. `response` + `response_target` (final output contract)
+4. `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `discount_stage` (negotiation continuity truth)
+5. `customer_payment_capacity`, `customer_payment_capacity_pct`, `customer_payment_willingness`, `customer_payment_posture_history` (payment analytics + transition truth)
+6. `plan_proposal` + `conversation_plan.current_node_id` + `handoff_payload` (planner stage and specialist routing)
+7. `reflection_feedback` + `reflection_complete` (retry loop reason)
+8. `response` + `response_target` (final output contract)
 
 ## Graph (single-pass)
 
@@ -270,7 +319,7 @@ flowchart TD
   PGN -->|continue| PD["PlanProposalDirectiveNode\n- build plan proposal\n- attach response directive"]
   PD -->|continue| RF["CollectionReflectNode"]
 
-  RF -->|retry_plan| PS
+  RF -->|retry_plan_proposal| PS
   RF -->|complete| RR["RelevantResponseNode\n- response + response_target + additional_targets"]
   RR --> End
 ```
@@ -280,6 +329,41 @@ Graph assets:
 - `graph.mmd`
 - `graph.png`
 - `graph.jpg`
+
+## Batch Evaluation Dataset
+
+`BatchExecutionRunner` uses the collection-agent evaluation dataset directory by default:
+
+- `agents/collection_agent/eval_dataset/`
+
+Default dataset:
+
+- `agents/collection_agent/eval_dataset/collection_agent_golden_dataset_950.jsonl`
+
+Behavior:
+
+- auto-discover all `*.jsonl` files under `eval_dataset/`
+- allow explicit `dataset_path` override
+- load one script per JSONL record
+- preserve all fields from the source dataset in execution artifacts
+- include `script_id` and `run_id` in every trace artifact
+
+Example:
+
+```python
+from agents.collection_agent.evaluation import BatchExecutionRunner
+
+runner = BatchExecutionRunner(
+    dataset_path="agents/collection_agent/eval_dataset/collection_agent_golden_dataset_950.jsonl"
+)
+result = runner.run()
+```
+
+Validation requirements:
+
+- every dataset `script_id` must appear in `run_summary.csv`
+- every dataset `script_id` must appear in `conversations.jsonl`
+- `script_id` is the primary join key across dataset rows, execution traces, metrics, replay, and debugging
 
 ## Node Definitions
 
@@ -297,12 +381,16 @@ Graph assets:
 
 - Runs immediately after relevance pass for in-scope turns.
 - Extracts entities (LLM-first) and syncs verification entities before planning/routing.
+- Owns `customer_payment_capacity` and `customer_payment_capacity_pct` extraction when the customer states an amount or proportion they can pay.
 
 ### `NegotiationClassificationNode`
 
 - Runs immediately after entity extraction.
-- Classifies and persists `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `hardship_context`, `response_mode`, and `active_dialogue_owner`.
+- Consumes `customer_profile_summary`, `payment_history_summary`, `offer_history_summary`, hardship context, and the current utterance when available.
+- Classifies and persists `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `discount_stage`, `customer_payment_willingness`, `hardship_context`, explicit discount outcome flags, `response_mode`, and `active_dialogue_owner`.
 - Preserves hardship negotiation continuity across turns without selecting tools directly.
+- Supports posture transitions such as `cannot_pay -> partial_now -> pay_now` without losing historical posture evidence.
+- Does not own payment-capacity fields or posture history.
 
 ### `IntentNode (Pre-Plan Gate)`
 
@@ -353,8 +441,11 @@ Graph assets:
 
 - Builds the final `plan_proposal` payload and `response_directive`.
 - Assigns routing targets (`customer`, `self`, `discount_planning_agent`) and optional handoff payloads.
+- Routes to `discount_planning_agent` when hardship/cannot-pay, settlement/discount requests, partial-payment proposals, counter-offers, or discount lifecycle stages require specialist planning.
+- Emits richer discount handoff payloads including payment capacity, percentage capacity, hardship reason, lifecycle stage, and posture.
 - Detects conversation termination and may add `collection_memory_helper_agent` to additional targets.
 - Reads verification progression from graph-owned verification state and negotiation continuity from graph/memory overlays.
+- Does not own `discount_stage`; it only consumes the classified stage and forwards it inside handoff payloads.
 
 ### `CollectionReflectNode`
 
@@ -418,6 +509,176 @@ Implementation note:
 - `agents/collection_memory_helper_agent`
 
 Collection agent does not treat specialist handoff as an internal graph node or tool.
+
+## Negotiation state extensions
+
+The collection graph now treats payment posture, payment capacity, and discount lifecycle as first-class state.
+
+### Customer payment posture
+
+Owner: `negotiation_classification`
+
+Allowed values:
+
+- `unknown`
+- `pay_now`
+- `partial_now`
+- `promise_to_pay`
+- `cannot_pay`
+- `refuses_to_pay`
+- `negotiating`
+
+Examples:
+
+- `"I can pay now"` -> `pay_now`
+- `"I can pay 2000 today"` -> `partial_now`
+- `"I will pay next Friday"` -> `promise_to_pay`
+- `"I lost my job"` -> `cannot_pay`
+- `"I am not paying anything"` -> `refuses_to_pay`
+- `"Can we work something out?"` -> `negotiating`
+
+### Customer payment capacity
+
+Owner: `entity_extract`
+
+Fields:
+
+- `customer_payment_capacity`: absolute numeric amount
+- `customer_payment_capacity_pct`: percentage/proportion on a 0-100 scale
+
+Examples:
+
+- `"I can pay 3000 today"` -> `customer_payment_capacity=3000`
+- `"I can pay half"` -> `customer_payment_capacity_pct=50`
+
+### Discount negotiation lifecycle
+
+Owner: `negotiation_classification`
+
+Allowed values:
+
+- `none`
+- `requested`
+- `planning`
+- `offered`
+- `accepted`
+- `rejected`
+- `counter_offer`
+- `closed`
+
+### Explicit discount outcome flags
+
+Used for analytics, evaluation, and easier downstream inspection:
+
+- `discount_requested`
+- `discount_offered`
+- `discount_accepted`
+- `discount_rejected`
+- `counter_offer_present`
+
+These are sticky booleans derived from lifecycle transitions and preserved across turns.
+
+## Discount planning routing rules
+
+`PlanProposalDirectiveNode` routes to `discount_planning_agent` when identity verification is complete and any of the following are true:
+
+1. hardship exists and `customer_payment_posture=cannot_pay`
+2. customer requests settlement
+3. customer requests discount or waiver
+4. customer proposes a partial payment (`partial_now`)
+5. customer makes a counter-offer
+6. `discount_stage=requested`
+7. `discount_stage=counter_offer`
+
+Typical handoff payload:
+
+```json
+{
+  "case_id": "COLL-1001",
+  "customer_id": "USER-1",
+  "hardship_reason": "job_loss",
+  "discount_stage": "requested",
+  "customer_payment_posture": "partial_now",
+  "customer_payment_capacity": 2000,
+  "customer_payment_capacity_pct": null,
+  "customer_payment_willingness": 0.8,
+  "user_message": "I can pay 2000 today if you can settle this.",
+  "requested_by": "collection_agent"
+}
+```
+
+## Example negotiation flows
+
+### Discount planning flow
+
+1. Customer: "I lost my job and cannot pay the full EMI."
+2. `negotiation_classification` sets:
+   - `conversation_mode=hardship_negotiation`
+   - `customer_payment_posture=cannot_pay`
+   - `discount_stage=none`
+3. `plan_proposal_directive` routes to `discount_planning_agent`
+4. Graph/memory update:
+   - `response_target=discount_planning_agent`
+   - `discount_requested=true`
+5. On later turns, `negotiation_classification` advances `discount_stage` from persisted context and specialist outcome evidence
+6. Customer accepts or counters on later turns
+
+### Partial payment flow
+
+1. Customer: "I can pay 2000 today."
+2. `entity_extract` sets `customer_payment_capacity=2000`
+3. `negotiation_classification` sets `customer_payment_posture=partial_now`
+4. `plan_proposal_directive` routes to `discount_planning_agent` with the partial-payment capacity in the handoff payload
+
+### Posture transition flow
+
+1. Turn 1: `"I lost my job"` -> `customer_payment_posture=cannot_pay`
+2. Turn 5: `"I can pay 3000 today"` -> `customer_payment_posture=partial_now`
+3. Turn 9: `"Send me the payment link"` -> `customer_payment_posture=pay_now`
+4. `customer_payment_posture_history=["cannot_pay", "partial_now", "pay_now"]`
+
+## Conversation Annotation Guidance
+
+Future golden evaluation datasets should annotate:
+
+- `customer_payment_posture`
+- `customer_payment_capacity`
+- `customer_payment_capacity_pct`
+- `discount_stage`
+- `customer_payment_willingness`
+- `expected_response_target`
+- `expected_handoff_payload`
+- `expected_node_history`
+
+Suggested annotation rules:
+
+- annotate posture from the customer’s latest explicit payment stance, not from the agent’s interpretation alone
+- annotate `customer_payment_capacity` only when an absolute amount is stated
+- annotate `customer_payment_capacity_pct` only when a proportion or percentage is stated
+- annotate `discount_stage=requested` for first discount/settlement asks
+- annotate `discount_stage=counter_offer` when the customer proposes an alternate settlement or discounted amount after an offer/recommendation context exists
+- annotate `expected_response_target=discount_planning_agent` whenever specialist routing should happen under the routing rules above
+- annotate `expected_node_history` using the actual graph-node sequence you expect to see, not a natural-language summary
+
+These annotations can be used as a golden evaluation dataset to check:
+
+- state classification correctness
+- routing correctness
+- handoff payload completeness
+- posture/lifecycle persistence across turns
+
+## Migration notes for existing sessions
+
+Existing sessions/memory states may not yet contain the new keys. `CollectionAgent._ensure_negotiation_state_defaults()` now backfills safe defaults on turn start:
+
+- `customer_payment_posture_history=[]`
+- `customer_payment_capacity=None`
+- `customer_payment_capacity_pct=None`
+- `discount_stage=none`
+- `customer_payment_willingness=0.5`
+- explicit discount outcome flags default to `false`
+
+Old sessions that previously used posture labels such as `needs_arrangement` should be treated as legacy data and allowed to converge to the new posture taxonomy on subsequent turns.
 
 ## Pipecat voice runtime integration
 

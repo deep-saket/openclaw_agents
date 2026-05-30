@@ -107,7 +107,7 @@ def test_plan_proposal_attaches_hardship_response_directive() -> None:
             "identity_verified": True,
             "conversation_mode": "hardship_negotiation",
             "negotiation_stage": "assessing_capacity",
-            "customer_payment_posture": "needs_arrangement",
+            "customer_payment_posture": "negotiating",
             "hardship_context": {
                 "hardship_detected": True,
                 "hardship_reason": "job_loss",
@@ -120,7 +120,7 @@ def test_plan_proposal_attaches_hardship_response_directive() -> None:
     state = _base_state(memory)
     state["conversation_mode"] = "hardship_negotiation"
     state["negotiation_stage"] = "assessing_capacity"
-    state["customer_payment_posture"] = "needs_arrangement"
+    state["customer_payment_posture"] = "negotiating"
     state["hardship_context"] = dict(memory.state["hardship_context"])
     state["response_mode"] = "empathetic"
     state["active_dialogue_owner"] = "plan_proposal"
@@ -153,7 +153,7 @@ def test_plan_proposal_falls_back_on_rate_limit_even_in_strict_mode(monkeypatch)
             "identity_verified": True,
             "conversation_mode": "hardship_negotiation",
             "negotiation_stage": "assessing_capacity",
-            "customer_payment_posture": "needs_arrangement",
+            "customer_payment_posture": "negotiating",
             "hardship_context": {
                 "hardship_detected": True,
                 "hardship_reason": "job_loss",

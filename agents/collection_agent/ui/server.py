@@ -360,7 +360,12 @@ class CollectionDebugRuntime:
             "Before I share details, please confirm your date of birth (YYYY-MM-DD) "
             "and your registered phone number."
         )
-        memory.set_state(last_agent_response=opener_message, last_response_target="customer", turn_index=1)
+        memory.set_state(
+            last_agent_response=opener_message,
+            last_response_target="customer",
+            turn_index=1,
+            greeted=True,
+        )
         turn = {
             "session_id": session_id,
             "final_response": opener_message,

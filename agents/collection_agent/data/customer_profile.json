@@ -1,0 +1,80 @@
+[
+  {
+    "customer_id": "CUST-2001",
+    "employment_type": "salaried",
+    "customer_segment": "prime",
+    "risk_score": 0.35,
+    "tenure_years": 5,
+    "previous_hardship_count": 1,
+    "previous_settlement_count": 0,
+    "previous_broken_promises": 2,
+    "preferred_language": "en",
+    "preferred_channel": "phone",
+    "vulnerable_customer": false
+  },
+  {
+    "customer_id": "CUST-2002",
+    "employment_type": "self_employed",
+    "customer_segment": "mass_affluent",
+    "risk_score": 0.62,
+    "tenure_years": 3,
+    "previous_hardship_count": 2,
+    "previous_settlement_count": 1,
+    "previous_broken_promises": 3,
+    "preferred_language": "en",
+    "preferred_channel": "phone",
+    "vulnerable_customer": false
+  },
+  {
+    "customer_id": "CUST-2003",
+    "employment_type": "business_owner",
+    "customer_segment": "sme",
+    "risk_score": 0.28,
+    "tenure_years": 7,
+    "previous_hardship_count": 0,
+    "previous_settlement_count": 0,
+    "previous_broken_promises": 0,
+    "preferred_language": "en",
+    "preferred_channel": "whatsapp",
+    "vulnerable_customer": false
+  },
+  {
+    "customer_id": "CUST-2004",
+    "employment_type": "business_owner",
+    "customer_segment": "sme",
+    "risk_score": 0.81,
+    "tenure_years": 4,
+    "previous_hardship_count": 1,
+    "previous_settlement_count": 1,
+    "previous_broken_promises": 4,
+    "preferred_language": "en",
+    "preferred_channel": "phone",
+    "vulnerable_customer": false
+  },
+  {
+    "customer_id": "CUST-2005",
+    "employment_type": "salaried",
+    "customer_segment": "prime",
+    "risk_score": 0.41,
+    "tenure_years": 6,
+    "previous_hardship_count": 0,
+    "previous_settlement_count": 0,
+    "previous_broken_promises": 1,
+    "preferred_language": "en",
+    "preferred_channel": "email",
+    "vulnerable_customer": false
+  },
+  {
+    "customer_id": "CUST-2006",
+    "employment_type": "salaried",
+    "customer_segment": "mass",
+    "risk_score": 0.54,
+    "tenure_years": 2,
+    "previous_hardship_count": 1,
+    "previous_settlement_count": 0,
+    "previous_broken_promises": 1,
+    "preferred_language": "en",
+    "preferred_channel": "phone",
+    "vulnerable_customer": true
+  }
+]

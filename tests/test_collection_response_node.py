@@ -21,7 +21,7 @@ def test_response_node_renders_from_hardship_response_directive() -> None:
             "active_overdue_amount": 1200.0,
             "conversation_mode": "hardship_negotiation",
             "negotiation_stage": "assessing_capacity",
-            "customer_payment_posture": "needs_arrangement",
+            "customer_payment_posture": "cannot_pay",
             "hardship_context": {
                 "hardship_detected": True,
                 "hardship_reason": "job_loss",
@@ -114,7 +114,7 @@ def test_response_node_missing_directive_does_not_infer_hardship_objective() -> 
             "active_overdue_amount": 1200.0,
             "conversation_mode": "hardship_negotiation",
             "negotiation_stage": "assessing_capacity",
-            "customer_payment_posture": "needs_arrangement",
+            "customer_payment_posture": "cannot_pay",
             "hardship_context": {
                 "hardship_detected": True,
                 "hardship_reason": "job_loss",
@@ -279,3 +279,39 @@ def test_response_node_compliance_mode_stays_verification_focused() -> None:
     assert "sorry" not in response
     assert "overdue amount" not in response
     assert "date of birth" in response
+
+
+def test_response_node_uses_recent_conversation_window_from_history() -> None:
+    node = _build_node()
+    memory = WorkingMemory(
+        session_id="response-recent-conversation",
+        state={
+            "active_customer_name": "Aditi",
+            "conversation_history": [
+                {"role": "customer", "content": "turn1 customer"},
+                {"role": "agent", "content": "turn1 agent"},
+                {"role": "customer", "content": "turn2 customer"},
+                {"role": "agent", "content": "turn2 agent"},
+                {"role": "customer", "content": "turn3 customer"},
+                {"role": "agent", "content": "turn3 agent"},
+                {"role": "customer", "content": "turn4 customer"},
+                {"role": "agent", "content": "turn4 agent"},
+            ],
+        },
+    )
+    state = {
+        "user_input": "current user input",
+        "memory": memory,
+        "plan_proposal": {"target": "customer", "intent": "generic_plan"},
+    }
+
+    context = node._resolve_render_context(state=state, proposal=state["plan_proposal"])
+
+    assert context["recent_conversation"] == [
+        {"role": "customer", "content": "turn2 customer"},
+        {"role": "agent", "content": "turn2 agent"},
+        {"role": "customer", "content": "turn3 customer"},
+        {"role": "agent", "content": "turn3 agent"},
+        {"role": "customer", "content": "turn4 customer"},
+        {"role": "agent", "content": "turn4 agent"},
+    ]

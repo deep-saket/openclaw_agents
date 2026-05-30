@@ -18,7 +18,9 @@ negotiation_classification:
     - conversation_mode
     - negotiation_stage
     - customer_payment_posture
+    - discount_stage
     - hardship_context
+    - customer_payment_willingness
     - response_mode
     - active_dialogue_owner
     - reason
@@ -41,10 +43,22 @@ negotiation_classification:
 
     Allowed customer_payment_posture values:
     - unknown
-    - can_pay_full
-    - needs_arrangement
-    - cannot_pay_now
-    - avoiding_commitment
+    - pay_now
+    - partial_now
+    - promise_to_pay
+    - cannot_pay
+    - refuses_to_pay
+    - negotiating
+
+    Allowed discount_stage values:
+    - none
+    - requested
+    - planning
+    - offered
+    - accepted
+    - rejected
+    - counter_offer
+    - closed
 
     Allowed response_mode values:
     - informational
@@ -67,8 +81,30 @@ negotiation_classification:
     Hardship defaults:
     - conversation_mode=hardship_negotiation
     - response_mode=empathetic
-    - customer_payment_posture=needs_arrangement
+    - customer_payment_posture=cannot_pay
     - active_dialogue_owner=plan_proposal
+
+    Payment posture guidance:
+    - "I can pay now" -> pay_now
+    - "I can pay 2000 today" -> partial_now
+    - "I will pay next Friday" -> promise_to_pay
+    - "I lost my job" -> cannot_pay
+    - "I am not paying anything" -> refuses_to_pay
+    - "Can we work something out?" -> negotiating
+
+    Discount lifecycle guidance:
+    - first ask for discount / settlement / waiver -> requested
+    - discount specialist handoff in progress -> planning
+    - recommendation returned -> offered
+    - customer agrees -> accepted
+    - customer declines -> rejected
+    - customer proposes alternate amount -> counter_offer
+    - negotiation concluded -> closed
+
+    customer_payment_willingness must be a float from 0.0 to 1.0:
+    - 0.0 means unwilling to pay
+    - 0.5 means uncertain or mixed willingness
+    - 1.0 means ready to pay or actively committing
 
     Verification continuity:
     - if identity verification is incomplete and no hardship is active, prefer conversation_mode=verification and response_mode=compliance
@@ -88,6 +124,10 @@ negotiation_classification:
     Recent conversation JSON: {recent_conversation_json}
     Memory state JSON: {memory_state_json}
     Existing negotiation state JSON: {existing_negotiation_state_json}
+    Customer profile summary JSON: {customer_profile_summary_json}
+    Payment history summary JSON: {payment_history_summary_json}
+    Offer history summary JSON: {offer_history_summary_json}
+    Active collection context JSON: {active_collection_context_json}
     Extracted entities JSON: {extracted_entities_json}
     Current-turn entities JSON: {extracted_entities_turn_json}
     Verification state JSON: {verification_state_json}
@@ -104,16 +144,24 @@ plan_proposal_state:
     * hardship_signal: true|false
     * hardship_reason: short snake_case string
     * suggested_plan_mode: one of [strict_collections, hardship_negotiation]
+    * customer_payment_posture: one of [unknown, pay_now, partial_now, promise_to_pay, cannot_pay, refuses_to_pay, negotiating]
+    * customer_payment_capacity: optional numeric amount
+    * customer_payment_capacity_pct: optional numeric percentage 0-100
+    * discount_stage: one of [none, requested, planning, offered, accepted, rejected, counter_offer, closed]
+    * discount_requested: true|false
+    * counter_offer_present: true|false
     * reason: short explanation
 
     Classify hardship/vulnerability/payment-distress language broadly, including indirect phrasing.
-    Set needs_discount_specialist=true when customer asks or implies concessions/relief like discount, waiver, pause, restructuring, or inability to pay EMI.
+    Set needs_discount_specialist=true when customer asks or implies concessions/relief like discount, waiver, pause, restructuring, settlement, partial payment, counter-offer, or inability to pay EMI.
+    Consider payment posture and payment capacity signals from memory state and extracted entities when deciding whether discount/specialist planning is likely needed.
+    Use customer profile, payment history, and offer history summaries when present to improve posture and discount-signal judgment.
   classifier_user_prompt: |
     User input: {user_input}
     Mode: {mode}
     Memory state JSON: {memory_state_json}
     Existing plan tree JSON: {existing_plan_json}
-    Consider entity context embedded in memory state and current plan context.
+    Consider entity context, customer profile summary, payment history summary, and offer history summary embedded in memory state and current plan context.
     Return strict JSON only.
 
 plan_proposal_graph:
@@ -167,7 +215,8 @@ plan_proposal_directive:
     - response_directive should describe conversation_objective, dialogue_action, response_mode, required_response_elements, forbidden_dialogue_actions, allowed_dialogue_actions, customer_facing_goal, and handoff_target.
     - Use response_directive to shape the next response before rendering, not after the fact.
     - If hardship negotiation is active, choose objectives that continue the current negotiation stage rather than restarting the root menu.
-    - If customer_payment_posture=needs_arrangement, do NOT ask whether the customer wants arrangements again. Assume arrangement discussion is already active and continue it directly.
+    - If customer_payment_posture is partial_now, cannot_pay, or negotiating, do NOT ask whether the customer wants arrangements again. Assume arrangement discussion is already active and continue it directly.
+    - If discount_stage is requested or counter_offer, prefer discount planning or discount-aware negotiation over generic menu prompts.
     - Never restart the collections root menu during active hardship negotiation.
     - Never ask "pay now or arrangement?" after hardship or arrangement need has already been established.
     Negotiation-stage continuation rules:
@@ -195,8 +244,10 @@ plan_proposal_directive:
     Verification context JSON: {verification_context_json}
     Entities context JSON: {entities_context_json}
     Negotiation context JSON: {negotiation_context_json}
+    The customer and negotiation context JSON blocks may already include customer profile summary, payment history summary, offer history summary, and assistance-program context.
     Return JSON with keys:
     - target: customer|self
+    - response_target: customer|self|discount_planning_agent
     - intent: short snake_case intent
     - conversation_objective: short snake_case conversation objective
     - dialogue_action: short snake_case dialogue action
@@ -206,6 +257,7 @@ plan_proposal_directive:
     - allowed_dialogue_actions: array of allowed actions
     - customer_facing_goal: short customer-facing goal
     - handoff_target: optional handoff target
+    - handoff_payload: optional object for specialist routing
     - response_directive: optional object containing the structured dialogue directive
     - plan_outline: concise plan summary
     - draft_response: optional message draft
@@ -226,7 +278,10 @@ plan_proposal_directive:
     - Keep verification actions inside verify_identity stage; do not create a separate ask_for_verification node.
     - Never remove historical completed nodes via remove_node_ids.
     - If conversation_mode=hardship_negotiation or hardship_context.hardship_detected=true, do not draft customer text that resets to generic collections menus.
-    - If customer_payment_posture=needs_arrangement, continue arrangement exploration directly.
+    - If customer_payment_posture is partial_now, cannot_pay, or negotiating, continue arrangement exploration directly.
+    - If the customer proposes a partial payment, settlement amount, or counter-offer, prefer a discount-aware handoff or proposal over a generic dues response.
+    - Route to response_target=discount_planning_agent when hardship+cannot_pay, settlement request, discount request, partial payment request, counter-offer, discount_stage=requested, or discount_stage=counter_offer.
+    - When routing to discount_planning_agent, include handoff_payload with customer_payment_posture, customer_payment_capacity, customer_payment_capacity_pct, discount_stage, hardship_reason, customer_payment_willingness, payment_history_summary, offer_history_summary, and assistance_programs when available.
 
 react:
   system_prompt: |
@@ -352,7 +407,7 @@ react:
     - be empathetic
     - optimize toward workable repayment outcomes
     - do not reset into generic pay-now-or-arrangement menus when hardship is already established
-    - if customer_payment_posture=needs_arrangement, do not ask whether the customer wants arrangements again
+    - if customer_payment_posture is partial_now, cannot_pay, or negotiating, do not ask whether the customer wants arrangements again
     - continue the current negotiation stage instead of restarting the collections root flow
     - never surface orchestration uncertainty to the customer
     
@@ -671,7 +726,8 @@ plan_proposal:
     - response_directive should describe conversation_objective, dialogue_action, response_mode, required_response_elements, forbidden_dialogue_actions, allowed_dialogue_actions, customer_facing_goal, and handoff_target.
     - Use response_directive to shape the next response before rendering, not after the fact.
     - If hardship negotiation is active, choose objectives that continue the current negotiation stage rather than restarting the root menu.
-    - If customer_payment_posture=needs_arrangement, do NOT ask whether the customer wants arrangements again. Assume arrangement discussion is already active and continue it directly.
+    - If customer_payment_posture is partial_now, cannot_pay, or negotiating, do NOT ask whether the customer wants arrangements again. Assume arrangement discussion is already active and continue it directly.
+    - If discount_stage is requested or counter_offer, prefer discount planning or discount-aware negotiation over generic menu prompts.
     - Never restart the collections root menu during active hardship negotiation.
     - Never ask "pay now or arrangement?" after hardship or arrangement need has already been established.
     Negotiation-stage continuation rules:
@@ -730,7 +786,8 @@ plan_proposal:
     - Keep verification actions inside verify_identity stage; do not create a separate ask_for_verification node.
     - Never remove historical completed nodes via remove_node_ids.
     - If conversation_mode=hardship_negotiation or hardship_context.hardship_detected=true, do not draft customer text that resets to generic collections menus.
-    - If customer_payment_posture=needs_arrangement, continue arrangement exploration directly.
+    - If customer_payment_posture is partial_now, cannot_pay, or negotiating, continue arrangement exploration directly.
+    - If the customer proposes a partial payment, settlement amount, or counter-offer, prefer a discount-aware handoff or proposal over a generic dues response.
   classifier_system_prompt: |
     You are a planning signal classifier for a bank collections agent.
     Return strict JSON only with keys:
@@ -740,9 +797,15 @@ plan_proposal:
     - hardship_signal: true|false
     - hardship_reason: short snake_case string
     - suggested_plan_mode: one of [strict_collections, hardship_negotiation]
+    - customer_payment_posture: one of [unknown, pay_now, partial_now, promise_to_pay, cannot_pay, refuses_to_pay, negotiating]
+    - customer_payment_capacity: optional numeric amount
+    - customer_payment_capacity_pct: optional numeric percentage 0-100
+    - discount_stage: one of [none, requested, planning, offered, accepted, rejected, counter_offer, closed]
+    - discount_requested: true|false
+    - counter_offer_present: true|false
     - reason: short explanation
     Classify hardship/vulnerability/payment-distress language broadly, including indirect phrasing.
-    Set needs_discount_specialist=true when customer asks or implies concessions/relief like discount, waiver, pause, restructuring, or inability to pay EMI.
+    Set needs_discount_specialist=true when customer asks or implies concessions/relief like discount, waiver, pause, restructuring, settlement, partial payment, counter-offer, or inability to pay EMI.
   classifier_user_prompt: |
     User input: {user_input}
     Mode: {mode}
@@ -994,31 +1057,66 @@ intent:
 
 reflect:
   system_prompt: |
-    Validate whether the current output is complete, policy-safe, and stage-appropriate.
-    Output may be either:
-    - a plan proposal review payload, or
-    - a tool observation/decision payload.
-    Focus on next-step correctness. Do not ask the user to clarify input.
-    Use extracted entities / verification entities context when present.
-    Return strict JSON only: {"reason":"...","is_complete":true|false}
+    Validate ONLY deterministic safety and completion invariants.
+    Do NOT optimize conversation strategy.
+    Do NOT critique orchestration quality.
+    Do NOT reinterpret workflow stages.
+    Do NOT suggest better negotiation flow.
+    Do NOT evaluate conversational quality.
+    Only detect hard failures that block safe continuation.
+    Return strict JSON only:
+    {
+      "reason": "...",
+      "is_complete": true,
+      "failure_type": "none"
+    }
+    Allowed failure types:
+    - invalid_json
+    - empty_response
+    - policy_violation
+    - missing_required_action
+    - unsafe_disclosure
+    - placeholder_leakage
+    - invalid_state_claim
+    - none
     Rules:
-    - If reviewing a plan proposal and verification is in progress, output is incomplete unless plan asks only for missing verification fields.
-    - If reviewing a plan proposal and it asks only missing verification fields from required_fields, mark is_complete=true.
-    - If reviewing verification tool observation (verify_dob/verify_mobile) with status in [verified, failed, locked], mark is_complete=true so planner can continue.
-    - Do not fail the plan because user input is short/greeting-only; judge proposal quality, not user verbosity.
-    - Output is invalid only when plan/response claims verification completed without evidence.
-    - If payment step is active, output should include one concrete next action (pay now / arrangement / follow-up).
-    - Keep customer-facing responses concise and non-internal.
-    - For incomplete output, reason must be a planner correction hint (what to fix in plan/response), not a user-facing question.
-    - If output is valid for current stage, mark is_complete=true.
-    - Never force retry only because user input is short greeting; that is not a plan defect.
+    1. Mark incomplete ONLY for deterministic hard failures.
+    2. Never fail because:
+    - response could be improved
+    - conversation could continue differently
+    - negotiation strategy could improve
+    - wording is suboptimal
+    - stage handling could improve
+    3. If verification is incomplete:
+    - only fail if restricted account details are disclosed
+    4. If payment stage is active:
+    - require at least one concrete next step
+    5. If response contains placeholders or internal planning text:
+    - fail
+    6. Verify negotiation-state invariants:
+    - customer_payment_posture must exist and be valid
+    - discount_stage must exist and be valid
+    - if current turn includes payment capacity evidence, capacity or capacity_pct must be captured
+    - if hardship+cannot_pay, discount request, partial payment, or counter-offer is active after verification, DiscountPlanningAgent should be selected
+    - if response_target=discount_planning_agent, handoff_payload must include posture and discount_stage
+    7. If output is structurally valid and policy-safe:
+    - mark complete
   user_prompt: |
-    User input (context only): {user_input}
+    User input:
+    {user_input}
+
     Observation: {observation}
     Decision: {decision}
+    Validate deterministic invariants only.
+    Do NOT critique orchestration quality.
+    Do NOT optimize strategy.
+    Do NOT reinterpret stages.
     Return strict JSON only:
-    {"reason":"short reason","is_complete":true|false}
-    Mark is_complete=false only when plan correction is clearly needed now.
+    {
+      "reason": "...",
+      "is_complete": true,
+      "failure_type": "none"
+    }
 
 entity_extract:
   system_prompt: |
@@ -1026,11 +1124,15 @@ entity_extract:
     Return strict JSON only with keys: entities, entity_descriptions, field_evidence.
     Extract all useful named entities from the current user turn, and update/extend previously extracted entities when the new turn provides newer or corrected values.
     Keep entity keys stable and practical (snake_case). Canonical keys include but are not limited to:
-    case_id, customer_id, loan_id, account_id, name, dob, phone, email, zip, last4_pan, amount, emi_amount, promised_date, promised_amount, callback_time, relation, location.
+    case_id, customer_id, loan_id, account_id, name, dob, phone, email, zip, last4_pan, amount, emi_amount, promised_date, promised_amount, callback_time, relation, location, customer_payment_capacity, customer_payment_capacity_pct.
     Populate entity_descriptions with concise semantic meaning for each entity key.
     field_evidence should include short supporting span(s) from current user input for extracted/updated keys whenever available.
     Do not drop broader entities only because they are outside verification scope.
     Existing extracted entities are the canonical session memory.
+    Payment-capacity extraction guidance:
+    - If the customer states how much they can pay now or in a specific near-term commitment, capture that as customer_payment_capacity.
+    - If the customer states a proportion such as half / 50 percent, capture that as customer_payment_capacity_pct on a 0-100 scale.
+    - Do not fabricate customer_payment_capacity or customer_payment_capacity_pct when the input is ambiguous.
     Output turn-level delta only:
     - include keys that are newly provided in current user input, or explicitly corrected/updated now
     - do NOT re-emit unchanged entities already present in Existing extracted entities
@@ -1049,6 +1151,8 @@ entity_extract:
     - Output only turn delta: new keys in this turn + corrected values in this turn.
     - If a new value conflicts with an old value and current turn clearly indicates correction, keep the new value.
     - Normalize obvious forms when safe (for example phone digits, ISO-like DOB) but do not fabricate missing values.
+    - For customer_payment_capacity, prefer numeric amount only.
+    - For customer_payment_capacity_pct, prefer numeric percentage only on a 0-100 scale.
     - Include verification entities (dob/phone/name/etc.) when present, but also capture other named entities relevant to collections.
     - Output strict JSON only.
 
@@ -1108,6 +1212,9 @@ response:
     If render_variables include an amount, include that numeric amount exactly.
     If response_constraints.no_dues_before_verification=true, do not mention dues, overdue amount, EMI, or fees.
     If response_constraints.avoid_verbatim_repeat=true, avoid repeating the exact previous agent sentence unless the user explicitly asked for repetition.
+    If response_constraints.greeted=true, do not greet again, do not say "Hi/Hello" again, and do not re-introduce yourself.
+    Use recent_conversation only to maintain local continuity of phrasing and avoid sounding out of context.
+    The supplied directive, constraints, and current-turn state remain authoritative over recent_conversation.
     If tone=empathetic, acknowledge the situation briefly and professionally.
     If tone=compliance, keep language concise and verification-focused.
     If tone=negotiation, keep language collaborative and practical.
@@ -1117,7 +1224,7 @@ response:
   render_user_prompt: |
     User input: {user_input}
     Response target: {response_target}
-    Previous agent response (if any): {prior_agent_response}
+    Recent conversation JSON: {recent_conversation_json}
     Template id: {template_id}
     Tone: {tone}
     Fallback template id: {fallback_template_id}
@@ -1125,6 +1232,7 @@ response:
     Response constraints JSON: {response_constraints_json}
     Verification context: {verification_context_json}
     Observation: {observation_json}
+    Continue naturally from the recent conversation without restarting the interaction.
     Render the supplied directive only. Do not add workflow reasoning or a new dialogue goal.
     Generate only structured JSON output.
   verification_opening_template: |

@@ -136,6 +136,18 @@ class PlanProposalStateNode(BaseGraphNode):
                     hardship_context.get("hardship_reason") or llm_payload.get("hardship_reason") or "financial_hardship"
                 )
                 llm_payload["suggested_plan_mode"] = "hardship_negotiation"
+            llm_payload.setdefault(
+                "customer_payment_posture",
+                str(memory_state.get("customer_payment_posture", "unknown")).strip().lower() or "unknown",
+            )
+            llm_payload.setdefault("customer_payment_capacity", memory_state.get("customer_payment_capacity"))
+            llm_payload.setdefault("customer_payment_capacity_pct", memory_state.get("customer_payment_capacity_pct"))
+            llm_payload.setdefault(
+                "discount_stage",
+                str(memory_state.get("discount_stage", "none")).strip().lower() or "none",
+            )
+            llm_payload.setdefault("discount_requested", bool(memory_state.get("discount_requested", False)))
+            llm_payload.setdefault("counter_offer_present", bool(memory_state.get("counter_offer_present", False)))
             return llm_payload
         if self.strict_llm_mode:
             return {
@@ -156,6 +168,12 @@ class PlanProposalStateNode(BaseGraphNode):
             "hardship_signal": any(token in user_input.lower() for token in ["cannot pay", "hardship", "vulnerability", "emi"]),
             "hardship_reason": str(memory_state.get("hardship_reason", "income_reduction")),
             "suggested_plan_mode": mode,
+            "customer_payment_posture": str(memory_state.get("customer_payment_posture", "unknown")).strip().lower() or "unknown",
+            "customer_payment_capacity": memory_state.get("customer_payment_capacity"),
+            "customer_payment_capacity_pct": memory_state.get("customer_payment_capacity_pct"),
+            "discount_stage": str(memory_state.get("discount_stage", "none")).strip().lower() or "none",
+            "discount_requested": bool(memory_state.get("discount_requested", False)),
+            "counter_offer_present": bool(memory_state.get("counter_offer_present", False)),
             "reason": "heuristic_fallback",
         }
         if bool(hardship_context.get("hardship_detected", False)):
@@ -221,5 +239,27 @@ class PlanProposalStateNode(BaseGraphNode):
             "hardship_signal": bool(payload.hardship_signal),
             "hardship_reason": str(payload.hardship_reason or memory_state.get("hardship_reason", "income_reduction")),
             "suggested_plan_mode": normalized_mode,
+            "customer_payment_posture": str(
+                payload.customer_payment_posture or memory_state.get("customer_payment_posture", "unknown")
+            ).strip().lower()
+            or "unknown",
+            "customer_payment_capacity": payload.customer_payment_capacity
+            if payload.customer_payment_capacity is not None
+            else memory_state.get("customer_payment_capacity"),
+            "customer_payment_capacity_pct": payload.customer_payment_capacity_pct
+            if payload.customer_payment_capacity_pct is not None
+            else memory_state.get("customer_payment_capacity_pct"),
+            "discount_stage": str(payload.discount_stage or memory_state.get("discount_stage", "none")).strip().lower()
+            or "none",
+            "discount_requested": bool(
+                payload.discount_requested
+                if payload.discount_requested is not None
+                else memory_state.get("discount_requested", False)
+            ),
+            "counter_offer_present": bool(
+                payload.counter_offer_present
+                if payload.counter_offer_present is not None
+                else memory_state.get("counter_offer_present", False)
+            ),
             "reason": str(payload.reason or ""),
         }

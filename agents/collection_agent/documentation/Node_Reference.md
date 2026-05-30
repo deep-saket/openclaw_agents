@@ -33,6 +33,8 @@
   - `extracted_entities_turn`
   - `extracted_entity_descriptions`
   - `verification_entities`
+  - `customer_payment_capacity`
+  - `customer_payment_capacity_pct`
 - Route: `negotiation_classification`
 
 ### 4) `negotiation_classification`
@@ -43,18 +45,30 @@
   - `recent_conversation`
   - `memory.state`
   - `extracted_entities`
+  - `customer_profile_summary`
+  - `payment_history_summary`
+  - `offer_history_summary`
   - verification state
 - Output keys:
   - `negotiation_classification`
   - `conversation_mode`
   - `negotiation_stage`
   - `customer_payment_posture`
+  - `discount_stage`
+  - `customer_payment_willingness`
   - `hardship_context`
+  - `discount_requested`
+  - `discount_offered`
+  - `discount_accepted`
+  - `discount_rejected`
+  - `counter_offer_present`
   - `response_mode`
   - `active_dialogue_owner`
 - Route: `pre_plan_intent`
 - Ownership:
   - owns persistent negotiation cognition state
+  - owns posture, discount stage, and customer willingness scoring
+  - preserves discount-request / counter-offer / accept / reject lifecycle state across turns
   - does not choose tools or final user-facing responses
 
 ### 5) `pre_plan_intent`
@@ -204,6 +218,9 @@
   - builds final proposal and `response_directive`
   - preserves hardship negotiation continuity in the proposal contract
   - may route to `discount_planning_agent` or emit loop/termination payloads
+  - routes to `discount_planning_agent` for verified hardship/cannot-pay, discount or settlement requests, partial-payment proposals, counter-offers, and active `discount_stage` values `requested` / `counter_offer`
+  - specialist handoff payload includes `customer_payment_capacity`, `customer_payment_capacity_pct`, `customer_payment_posture`, `discount_stage`, and hardship reason when available
+  - consumes but does not mutate negotiation-owned state such as `discount_stage`
 
 ### 16) `reflect`
 

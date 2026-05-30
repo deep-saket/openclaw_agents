@@ -41,7 +41,49 @@ Expected tool path:
 - `plan_propose`
 - `promise_capture`
 
-## Conversation D: Out-of-scope
+## Conversation D: Discount planning flow
+
+1. Customer: "I lost my job and cannot pay the full EMI. Can you offer any settlement?"
+2. Agent: routes into hardship negotiation mode and specialist discount planning
+3. Specialist handoff payload includes hardship reason, posture, and payment capacity context
+4. Specialist recommendation returns to collection agent
+5. Agent presents the returned option to the customer
+
+Expected state evolution:
+
+- `customer_payment_posture=cannot_pay`
+- `discount_stage=requested -> planning -> offered`
+- `discount_requested=true`
+- `discount_offered=true`
+- `response_target=discount_planning_agent` on the specialist hop
+
+## Conversation E: Partial payment flow
+
+1. Customer: "I can pay 2000 today if you can settle the rest."
+2. Entity extraction captures `customer_payment_capacity=2000`
+3. Negotiation classification sets `customer_payment_posture=partial_now`
+4. Planner routes to `discount_planning_agent`
+
+Expected handoff payload:
+
+- `customer_payment_capacity=2000`
+- `customer_payment_capacity_pct=null`
+- `customer_payment_posture=partial_now`
+- `discount_stage=requested`
+
+## Conversation F: Posture transition flow
+
+1. Turn 1 customer: "I lost my job." -> `customer_payment_posture=cannot_pay`
+2. Turn 5 customer: "I can pay 3000 today." -> `customer_payment_posture=partial_now`
+3. Turn 9 customer: "Send me the payment link." -> `customer_payment_posture=pay_now`
+
+Expected persistence:
+
+- `customer_payment_posture_history` records each transition in order
+- `customer_payment_willingness` rises across the turns
+- final conversation can move into promise capture / payment link flow without losing historical hardship evidence
+
+## Conversation G: Out-of-scope
 
 1. Customer: "What is today’s weather?"
 2. Agent: "This request is outside collections scope..."

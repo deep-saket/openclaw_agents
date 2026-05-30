@@ -4,6 +4,9 @@
     "name": "Aditi Sharma",
     "phone": "+919900001001",
     "email": "aditi.sharma@example.com",
+    "preferred_language": "en",
+    "preferred_channel": "phone",
+    "vulnerable_customer": false,
     "challenge": {
       "dob": "1991-08-19",
       "phone": "9900001001",
@@ -16,6 +19,9 @@
     "name": "Rohan Gupta",
     "phone": "+919900001002",
     "email": "rohan.gupta@example.com",
+    "preferred_language": "en",
+    "preferred_channel": "phone",
+    "vulnerable_customer": false,
     "challenge": {
       "dob": "1988-04-22",
       "phone": "9900001002",
@@ -28,6 +34,9 @@
     "name": "Neha Verma",
     "phone": "+919900001003",
     "email": "neha.verma@example.com",
+    "preferred_language": "en",
+    "preferred_channel": "whatsapp",
+    "vulnerable_customer": false,
     "challenge": {
       "dob": "1994-01-09",
       "phone": "9900001003",
@@ -40,6 +49,9 @@
     "name": "Arjun Mehta",
     "phone": "+919900001004",
     "email": "arjun.mehta@example.com",
+    "preferred_language": "en",
+    "preferred_channel": "phone",
+    "vulnerable_customer": false,
     "challenge": {
       "dob": "1985-12-03",
       "phone": "9900001004",
@@ -52,6 +64,9 @@
     "name": "Priya Nair",
     "phone": "+919900001005",
     "email": "priya.nair@example.com",
+    "preferred_language": "en",
+    "preferred_channel": "email",
+    "vulnerable_customer": false,
     "challenge": {
       "dob": "1990-06-17",
       "phone": "9900001005",
@@ -64,6 +79,9 @@
     "name": "Vikram Rao",
     "phone": "+919900001006",
     "email": "vikram.rao@example.com",
+    "preferred_language": "en",
+    "preferred_channel": "phone",
+    "vulnerable_customer": true,
     "challenge": {
       "dob": "1987-10-29",
       "phone": "9900001006",

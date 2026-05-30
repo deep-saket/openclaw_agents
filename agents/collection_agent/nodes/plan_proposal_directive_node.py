@@ -118,7 +118,17 @@ class PlanProposalDirectiveNode(BaseGraphNode):
                 node_llms = dict(memory_state_local.get('node_llms', {}))
                 if 'plan_proposal' in node_llms:
                     node_llms['plan_proposal_directive'] = node_llms.pop('plan_proposal')
-                    memory.set_state(node_llms=node_llms)
+                state_persist: dict[str, Any] = {"node_llms": node_llms}
+                for key in (
+                    "discount_requested",
+                    "discount_offered",
+                    "discount_accepted",
+                    "discount_rejected",
+                    "counter_offer_present",
+                ):
+                    if key in update:
+                        state_persist[key] = update.get(key)
+                memory.set_state(**state_persist)
             return with_debug(update)
 
         if bool(memory_state.get("agent_loop_blocked", False)):
@@ -165,6 +175,11 @@ class PlanProposalDirectiveNode(BaseGraphNode):
             return with_plan({
                 "route": "continue",
                 "response_target": "customer",
+                "discount_requested": True,
+                "discount_offered": True,
+                "discount_accepted": bool(memory_state.get("discount_accepted", False)),
+                "discount_rejected": bool(memory_state.get("discount_rejected", False)),
+                "counter_offer_present": bool(memory_state.get("counter_offer_present", False)),
                 "plan_proposal": {
                     "target": "customer",
                     "intent": "discount_recommendation",
@@ -180,8 +195,26 @@ class PlanProposalDirectiveNode(BaseGraphNode):
         revision_index = int(memory_state.get("plan_revision_index", 0))
         hardship_reason = str(plan_signals.get("hardship_reason") or memory_state.get("hardship_reason", "income_reduction"))
         case_id = str(memory_state.get("active_case_id", "COLL-1001"))
+        customer_payment_posture = str(memory_state.get("customer_payment_posture", "unknown")).strip().lower() or "unknown"
+        discount_stage = str(memory_state.get("discount_stage", "none")).strip().lower() or "none"
+        hardship_active = bool(
+            isinstance(memory_state.get("hardship_context"), dict)
+            and memory_state.get("hardship_context", {}).get("hardship_detected", False)
+        )
+        partial_capacity = memory_state.get("customer_payment_capacity")
+        partial_capacity_pct = memory_state.get("customer_payment_capacity_pct")
+        route_to_discount_planning = bool(plan_signals.get("needs_discount_specialist")) or (
+            identity_verified
+            and (
+                discount_stage in {"requested", "counter_offer"}
+                or customer_payment_posture in {"partial_now"}
+                or (hardship_active and customer_payment_posture == "cannot_pay")
+                or bool(memory_state.get("counter_offer_present", False))
+            )
+            and bool(case_id)
+        )
 
-        if bool(plan_signals.get("needs_discount_specialist")) and case_id:
+        if route_to_discount_planning and case_id:
             if not identity_verified:
                 return with_plan({
                     "route": "continue",
@@ -195,17 +228,69 @@ class PlanProposalDirectiveNode(BaseGraphNode):
                 })
             if memory is not None and hardship_reason:
                 memory.set_state(hardship_reason=hardship_reason)
+            handoff_discount_stage = (
+                "counter_offer"
+                if discount_stage == "counter_offer"
+                else discount_stage
+                if discount_stage in {"requested", "planning", "offered", "accepted", "rejected", "closed"}
+                else "requested"
+            )
             return with_plan({
                 "route": "continue",
                 "response": "Trigger discount planning specialist for hardship assistance recommendation.",
                 "response_target": "discount_planning_agent",
+                "discount_requested": True,
+                "discount_offered": bool(memory_state.get("discount_offered", False)),
+                "discount_accepted": bool(memory_state.get("discount_accepted", False)),
+                "discount_rejected": bool(memory_state.get("discount_rejected", False)),
+                "counter_offer_present": bool(memory_state.get("counter_offer_present", False))
+                or handoff_discount_stage == "counter_offer",
                 "handoff_payload": {
                     "case_id": case_id,
                     "customer_id": str(memory_state.get("active_user_id", "")).strip(),
                     "hardship_reason": hardship_reason,
-                    "user_message": user_input,
-                    "requested_by": "collection_agent",
-                },
+                    "discount_stage": handoff_discount_stage,
+                    "customer_payment_posture": customer_payment_posture,
+                "customer_payment_capacity": partial_capacity,
+                "customer_payment_capacity_pct": partial_capacity_pct,
+                "customer_payment_willingness": memory_state.get("customer_payment_willingness"),
+                "customer_payment_posture_history": (
+                    list(memory_state.get("customer_payment_posture_history", []))
+                    if isinstance(memory_state.get("customer_payment_posture_history"), list)
+                    else []
+                ),
+                "customer_profile_summary": (
+                    dict(memory_state.get("customer_profile_summary", {}))
+                    if isinstance(memory_state.get("customer_profile_summary"), dict)
+                    else {}
+                ),
+                "payment_history_summary": (
+                    dict(memory_state.get("payment_history_summary", {}))
+                    if isinstance(memory_state.get("payment_history_summary"), dict)
+                    else {}
+                ),
+                "offer_history_summary": (
+                    dict(memory_state.get("offer_history_summary", {}))
+                    if isinstance(memory_state.get("offer_history_summary"), dict)
+                    else {}
+                ),
+                "previous_discount_offers": (
+                    list(
+                        (
+                            memory_state.get("offer_history_summary", {})
+                            if isinstance(memory_state.get("offer_history_summary"), dict)
+                            else {}
+                        ).get("previous_discount_offers", [])
+                    )
+                ),
+                "assistance_programs": (
+                    [dict(item) for item in memory_state.get("assistance_programs", []) if isinstance(item, dict)]
+                    if isinstance(memory_state.get("assistance_programs"), list)
+                    else []
+                ),
+                "user_message": user_input,
+                "requested_by": "collection_agent",
+            },
                 "plan_proposal": {
                     "target": "discount_planning_agent",
                     "intent": "discount_specialist_handoff",
@@ -232,7 +317,7 @@ class PlanProposalDirectiveNode(BaseGraphNode):
             )
             return with_plan({
                 "route": "continue",
-                "response_target": str(plan_proposal.get("target", "customer")),
+                "response_target": str(plan_proposal.get("response_target", plan_proposal.get("target", "customer"))),
                 "plan_proposal": plan_proposal,
             })
 
@@ -287,11 +372,11 @@ class PlanProposalDirectiveNode(BaseGraphNode):
                 mode=mode,
                 existing_plan=existing_plan,
             )
-            return with_plan({
-                "route": "continue",
-                "response_target": str(plan_proposal.get("target", "customer")),
-                "plan_proposal": plan_proposal,
-            })
+        return with_plan({
+            "route": "continue",
+            "response_target": str(plan_proposal.get("response_target", plan_proposal.get("target", "customer"))),
+            "plan_proposal": plan_proposal,
+        })
 
         max_installment = extract_amount(user_input)
         arguments: dict[str, Any] = {
@@ -443,6 +528,10 @@ class PlanProposalDirectiveNode(BaseGraphNode):
                 "conversation_mode": str(memory_state.get("conversation_mode", "collections")).strip(),
                 "negotiation_stage": str(memory_state.get("negotiation_stage", "none")).strip(),
                 "customer_payment_posture": str(memory_state.get("customer_payment_posture", "unknown")).strip(),
+                "customer_payment_capacity": memory_state.get("customer_payment_capacity"),
+                "customer_payment_capacity_pct": memory_state.get("customer_payment_capacity_pct"),
+                "discount_stage": str(memory_state.get("discount_stage", "none")).strip(),
+                "customer_payment_willingness": memory_state.get("customer_payment_willingness"),
                 "hardship_context": (
                     dict(memory_state.get("hardship_context", {}))
                     if isinstance(memory_state.get("hardship_context"), dict)
@@ -506,8 +595,13 @@ class PlanProposalDirectiveNode(BaseGraphNode):
                 "case_id": str(memory_state.get("active_case_id", "COLL-1001")),
                 "customer_name": str(memory_state.get("active_customer_name", "Customer")).strip() or "Customer",
                 "overdue_amount": float(memory_state.get("active_overdue_amount", 0.0) or 0.0),
+                "customer_profile_summary": memory_state.get("customer_profile_summary", {}),
+                "payment_history_summary": memory_state.get("payment_history_summary", {}),
+                "offer_history_summary": memory_state.get("offer_history_summary", {}),
+                "active_collection_context": memory_state.get("active_collection_context", {}),
             },
             ensure_ascii=True,
+            default=str,
         )
         verification_context_json = json.dumps(
             {
@@ -525,9 +619,21 @@ class PlanProposalDirectiveNode(BaseGraphNode):
                 "conversation_mode": memory_state.get("conversation_mode", "collections"),
                 "negotiation_stage": memory_state.get("negotiation_stage", "none"),
                 "customer_payment_posture": memory_state.get("customer_payment_posture", "unknown"),
+                "customer_payment_capacity": memory_state.get("customer_payment_capacity"),
+                "customer_payment_capacity_pct": memory_state.get("customer_payment_capacity_pct"),
+                "discount_stage": memory_state.get("discount_stage", "none"),
+                "customer_payment_willingness": memory_state.get("customer_payment_willingness", 0.5),
                 "hardship_context": memory_state.get("hardship_context", {}),
                 "response_mode": memory_state.get("response_mode", "informational"),
                 "active_dialogue_owner": memory_state.get("active_dialogue_owner", "collections"),
+                "discount_requested": bool(memory_state.get("discount_requested", False)),
+                "discount_offered": bool(memory_state.get("discount_offered", False)),
+                "discount_accepted": bool(memory_state.get("discount_accepted", False)),
+                "discount_rejected": bool(memory_state.get("discount_rejected", False)),
+                "counter_offer_present": bool(memory_state.get("counter_offer_present", False)),
+                "payment_history_summary": memory_state.get("payment_history_summary", {}),
+                "offer_history_summary": memory_state.get("offer_history_summary", {}),
+                "customer_profile_summary": memory_state.get("customer_profile_summary", {}),
             },
             ensure_ascii=True,
             default=str,
@@ -640,9 +746,11 @@ class PlanProposalDirectiveNode(BaseGraphNode):
                 return None
 
         proposal = payload.model_dump(mode="json", by_alias=True)
-        target = str(proposal.get("target", "customer")).strip().lower()
-        if target not in {"customer", "self"}:
-            target = "customer"
+        response_target = str(proposal.get("response_target", proposal.get("target", "customer"))).strip().lower()
+        if response_target not in {"customer", "self", "discount_planning_agent"}:
+            response_target = "customer"
+        target = response_target if response_target in {"customer", "self"} else "customer"
+        proposal["response_target"] = response_target
         proposal["target"] = target
         proposal["plan_origin"] = plan_origin or "default_direct_plan"
         proposal["mode"] = mode
@@ -655,9 +763,28 @@ class PlanProposalDirectiveNode(BaseGraphNode):
             "conversation_mode": str(memory_state.get("conversation_mode", "collections")).strip(),
             "negotiation_stage": str(memory_state.get("negotiation_stage", "none")).strip(),
             "customer_payment_posture": str(memory_state.get("customer_payment_posture", "unknown")).strip(),
+            "customer_payment_capacity": memory_state.get("customer_payment_capacity"),
+            "customer_payment_capacity_pct": memory_state.get("customer_payment_capacity_pct"),
+            "discount_stage": str(memory_state.get("discount_stage", "none")).strip(),
+            "customer_payment_willingness": memory_state.get("customer_payment_willingness"),
             "hardship_context": (
                 dict(memory_state.get("hardship_context", {}))
                 if isinstance(memory_state.get("hardship_context"), dict)
+                else {}
+            ),
+            "customer_profile_summary": (
+                dict(memory_state.get("customer_profile_summary", {}))
+                if isinstance(memory_state.get("customer_profile_summary"), dict)
+                else {}
+            ),
+            "payment_history_summary": (
+                dict(memory_state.get("payment_history_summary", {}))
+                if isinstance(memory_state.get("payment_history_summary"), dict)
+                else {}
+            ),
+            "offer_history_summary": (
+                dict(memory_state.get("offer_history_summary", {}))
+                if isinstance(memory_state.get("offer_history_summary"), dict)
                 else {}
             ),
             "response_mode": str(memory_state.get("response_mode", "informational")).strip(),
@@ -946,6 +1073,7 @@ class PlanProposalDirectiveNode(BaseGraphNode):
         conversation_mode = str(memory_state.get("conversation_mode", "collections")).strip().lower()
         negotiation_stage = str(memory_state.get("negotiation_stage", "none")).strip().lower()
         customer_payment_posture = str(memory_state.get("customer_payment_posture", "unknown")).strip().lower()
+        discount_stage = str(memory_state.get("discount_stage", "none")).strip().lower()
         hardship_context = (
             memory_state.get("hardship_context")
             if isinstance(memory_state.get("hardship_context"), dict)
@@ -954,6 +1082,10 @@ class PlanProposalDirectiveNode(BaseGraphNode):
         hardship_active = conversation_mode == "hardship_negotiation" or bool(hardship_context.get("hardship_detected", False))
         if not identity_verified:
             return "collect_verification", "ask_verification", "compliance"
+        if conversation_mode == "promise_capture" or customer_payment_posture in {"pay_now", "promise_to_pay"}:
+            return "capture_promise", "confirm_payment_intent", "negotiation"
+        if discount_stage in {"offered", "counter_offer"}:
+            return "present_arrangement_options", "present_offer", "negotiation"
         if hardship_active:
             if negotiation_stage in {"discovering_hardship", "assessing_capacity"}:
                 return "assess_affordability", "ask_affordable_amount", "empathetic"
@@ -965,10 +1097,10 @@ class PlanProposalDirectiveNode(BaseGraphNode):
                 return "confirm_commitment", "ask_commitment_date", "negotiation"
             if negotiation_stage in {"awaiting_customer_decision"}:
                 return "present_arrangement_options", "ask_affordable_amount", "negotiation"
-            if customer_payment_posture == "needs_arrangement":
+            if customer_payment_posture in {"partial_now", "cannot_pay", "negotiating"}:
                 return "present_arrangement_options", "discuss_arrangement", "negotiation"
             return "assess_affordability", "ask_affordable_amount", "empathetic"
-        if customer_payment_posture == "needs_arrangement":
+        if customer_payment_posture in {"partial_now", "cannot_pay", "negotiating"}:
             return "present_arrangement_options", "present_offer", "negotiation"
         return "explain_dues", "present_due_amount", "informational"
 

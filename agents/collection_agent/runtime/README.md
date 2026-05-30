@@ -47,6 +47,17 @@ This directory stores generated runtime artifacts for `agents/collection_agent`.
 | `traces/latest_trace.json` | JSON object | Last completed turn trace |
 | `traces/events.jsonl` | JSONL | Event stream (`turn_started`, `node_started`, `tool_call`, `llm_call`, etc.) |
 
+### Batch evaluation outputs
+
+| File/Path | Type | Purpose |
+| --- | --- | --- |
+| `eval_runs/<run_id>/run_summary.csv` | CSV | One summary row per executed dataset script |
+| `eval_runs/<run_id>/conversations.jsonl` | JSONL | One preserved dataset+execution record per script |
+| `eval_runs/<run_id>/traces/<script_id>.json` | JSON | Per-script execution trace payload with dataset linkage |
+| `eval_runs/<run_id>.zip` | ZIP | Portable bundle of the whole batch run |
+
+All batch evaluation artifacts must carry both `run_id` and `script_id`.
+
 ## Reading Traversal Order
 
 - Node order: `summary.node_hits` in trace JSON.

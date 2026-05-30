@@ -157,7 +157,17 @@ Outer controller decides next recipient.
 - `conversation_mode`
 - `negotiation_stage`
 - `customer_payment_posture`
+- `customer_payment_posture_history`
+- `customer_payment_capacity`
+- `customer_payment_capacity_pct`
+- `discount_stage`
+- `customer_payment_willingness`
 - `hardship_context`
+- `discount_requested`
+- `discount_offered`
+- `discount_accepted`
+- `discount_rejected`
+- `counter_offer_present`
 - `response_mode`
 - `active_dialogue_owner`
 
@@ -206,7 +216,9 @@ Responsibilities:
 
 - classify persistent conversation-level negotiation state
 - detect and preserve hardship context across turns
-- update `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `hardship_context`, `response_mode`, and `active_dialogue_owner`
+- update `conversation_mode`, `negotiation_stage`, `customer_payment_posture`, `discount_stage`, `customer_payment_willingness`, `hardship_context`, explicit discount outcome flags, `response_mode`, and `active_dialogue_owner`
+- consume `customer_profile_summary`, `payment_history_summary`, and `offer_history_summary` when available
+- preserve posture transitions such as `cannot_pay -> partial_now -> pay_now`
 - influence downstream planning and tone without selecting tools directly
 
 ### 6.4 `execution_path_intent` (`CollectionIntentNode`)
@@ -298,6 +310,9 @@ Responsibilities:
 - assign `response_target`
 - emit specialist handoff payloads and termination/loop-guard proposals
 - consume persistent negotiation cognition state to preserve hardship continuity
+- route to `discount_planning_agent` for verified hardship/cannot-pay, discount or settlement asks, partial-payment proposals, counter-offers, and active `discount_stage` values `requested` / `counter_offer`
+- consume classified `discount_stage` and include it in specialist handoff payloads without mutating ownership
+- include payment capacity, percentage capacity, posture, hardship reason, and lifecycle stage in `handoff_payload`
 
 ### 6.14 `reflect` (`CollectionReflectNode`)
 
@@ -538,6 +553,29 @@ curl http://127.0.0.1:8060/health
 - out-of-scope input should route to `irrelevant_response`
 - tool failures should not auto-complete customer-owned steps
 - self-target loops should honor hop limits
+
+### 14.4 Discount and partial-payment lifecycle tests
+
+- hardship + `customer_payment_posture=cannot_pay` should route to `discount_planning_agent` after verification
+- direct settlement / waiver / discount ask should set `discount_stage=requested`
+- partial payment such as `I can pay 2000 today` should populate `customer_payment_capacity=2000` and route to discount planning
+- counter-offer after an offer context should set `discount_stage=counter_offer` and `counter_offer_present=true`
+- specialist recommendation return should be reflected into classification-owned `discount_stage`
+
+### 14.5 Conversation annotation guidance
+
+For future golden datasets, annotate:
+
+- `customer_payment_posture`
+- `customer_payment_capacity`
+- `customer_payment_capacity_pct`
+- `discount_stage`
+- `customer_payment_willingness`
+- `expected_response_target`
+- `expected_handoff_payload`
+- `expected_node_history`
+
+Use node history rather than natural-language summaries so orchestration regressions can be evaluated directly.
 
 ---
 

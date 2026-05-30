@@ -6,6 +6,11 @@
     "waiver_allowed": true,
     "max_waiver_pct": 8,
     "restructure_allowed": false,
+    "allow_partial_payment": true,
+    "min_partial_payment_pct": 15,
+    "allow_counter_offer": true,
+    "max_counter_offer_rounds": 2,
+    "requires_hardship_for_discount": true,
     "notes": "Short delinquency personal loans can receive limited waiver under hardship."
   },
   {
@@ -15,6 +20,11 @@
     "waiver_allowed": false,
     "max_waiver_pct": 0,
     "restructure_allowed": true,
+    "allow_partial_payment": true,
+    "min_partial_payment_pct": 20,
+    "allow_counter_offer": true,
+    "max_counter_offer_rounds": 3,
+    "requires_hardship_for_discount": true,
     "notes": "High DPD accounts only eligible for restructure review."
   },
   {
@@ -24,6 +34,11 @@
     "waiver_allowed": false,
     "max_waiver_pct": 0,
     "restructure_allowed": true,
+    "allow_partial_payment": true,
+    "min_partial_payment_pct": 25,
+    "allow_counter_offer": true,
+    "max_counter_offer_rounds": 3,
+    "requires_hardship_for_discount": false,
     "notes": "Business loans follow restructure-first policy when hardship is declared."
   },
   {
@@ -33,6 +48,11 @@
     "waiver_allowed": false,
     "max_waiver_pct": 0,
     "restructure_allowed": true,
+    "allow_partial_payment": false,
+    "min_partial_payment_pct": 40,
+    "allow_counter_offer": false,
+    "max_counter_offer_rounds": 1,
+    "requires_hardship_for_discount": true,
     "notes": "Very high DPD requires aggressive follow-up and restructure workflow."
   },
   {
@@ -42,6 +62,11 @@
     "waiver_allowed": true,
     "max_waiver_pct": 5,
     "restructure_allowed": true,
+    "allow_partial_payment": true,
+    "min_partial_payment_pct": 20,
+    "allow_counter_offer": true,
+    "max_counter_offer_rounds": 2,
+    "requires_hardship_for_discount": true,
     "notes": "Home loan can use limited waiver with manager approval in production."
   },
   {
@@ -51,6 +76,11 @@
     "waiver_allowed": false,
     "max_waiver_pct": 0,
     "restructure_allowed": false,
+    "allow_partial_payment": true,
+    "min_partial_payment_pct": 10,
+    "allow_counter_offer": false,
+    "max_counter_offer_rounds": 1,
+    "requires_hardship_for_discount": false,
     "notes": "Early delinquency: prefer payment commitment over concessions."
   }
 ]

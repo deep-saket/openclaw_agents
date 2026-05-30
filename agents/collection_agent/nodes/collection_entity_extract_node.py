@@ -33,6 +33,8 @@ class CollectionEntityExtractNode(BaseGraphNode):
     - `extracted_entities_turn`
     - `extracted_entity_descriptions`
     - `verification_entities`
+    - `customer_payment_capacity`
+    - `customer_payment_capacity_pct`
     - `extracted_entities_updated_fields`
     - `entity_extraction_source`
     - `prompt`
@@ -149,6 +151,12 @@ class CollectionEntityExtractNode(BaseGraphNode):
             if isinstance(memory_state.get("verification_entities"), dict)
             else {}
         )
+        customer_payment_capacity = self._normalize_optional_float(
+            llm_entities.get("customer_payment_capacity", memory_state.get("customer_payment_capacity"))
+        )
+        customer_payment_capacity_pct = self._normalize_optional_pct(
+            llm_entities.get("customer_payment_capacity_pct", memory_state.get("customer_payment_capacity_pct"))
+        )
         # Verification entities should only be updated from current-turn extracted values
         # to avoid stale/hallucinated carry-forward.
         for field in required_fields:
@@ -169,6 +177,8 @@ class CollectionEntityExtractNode(BaseGraphNode):
                 extracted_entity_descriptions=merged_descriptions,
                 verification_entities=verification_entities,
                 verification_collected=verification_entities,
+                customer_payment_capacity=customer_payment_capacity,
+                customer_payment_capacity_pct=customer_payment_capacity_pct,
                 extracted_entities_updated_fields=sorted(set(updated_fields)),
             )
         if memory is not None and callable(self.reconcile_callback):
@@ -201,6 +211,8 @@ class CollectionEntityExtractNode(BaseGraphNode):
             "extracted_entities_turn": extracted_entities_turn,
             "extracted_entity_descriptions": extracted_entity_descriptions,
             "verification_entities": verification_entities,
+            "customer_payment_capacity": customer_payment_capacity,
+            "customer_payment_capacity_pct": customer_payment_capacity_pct,
             "extracted_entities_updated_fields": sorted(set(updated_fields)),
             "entity_extraction_source": ("callback_fallback" if used_callback_fallback else "llm"),
             "prompt": llm_debug.get("prompt"),
@@ -287,3 +299,28 @@ class CollectionEntityExtractNode(BaseGraphNode):
         for key, value in values.items():
             rendered = rendered.replace(f"{{{key}}}", str(value))
         return rendered
+
+    @staticmethod
+    def _normalize_optional_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        text = str(value).strip().replace(",", "")
+        if not text:
+            return None
+        try:
+            return float(text)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _normalize_optional_pct(value: Any) -> float | None:
+        if value is None:
+            return None
+        text = str(value).strip().replace("%", "").replace(",", "")
+        if not text:
+            return None
+        try:
+            pct = float(text)
+        except Exception:
+            return None
+        return max(0.0, min(100.0, pct))

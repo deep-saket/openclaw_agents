@@ -56,7 +56,12 @@ def test_plan_proposal_state_node_outputs_signals_and_mode() -> None:
             "active_overdue_amount": 1200.0,
             "conversation_mode": "hardship_negotiation",
             "negotiation_stage": "assessing_capacity",
-            "customer_payment_posture": "needs_arrangement",
+            "customer_payment_posture": "partial_now",
+            "customer_payment_capacity": 3000.0,
+            "customer_payment_capacity_pct": 25.0,
+            "discount_stage": "requested",
+            "discount_requested": True,
+            "counter_offer_present": True,
             "hardship_context": {
                 "hardship_detected": True,
                 "hardship_reason": "job_loss",
@@ -74,6 +79,12 @@ def test_plan_proposal_state_node_outputs_signals_and_mode() -> None:
     assert update["plan_mode"] == "hardship_negotiation"
     assert update["plan_signals"]["hardship_signal"] is True
     assert update["plan_signals"]["suggested_plan_mode"] == "hardship_negotiation"
+    assert update["plan_signals"]["customer_payment_posture"] == "partial_now"
+    assert update["plan_signals"]["customer_payment_capacity"] == 3000.0
+    assert update["plan_signals"]["customer_payment_capacity_pct"] == 25.0
+    assert update["plan_signals"]["discount_stage"] == "requested"
+    assert update["plan_signals"]["discount_requested"] is True
+    assert update["plan_signals"]["counter_offer_present"] is True
     assert update["effective_identity_verified"] is True
 
 
@@ -136,7 +147,7 @@ def test_plan_proposal_directive_uses_hardship_arrangement_directive() -> None:
             "identity_verified": True,
             "conversation_mode": "hardship_negotiation",
             "negotiation_stage": "assessing_capacity",
-            "customer_payment_posture": "needs_arrangement",
+            "customer_payment_posture": "negotiating",
             "hardship_context": {
                 "hardship_detected": True,
                 "hardship_reason": "job_loss",
@@ -182,6 +193,33 @@ def test_plan_proposal_directive_discount_handoff_remains_intact() -> None:
     assert proposal["target"] == "discount_planning_agent"
     assert directive_update["response_target"] == "discount_planning_agent"
     assert directive_update["handoff_payload"]["case_id"] == "COLL-1001"
+
+
+def test_plan_proposal_directive_routes_partial_payment_to_discount_planning() -> None:
+    _, _, directive_update = _run_split_chain(
+        {
+            "mode": "strict_collections",
+            "active_case_id": "COLL-1001",
+            "active_user_id": "USER-1",
+            "active_customer_name": "Aditi",
+            "active_overdue_amount": 1200.0,
+            "identity_verified": True,
+            "conversation_mode": "collections",
+            "negotiation_stage": "evaluating_options",
+            "customer_payment_posture": "partial_now",
+            "customer_payment_capacity": 2000.0,
+            "discount_stage": "requested",
+            "discount_requested": True,
+            "response_mode": "negotiation",
+            "active_dialogue_owner": "plan_proposal",
+        },
+        user_input="I can pay 2000 today if you can settle this.",
+    )
+
+    assert directive_update["response_target"] == "discount_planning_agent"
+    assert directive_update["handoff_payload"]["customer_payment_capacity"] == 2000.0
+    assert directive_update["handoff_payload"]["discount_stage"] == "requested"
+    assert directive_update["handoff_payload"]["customer_payment_posture"] == "partial_now"
 
 
 def test_plan_proposal_directive_termination_remains_intact() -> None:
