@@ -89,4 +89,23 @@ class EntityExtractTool(BaseTool[EntityExtractInput, EntityExtractOutput]):
         if name_match:
             entities["name"] = re.sub(r"\s+", " ", name_match.group(1)).strip()
 
+        capacity_amount_match = re.search(
+            r"\b(?:can pay|pay)\b[^\d]{0,12}(?:inr|rs\.?|rupees)?\s*(\d+(?:,\d{3})*(?:\.\d+)?)\b(?:\s*(?:today|now|right now|this week|this month))?",
+            text,
+            re.IGNORECASE,
+        )
+        if capacity_amount_match:
+            entities["customer_payment_capacity"] = capacity_amount_match.group(1).replace(",", "")
+
+        if re.search(r"\bhalf\b", text, re.IGNORECASE):
+            entities["customer_payment_capacity_pct"] = "50"
+        else:
+            capacity_pct_match = re.search(
+                r"\b(\d+(?:\.\d+)?)\s*(?:%|percent)\b",
+                text,
+                re.IGNORECASE,
+            )
+            if capacity_pct_match:
+                entities["customer_payment_capacity_pct"] = capacity_pct_match.group(1)
+
         return EntityExtractOutput(entities=entities, entity_keys=sorted(entities.keys()))

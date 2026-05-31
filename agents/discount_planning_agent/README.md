@@ -30,7 +30,7 @@ Graph assets:
 
 ### `Receive Handoff Payload`
 
-- Accepts collection-agent handoff context (`case_id`, plan context, hardship hints, targets).
+- Accepts collection-agent handoff context (`case_id`, plan context, hardship hints, payment posture, payment capacity, discount lifecycle, counter-offer context, and targets).
 - Normalizes payload for specialist processing.
 
 ### `Build Discount/EMI Proposal`
@@ -64,8 +64,31 @@ Graph assets:
 - `policy_constraints` (optional)
 - `hardship_reason` (optional)
 - `target_monthly_emi` (optional)
+- `customer_payment_posture`
+- `customer_payment_capacity` (optional numeric amount)
+- `customer_payment_capacity_pct` (optional numeric percentage on 0-100 scale)
+- `customer_payment_willingness` (optional float from 0.0 to 1.0)
+- `customer_payment_posture_history` (optional ordered list of prior posture states)
+- `discount_stage`
+- `discount_requested`
+- `discount_offered`
+- `discount_accepted`
+- `discount_rejected`
+- `counter_offer_present`
+- `previous_discount_offers` (optional list)
 - `max_discount_cap` (optional)
 - `reason_for_handoff`
+
+Routing expectations:
+
+- Invoke the discount planning specialist when the verified customer:
+  - requests discount, settlement, or waiver
+  - proposes partial payment as a negotiation basis
+  - makes a counter-offer
+  - remains in `discount_stage=requested` or `discount_stage=counter_offer`
+  - has hardship plus `customer_payment_posture=cannot_pay`
+
+The collection agent should include the current posture, capacity, willingness, hardship reason, discount lifecycle, and posture history on every specialist handoff so recommendation quality and future evaluation traces remain stable.
 
 ## Handoff Output (to collection agent)
 

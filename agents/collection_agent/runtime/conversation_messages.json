@@ -1486,39 +1486,53 @@
   ],
   "collection-user_a-cli": [
     {
-      "id": "cdd03a13-f3cf-4f50-a27c-a17dec5ea724",
+      "id": "719313e4-c0ab-403f-879e-ac8c97eced04",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "Yes this is Aditi.",
-      "created_at": "2026-05-19T11:33:30.956723Z"
+      "created_at": "2026-05-20T13:16:49.577471Z"
     },
     {
-      "id": "f6519f71-d813-4508-8175-6e4c360e4158",
+      "id": "6b92d1e9-fe72-4bfd-a8c4-9358acb13171",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "Thank you for confirming your name, Aditi. Please also confirm your date of birth and registered phone number.",
-      "created_at": "2026-05-19T11:34:26.128517Z"
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-20T13:18:10.409942Z"
     },
     {
-      "id": "998ebe5c-60d5-482a-921f-cb1df9b9702c",
+      "id": "b541d519-082c-409a-b969-0e8c14b150fd",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "My phone number is : 9900001001and date of birth is  1991-08-19",
-      "created_at": "2026-05-19T11:34:26.150761Z"
+      "created_at": "2026-05-20T13:18:10.411746Z"
     },
     {
-      "id": "f0de651f-9f00-48a7-881c-b5dc617b087b",
+      "id": "eccd552a-f0a6-4e76-9980-e5d89eda01f1",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "Verification is complete. Your date of birth and phone number have been verified. We will now explain the dues and policy options. Your overdue amount is INR 12,500.00. We can discuss payment options and arrangements to bring your account up to date. Would you like to pay the full amount now or discuss a payment plan?",
-      "created_at": "2026-05-19T11:41:28.949865Z"
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Your current overdue amount is $12,500. Please let me know if you'd like to discuss a payment plan. Would you like to make a payment today or would you like to discuss a payment plan?",
+      "created_at": "2026-05-20T13:20:51.126601Z"
     },
     {
-      "id": "a2ee8561-1153-47b9-9174-72786f489744",
+      "id": "c59b779c-3465-49d4-949c-558351f66b3a",
       "session_id": "collection-user_a-cli",
       "role": "customer",
-      "content": "what do you want me to verify",
-      "created_at": "2026-05-19T11:41:28.973162Z"
+      "content": "Actually, I recently lost my job, so I\u2019m facing some financial problems.",
+      "created_at": "2026-05-20T13:20:51.129105Z"
+    },
+    {
+      "id": "2198be61-1448-40ef-af75-922e4ad10614",
+      "session_id": "collection-user_a-cli",
+      "role": "agent",
+      "content": "I'm so sorry to hear about your job loss. How are you managing financially right now?",
+      "created_at": "2026-05-20T13:23:18.603670Z"
+    },
+    {
+      "id": "2a368aa8-e0fa-4901-a7a6-2539c6e50b72",
+      "session_id": "collection-user_a-cli",
+      "role": "customer",
+      "content": "I can give 6000 dollars.",
+      "created_at": "2026-05-20T13:23:18.606621Z"
     }
   ]
 }

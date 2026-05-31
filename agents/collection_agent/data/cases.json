@@ -10,7 +10,12 @@
     "overdue_amount": 12500,
     "late_fee": 850,
     "status": "open",
-    "risk_band": "medium"
+    "risk_band": "medium",
+    "assigned_agent": "Alex",
+    "last_contact_date": "2026-05-21",
+    "contact_attempts": 3,
+    "promise_to_pay_date": null,
+    "promise_to_pay_amount": null
   },
   {
     "case_id": "COLL-1002",
@@ -23,7 +28,12 @@
     "overdue_amount": 37800,
     "late_fee": 1900,
     "status": "open",
-    "risk_band": "high"
+    "risk_band": "high",
+    "assigned_agent": "Alex",
+    "last_contact_date": "2026-05-19",
+    "contact_attempts": 5,
+    "promise_to_pay_date": null,
+    "promise_to_pay_amount": null
   },
   {
     "case_id": "COLL-1003",
@@ -36,7 +46,12 @@
     "overdue_amount": 25000,
     "late_fee": 450,
     "status": "open",
-    "risk_band": "low"
+    "risk_band": "low",
+    "assigned_agent": "Alex",
+    "last_contact_date": "2026-05-25",
+    "contact_attempts": 1,
+    "promise_to_pay_date": "2026-06-03",
+    "promise_to_pay_amount": 25000
   },
   {
     "case_id": "COLL-1004",
@@ -49,7 +64,12 @@
     "overdue_amount": 84000,
     "late_fee": 4200,
     "status": "open",
-    "risk_band": "high"
+    "risk_band": "high",
+    "assigned_agent": "Alex",
+    "last_contact_date": "2026-05-18",
+    "contact_attempts": 6,
+    "promise_to_pay_date": null,
+    "promise_to_pay_amount": null
   },
   {
     "case_id": "COLL-1005",
@@ -62,7 +82,12 @@
     "overdue_amount": 28700,
     "late_fee": 1300,
     "status": "open",
-    "risk_band": "medium"
+    "risk_band": "medium",
+    "assigned_agent": "Alex",
+    "last_contact_date": "2026-05-24",
+    "contact_attempts": 2,
+    "promise_to_pay_date": null,
+    "promise_to_pay_amount": null
   },
   {
     "case_id": "COLL-1006",
@@ -75,6 +100,11 @@
     "overdue_amount": 31000,
     "late_fee": 300,
     "status": "open",
-    "risk_band": "low"
+    "risk_band": "low",
+    "assigned_agent": "Alex",
+    "last_contact_date": "2026-05-28",
+    "contact_attempts": 1,
+    "promise_to_pay_date": "2026-06-01",
+    "promise_to_pay_amount": 31000
   }
 ]

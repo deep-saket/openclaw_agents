@@ -70,6 +70,13 @@ class CollectionReactNode(ReactNode):
                 if isinstance(memory_state.get("verification_entities"), dict)
                 else {}
             )
+        hardship_context = state.get("hardship_context")
+        if not isinstance(hardship_context, dict):
+            hardship_context = (
+                dict(memory_state.get("hardship_context", {}))
+                if isinstance(memory_state.get("hardship_context"), dict)
+                else {}
+            )
 
         conversation_history = state.get("conversation_history")
         if not isinstance(conversation_history, list):
@@ -103,6 +110,13 @@ class CollectionReactNode(ReactNode):
             "extracted_entities": extracted_entities,
             "extracted_entities_turn": extracted_entities_turn,
             "verification_entities": verification_entities,
+            "conversation_mode": state.get("conversation_mode") or memory_state.get("conversation_mode"),
+            "negotiation_stage": state.get("negotiation_stage") or memory_state.get("negotiation_stage"),
+            "customer_payment_posture": state.get("customer_payment_posture")
+            or memory_state.get("customer_payment_posture"),
+            "hardship_context": hardship_context,
+            "response_mode": state.get("response_mode") or memory_state.get("response_mode"),
+            "active_dialogue_owner": state.get("active_dialogue_owner") or memory_state.get("active_dialogue_owner"),
         }
 
     def _apply_post_llm_override(self, *, state: AgentState, context: dict[str, Any], decision: Any) -> Any:

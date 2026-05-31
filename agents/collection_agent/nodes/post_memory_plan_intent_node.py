@@ -102,6 +102,13 @@ class PostMemoryPlanIntentNode(CollectionIntentNode):
             "active_case_id": state.get("case_id") or memory_state.get("active_case_id"),
             "active_user_id": state.get("user_id") or memory_state.get("active_user_id"),
             "identity_verified": bool(state.get("identity_verified", memory_state.get("identity_verified", False))),
+            "conversation_mode": state.get("conversation_mode") or memory_state.get("conversation_mode"),
+            "negotiation_stage": state.get("negotiation_stage") or memory_state.get("negotiation_stage"),
+            "customer_payment_posture": state.get("customer_payment_posture")
+            or memory_state.get("customer_payment_posture"),
+            "hardship_context": state.get("hardship_context") or memory_state.get("hardship_context"),
+            "response_mode": state.get("response_mode") or memory_state.get("response_mode"),
+            "active_dialogue_owner": state.get("active_dialogue_owner") or memory_state.get("active_dialogue_owner"),
             "verification_missing_fields": state.get("verification_missing_fields")
             or memory_state.get("verification_missing_fields"),
             "verification_entities": state.get("verification_entities") or memory_state.get("verification_entities"),

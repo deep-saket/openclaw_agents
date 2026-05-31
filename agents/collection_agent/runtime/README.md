@@ -7,7 +7,7 @@ This directory stores generated runtime artifacts for `agents/collection_agent`.
 | Source Component | Files it creates/updates | When |
 | --- | --- | --- |
 | `CollectionRepository` | `conversation_messages.json`, `conversation_states.json`, `tool_logs.json` | On agent startup and every turn |
-| `CollectionDataStore` | `contact_attempts.json`, `verification_attempts.json`, `payment_links.json`, `promises.json`, `followups.json`, `dispositions.json`, `escalations.json`, `channel_switches.json`, `phone_payments.json`, `plan_proposals.json` | On startup (ensures files) and during tool execution |
+| `CollectionDataStore` | `contact_attempts.json`, `verification_attempts.json`, `payment_links.json`, `promises.json`, `escalations.json`, `plan_proposals.json` | On startup (ensures files) and during tool execution |
 | `CollectionAgent._persist_trace` | `traces/<timestamp>_<trace_id>.json`, `traces/latest_trace.json` | After each completed turn |
 | `JSONLTraceSink` (optional) | `traces/events.jsonl` (or configured path) | Real-time during node/tool/llm events |
 
@@ -33,14 +33,10 @@ This directory stores generated runtime artifacts for `agents/collection_agent`.
 | File | Type | Written by tools |
 | --- | --- | --- |
 | `contact_attempts.json` | array | `contact_attempt` |
-| `verification_attempts.json` | array | `customer_verify` |
-| `payment_links.json` | array | `payment_link_create`, `payment_status_check` |
+| `verification_attempts.json` | array | `verify_dob`, `verify_mobile` |
+| `payment_links.json` | array | `payment_link_create` |
 | `promises.json` | array | `promise_capture` |
-| `followups.json` | array | `followup_schedule` |
-| `dispositions.json` | array | `disposition_update` |
 | `escalations.json` | array | `human_escalation` |
-| `channel_switches.json` | array | `channel_switch` |
-| `phone_payments.json` | array | `pay_by_phone_collect` |
 | `plan_proposals.json` | array | `plan_propose` |
 
 ### Trace outputs
@@ -50,6 +46,17 @@ This directory stores generated runtime artifacts for `agents/collection_agent`.
 | `traces/<timestamp>_<trace_id>.json` | JSON object | Full per-turn trace snapshot (node order, tool order, timings, llm calls) |
 | `traces/latest_trace.json` | JSON object | Last completed turn trace |
 | `traces/events.jsonl` | JSONL | Event stream (`turn_started`, `node_started`, `tool_call`, `llm_call`, etc.) |
+
+### Batch evaluation outputs
+
+| File/Path | Type | Purpose |
+| --- | --- | --- |
+| `eval_runs/<run_id>/run_summary.csv` | CSV | One summary row per executed dataset script |
+| `eval_runs/<run_id>/conversations.jsonl` | JSONL | One preserved dataset+execution record per script |
+| `eval_runs/<run_id>/traces/<script_id>.json` | JSON | Per-script execution trace payload with dataset linkage |
+| `eval_runs/<run_id>.zip` | ZIP | Portable bundle of the whole batch run |
+
+All batch evaluation artifacts must carry both `run_id` and `script_id`.
 
 ## Reading Traversal Order
 

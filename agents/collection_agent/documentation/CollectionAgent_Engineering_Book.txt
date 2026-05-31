@@ -1,7 +1,4 @@
-COLLECTION AGENT ENGINEERING BOOK
-Generated: 2026-05-04
-
-# Collection Agent Engineering Book
+Collection Agent Engineering Book
 
 Version: 2026-05-04
 
@@ -9,7 +6,7 @@ Owner: Collections AI Engineering
 
 ---
 
-## Table of Contents
+Table of Contents
 
 1. Purpose and Scope
 2. Business Process Mapping
@@ -29,7 +26,7 @@ Owner: Collections AI Engineering
 
 ---
 
-## 1) Purpose and Scope
+1) Purpose and Scope
 
 The Collection Agent is a graph-driven debt-collection assistant for demo and pre-production workflows. It supports:
 
@@ -44,215 +41,302 @@ The graph itself performs one bounded forward pass and always ends at a response
 
 ---
 
-## 2) Business Process Mapping
+2) Business Process Mapping
 
 Human collections-team actions mapped to graph + tools:
 
 | Human activity | Graph phase | Main node/tool |
 | --- | --- | --- |
-| Select case and understand delinquency context | plan/bootstrap | `plan_proposal`, `case_fetch` |
-| Contact borrower and establish call context | response packaging | `relevant_response` |
-| Verify identity before details | plan + verify gate | `verify_identity` plan step + `customer_verify` |
-| Explain dues and options | execution + response | `dues_explain_build`, `loan_policy_lookup`, `relevant_response` |
-| Ask payment intent and collect payment | execution | `payment_link_create`, `pay_by_phone_collect`, `payment_status_check` |
-| If cannot pay, offer policy-compliant options | planning + tooling | `offer_eligibility`, `plan_propose` |
-| Capture promise-to-pay and schedule follow-up | execution | `promise_capture`, `followup_schedule` |
-| Escalate sensitive disputes | execution | `human_escalation` |
-| Finalize and log outcome | execution | `disposition_update` |
+| Select case and understand delinquency context | plan/bootstrap | plan_proposal_state -> plan_proposal_graph -> plan_proposal_directive |
+| Contact borrower and establish call context | response packaging | relevant_response |
+| Verify identity before details | plan + verify gate | verify_identity plan step + verify_dob / verify_mobile |
+| Explain dues and options | planning + response | plan_proposal_directive, loan_policy_lookup, relevant_response |
+| Ask payment intent and collect payment | execution | payment_link_create |
+| If cannot pay, offer policy-compliant options | planning + tooling | offer_eligibility, plan_propose |
+| Capture promise-to-pay commitment | execution | promise_capture |
+| Escalate sensitive disputes | execution | human_escalation |
+| Finalize and route response | planning + response | plan_proposal_directive, relevant_response |
 
 ---
 
-## 3) System Architecture
+3) System Architecture
 
-### 3.1 Core components
+3.1 Core components
 
-- Graph runtime: `langgraph` state graph
-- Node library: shared nodes under `src/nodes`, collection-specific nodes under `agents/collection_agent/nodes`
-- Tooling: typed tool classes under `agents/collection_agent/tools`
-- Session memory: `ConversationMemory` via `SessionStore`
+- Graph runtime: langgraph state graph
+- Node library: shared nodes under src/nodes, collection-specific nodes under agents/collection_agent/nodes
+- Tooling: typed tool classes under agents/collection_agent/tools
+- Session memory: ConversationMemory via SessionStore
 - UI runtime: FastAPI debug server + web UI
 - Voice runtime: Pipecat bridge process for call mode
 
-### 3.2 Primary execution assets
+3.2 Primary execution assets
 
-- Graph definition: `agents/collection_agent/agent.py`
-- Plan logic: `agents/collection_agent/nodes/plan_proposal_node.py`
-- Intent logic: `agents/collection_agent/nodes/collection_intent_node.py`
-- Response packaging: `agents/collection_agent/nodes/collection_response_node.py`
-- Prompt definitions: `agents/collection_agent/prompts/agent_prompts.yml`
-- Tool descriptions: `agents/collection_agent/prompts/tool_catalog.yml`
+- Graph definition: agents/collection_agent/agent.py
+- Plan logic:
+  - agents/collection_agent/nodes/plan_proposal_state_node.py
+  - agents/collection_agent/nodes/plan_proposal_graph_node.py
+  - agents/collection_agent/nodes/plan_proposal_directive_node.py
+- Intent logic: agents/collection_agent/nodes/collection_intent_node.py
+- Response packaging: agents/collection_agent/nodes/collection_response_node.py
+- Prompt definitions: agents/collection_agent/prompts/agent_prompts.yml
+- Tool descriptions: agents/collection_agent/prompts/tool_catalog.yml
 
 ---
 
-## 4) Graph Topology and Runtime Loop
+4) Graph Topology and Runtime Loop
 
-### 4.1 Graph asset
+4.1 Graph asset
 
-![Collection Graph](../graph.jpg)
+!Collection Graph
 
 Also available:
 
-- `agents/collection_agent/graph.mmd`
-- `agents/collection_agent/graph.png`
-- `agents/collection_agent/graph.jpg`
+- agents/collection_agent/graph.mmd
+- agents/collection_agent/graph.png
+- agents/collection_agent/graph.jpg
 
-### 4.2 Topology semantics
+4.2 Topology semantics
 
-- Start at `relevance_intent`
-- Out-of-scope path terminates quickly through `irrelevant_response`
-- In-scope path routes through pre-plan and execution gating
-- `react` + `tool_execution` loop handles tool selection and execution
-- `plan_proposal` creates/updates plan tree and routing intent
-- `reflect` validates completion and may route back
-- `relevant_response` packages final outward message
+- Start at relevance_intent
+- Out-of-scope path terminates quickly through irrelevant_response
+- In-scope path routes through entity_extract, then negotiation_classification, then pre-plan and execution gating
+- Verification is isolated into verification_react
+- Non-verification tools are isolated into react
+- tool_execution routes back to the correct React node based on which tool just ran
+- plan_proposal_state prepares planning state and classifies plan signals
+- plan_proposal_graph creates/updates the plan tree and routing context
+- plan_proposal_directive creates the final proposal and response directive
+- reflect validates completion and may route back
+- relevant_response packages final outward message
 
-### 4.3 Outer-loop orchestration (outside graph)
+4.3 Outer-loop orchestration (outside graph)
 
 After each pass, output includes:
 
-- `response` (message)
-- `response_target` (`customer` or `self`)
-- optional `additional_targets`
+- response (message)
+- response_target (customer or self)
+- optional additional_targets
 
 Outer controller decides next recipient.
 
 ---
 
-## 5) State Model and Memory Model
+5) State Model and Memory Model
 
-### 5.1 Core graph keys
+5.1 Core graph keys
 
-- `session_id`, `turn_id`, `user_input`
-- `user_id`, `case_id`, `channel`
-- `node_history`, `previous_node`, `next_node`
-- `conversation_phase`
-- `response`, `response_target`, `route`
-- `conversation_plan` (active plan tree)
+- session_id, turn_id, user_input
+- user_id, case_id, channel
+- node_history, previous_node, next_node
+- conversation_phase
+- response, response_target, route
+- conversation_plan (active plan tree)
 
-### 5.2 Namespaced intent outputs
+5.2 Namespaced intent outputs
 
-- `relevance_intent`
-- `pre_plan_intent`
-- `execution_path_intent`
-- `post_memory_plan_intent`
+- relevance_intent
+- negotiation_classification
+- pre_plan_intent
+- execution_path_intent
+- post_memory_plan_intent
+- post_verification_intent
 
-### 5.3 Verification state (important)
+5.3 Verification state (important)
 
-- `identity_verified` (boolean)
-- `verification_collected` (partial details detected from borrower utterances)
-- `active_verification_required_fields` (required challenge keys)
-- `verification_failed_attempts`
+- identity_verified (boolean)
+- verified_dob
+- verified_mobile
+- verification_verified_fields
+- verification_missing_fields
+- active_verification_required_fields (required challenge keys)
+- owned by verification_react
 
-### 5.4 Plan tree state
+5.4 Negotiation cognition state
 
-- `plan_id`, `version`, `status`
-- `nodes[]`, `edges[]`
-- `root_node_id`, `current_node_id`, `next_node_ids`
-- `step_markers` with per-node state (`pending|done|skipped|blocked`)
-- `timeline[]`, `revision_log[]`
+- conversation_mode
+- negotiation_stage
+- customer_payment_posture
+- customer_payment_posture_history
+- customer_payment_capacity
+- customer_payment_capacity_pct
+- discount_stage
+- customer_payment_willingness
+- hardship_context
+- discount_requested
+- discount_offered
+- discount_accepted
+- discount_rejected
+- counter_offer_present
+- response_mode
+- active_dialogue_owner
+
+5.5 Plan tree state
+
+- plan_id, version, status
+- nodes[], edges[]
+- root_node_id, current_node_id, next_node_ids
+- step_markers with per-node state (pending|done|skipped|blocked)
+- timeline[], revision_log[]
 
 ---
 
-## 6) Node-by-Node Deep Dive
+6) Node-by-Node Deep Dive
 
-### 6.1 `relevance_intent` (`CollectionIntentNode`)
+6.1 relevance_intent (CollectionIntentNode)
 
 Responsibilities:
 
-- classify `relevant|irrelevant|empty`
+- classify relevant|irrelevant|empty
 - uses LLM structured output
 - appends conversation context block to prompt
 - applies context-aware relevance guard for identity replies in active sessions
 
 Inputs:
 
-- `user_input`
-- memory context (`active_case_id`, `last_agent_response`, plan position)
+- user_input
+- memory context (active_case_id, last_agent_response, plan position)
 
 Outputs:
 
-- `relevance_intent`
-- compatibility `intent`
+- relevance_intent
+- compatibility intent
 - optional static response for irrelevant/empty
 
-### 6.2 `pre_plan_intent` (`CollectionIntentNode`)
+6.2 pre_plan_intent (CollectionIntentNode)
 
 Responsibilities:
 
-- classify `plan|decide`
-- route directly to plan proposal or deeper execution path
+- classify plan|decide
+- route directly to plan_proposal_state or deeper execution path
 
-### 6.3 `execution_path_intent` (`CollectionIntentNode`)
+6.3 negotiation_classification (NegotiationClassificationNode)
 
 Responsibilities:
 
-- classify `need_memory|need_tool`
-- avoids unnecessary memory retrieval when direct tool action is enough
+- classify persistent conversation-level negotiation state
+- detect and preserve hardship context across turns
+- update conversation_mode, negotiation_stage, customer_payment_posture, discount_stage, customer_payment_willingness, hardship_context, explicit discount outcome flags, response_mode, and active_dialogue_owner
+- consume customer_profile_summary, payment_history_summary, and offer_history_summary when available
+- preserve posture transitions such as cannot_pay -> partial_now -> pay_now
+- influence downstream planning and tone without selecting tools directly
 
-### 6.4 `memory_retrieve` (`MemoryRetrieveNode`)
+6.4 execution_path_intent (CollectionIntentNode)
+
+Responsibilities:
+
+- classify need_memory|verification_react|react
+- route verification candidates to verification flow when identity is still incomplete
+- avoid unnecessary memory retrieval when direct tool action is enough
+
+6.5 memory_retrieve (MemoryRetrieveNode)
 
 Responsibilities:
 
 - loads working memory context into graph state
 - informs post-memory routing and planning
 
-### 6.5 `post_memory_plan_intent` (`CollectionIntentNode`)
+6.6 post_memory_plan_intent (CollectionIntentNode)
 
 Responsibilities:
 
-- classify `plan|react` after memory hydration
-- if plan-ready, route to `plan_proposal`; else route to `react`
+- classify plan|verification_react|react after memory hydration
+- if plan-ready, route to plan_proposal_state
+- if verification is still the blocker, route to verification_react
+- otherwise route to non-verification react
 
-### 6.6 `react` (`ReactNode`)
+6.7 verification_react (VerificationReactNode)
 
 Responsibilities:
 
-- choose one of: `act`, `respond`, `end`
-- when `act`, produce tool name + arguments
-- when `respond/end`, hand control to plan proposal for structured response planning
+- own verification progression state
+- recompute verified_dob, verified_mobile, verification_verified_fields, verification_missing_fields, and identity_verified from observations
+- choose one of: act, respond, end
+- only select verification tools (verify_dob, verify_mobile)
 
-### 6.7 `tool_execution` (`ToolExecutionNode`)
+6.8 post_verification_intent (CollectionIntentNode)
+
+Responsibilities:
+
+- classify plan|react after verification work pauses or completes
+- route back to plan_proposal_state when verification context is ready for planning
+- route to non-verification react when immediate non-verification tooling is still required
+
+6.9 react (CollectionReactNode)
+
+Responsibilities:
+
+- choose one of: act, respond, end
+- when act, produce non-verification tool name + arguments
+- when respond/end, hand control to plan_proposal_state for structured response planning
+- consume negotiation continuity context without owning it
+
+6.10 tool_execution (ToolExecutionNode)
 
 Responsibilities:
 
 - execute selected tool through registry/executor
-- emit structured `observation.tool_phase`
+- emit structured observation entries with tool_name, input, and output
+- append those entries to canonical observations
 
-### 6.8 `plan_proposal` (`PlanProposalNode`)
+6.11 plan_proposal_state (PlanProposalStateNode)
+
+Responsibilities:
+
+- overlay verification and negotiation state into a prepared planning snapshot
+- classify plan signals and effective planning mode
+- expose plan-state debug artifacts
+- avoid mutating the conversation plan graph directly
+
+6.12 plan_proposal_graph (PlanProposalGraphNode)
+
+Responsibilities:
+
+- build and update conversation plan tree
+- maintain step markers and enforce predecessor gating
+- preserve plan history and revise only current/future path
+- use identity_verified as the primary verification gate for leaving verify_identity
+
+Critical guardrail:
+
+- verify_identity cannot be marked done unless verification progression state marks identity_verified=true
+
+6.13 plan_proposal_directive (PlanProposalDirectiveNode)
 
 Responsibilities:
 
 - propose plan intent and next actions
-- build and update conversation plan tree
-- maintain step markers and enforce predecessor gating
-- assign `response_target`
+- attach response_directive
+- assign response_target
+- emit specialist handoff payloads and termination/loop-guard proposals
+- consume persistent negotiation cognition state to preserve hardship continuity
+- route to discount_planning_agent for verified hardship/cannot-pay, discount or settlement asks, partial-payment proposals, counter-offers, and active discount_stage values requested / counter_offer
+- consume classified discount_stage and include it in specialist handoff payloads without mutating ownership
+- include payment capacity, percentage capacity, posture, hardship reason, and lifecycle stage in handoff_payload
 
-Critical guardrail added:
-
-- `verify_identity` cannot be marked done unless `customer_verify` tool returns `status="verified"`
-
-### 6.9 `reflect` (`CollectionReflectNode`)
+6.14 reflect (CollectionReflectNode)
 
 Responsibilities:
 
 - assess whether output is complete
-- route to `retry_react`, `retry_plan_proposal`, or `complete`
+- route to retry_plan_proposal (plan_proposal_state) or complete
 
-### 6.10 `relevant_response` (`CollectionResponseNode`)
+6.15 relevant_response (CollectionResponseNode)
 
 Responsibilities:
 
 - convert plan + state into user-facing message
-- enforce target-safe message packaging (`customer` vs `self`)
+- enforce target-safe message packaging (customer vs self)
 - prevent internal graph/tool jargon leakage
 - enforce verification guard before dues explanation
+- apply response_mode and active_dialogue_owner to preserve negotiation tone and continuity
 
 Verification guard behavior:
 
-- if current step is `verify_identity` and `identity_verified=false`, response requests missing verification fields
+- if current step is verify_identity and identity_verified=false, response requests missing verification fields
 - does not advance to dues explanation prematurely
 
-### 6.11 `irrelevant_response` (`CollectionResponseNode` static mode)
+6.16 irrelevant_response (CollectionResponseNode static mode)
 
 Responsibilities:
 
@@ -261,80 +345,72 @@ Responsibilities:
 
 ---
 
-## 7) Tool Catalog Deep Dive
+7) Tool Catalog Deep Dive
 
 | Tool | Primary role | Inputs | Output contract | Notes |
 | --- | --- | --- | --- | --- |
-| `case_fetch` | fetch case facts | `case_id?`, `customer_id?`, `portfolio_id?` | `total`, `cases[]` | base case context |
-| `case_prioritize` | queue ranking | `case_ids?`, `portfolio_id?` | `total`, `queue[]` | prioritization |
-| `contact_attempt` | outreach log | `case_id`, `channel?`, `reached?` | `attempt_id`, `status` | compliance trail |
-| `customer_verify` | identity verification | `case_id?`, `customer_id?`, `challenge_answers?` | `status`, `failed_attempts`, `required_fields` | must be `verified` to complete verify step |
-| `loan_policy_lookup` | policy constraints | `case_id?`, `loan_id?` | policy object | governance layer |
-| `dues_explain_build` | dues narration | `case_id` | `total_due`, `explanation` | borrower-safe summary |
-| `offer_eligibility` | concession eligibility | `case_id`, `hardship_flag?`, `requested_waiver_pct?` | `allowed`, `offer_type` | policy-aware assistance |
-| `plan_propose` | EMI plan proposal | `case_id`, `hardship_reason?`, `revision_index?`, `max_installment_amount?` | `plan_id`, `monthly_amount`, `first_due_date` | hardship path |
-| `payment_link_create` | digital payment | `case_id`, `amount`, `channel?` | `payment_reference_id`, `payment_url` | pay-now path |
-| `pay_by_phone_collect` | call payment simulation | `case_id`, `amount`, `consent_confirmed?` | `payment_id`, `status`, `receipt_reference` | voice path |
-| `payment_status_check` | settlement confirmation | `payment_reference_id` | `status`, `needs_additional_action` | reconciliation |
-| `promise_capture` | promise logging | `case_id`, `promised_date`, `promised_amount` | `promise_id`, `status` | follow-up anchor |
-| `followup_schedule` | callback scheduling | `case_id`, `scheduled_for`, `preferred_channel?` | `schedule_id` | deferred collection |
-| `disposition_update` | final outcome log | `case_id`, `disposition_code`, `notes` | `audit_id`, `updated_at` | reporting |
-| `channel_switch` | channel transition | `case_id`, `from_channel?`, `to_channel?` | `switch_id`, `carried_context_summary` | continuity |
-| `human_escalation` | specialist escalation | `case_id`, `reason` | `escalation_id`, `queue`, `priority` | exception path |
+| verify_dob | DOB challenge verification | case_id?, customer_id?, dob | status, field=dob, failed_attempts | verification-only catalog |
+| verify_mobile | mobile challenge verification | case_id?, customer_id?, phone | status, field=phone, failed_attempts | verification-only catalog |
+| loan_policy_lookup | policy constraints | case_id?, loan_id? | policy object | non-verification catalog |
+| offer_eligibility | concession eligibility | case_id, hardship_flag?, requested_waiver_pct? | allowed, offer_type, approved_waiver_pct | non-verification catalog |
+| plan_propose | EMI plan proposal | case_id, hardship_reason?, revision_index?, max_installment_amount? | plan_id, monthly_amount, first_due_date, status | non-verification catalog |
+| payment_link_create | digital payment | case_id, amount, channel? | payment_reference_id, payment_url | non-verification catalog |
+| promise_capture | promise logging | case_id, promised_date, promised_amount | promise_id, status | non-verification catalog |
+| human_escalation | specialist escalation | case_id, reason | escalation_id, queue, priority | non-verification catalog |
 
 ---
 
-## 8) End-to-End Flow Walkthroughs
+8) End-to-End Flow Walkthroughs
 
-### Flow A: Standard collections call
+Flow A: Standard collections call
 
 1. Admin initializes case/customer context
 2. Agent opens call and asks payment intent
 3. Borrower asks for help
 4. Agent asks identity verification details
 5. Borrower provides required details
-6. `customer_verify` confirms verification
+6. verify_dob and verify_mobile confirm verification
 7. Agent explains dues and proposes payment
 8. Borrower chooses pay-now or follow-up
 9. Tool path executes and response closes turn
 
-### Flow B: Incomplete identity
+Flow B: Incomplete identity
 
 1. Borrower gives only name
-2. Plan remains at `verify_identity`
-3. Response asks for missing DOB / PAN last4 / ZIP
+2. Plan remains at verify_identity
+3. Response asks for missing DOB / registered mobile number
 4. No dues disclosure yet
 
-### Flow C: Hardship route
+Flow C: Hardship route
 
 1. Borrower says cannot pay
-2. Plan shifts to `evaluate_assistance`
-3. `offer_eligibility` + `plan_propose` path executed
+2. Plan shifts to evaluate_assistance
+3. offer_eligibility + plan_propose path executed
 4. Agent offers revised plan and asks commitment
 
 ---
 
-## 9) Sample Conversations
+9) Sample Conversations
 
-### 9.1 Correct verification progression
+9.1 Correct verification progression
 
-Agent: This is Alex from collections. Your overdue amount is INR 12500. Are you available to discuss payment today?
+Agent: Hello Aditi, this is Alex from the bank's collections team. I am calling regarding your loan account dues. Before I share details, please confirm your date of birth and registered phone number.
 
 Customer: Sorry for the delay, how can you help me?
 
-Agent: I can help with payment now or a repayment arrangement. Before I share details, please confirm your full name and the last 4 of your PAN, plus date of birth and ZIP.
+Agent: Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.
 
 Customer: My name is Aditi Sharma.
 
-Agent: Thank you, Aditi Sharma. To complete verification, please also share your date of birth (YYYY-MM-DD), the last 4 characters of your PAN, and your registered ZIP/pincode.
+Agent: Thank you for confirming your name. To complete verification, please also share your date of birth (YYYY-MM-DD) and your registered phone number.
 
-### 9.2 Verified and dues explanation
+9.2 Verified and dues explanation
 
-Customer: DOB 1991-08-19, PAN last 4 AF4K, ZIP 560102.
+Customer: DOB 1991-08-19 and my phone is 919900001001.
 
 Agent: Thank you, verification is complete. Your total due is INR 13350. Would you like a payment link now, or do you need an arrangement?
 
-### 9.3 Out-of-scope rejection
+9.3 Out-of-scope rejection
 
 Customer: Tell me cricket score.
 
@@ -342,26 +418,26 @@ Agent: This request is outside collections scope. I can only help with loan dues
 
 ---
 
-## 10) Code Ideology and Design Principles
+10) Code Ideology and Design Principles
 
-### 10.1 Deterministic shell around probabilistic core
+10.1 Deterministic shell around probabilistic core
 
 - LLM used for classification, planning, and message composition
 - deterministic guards enforce compliance-critical transitions
-- example: verify step cannot complete without `customer_verify=verified`
+- example: verify step cannot complete without verification progression state setting identity_verified=true
 
-### 10.2 One-pass graph, explicit outer orchestration
+10.2 One-pass graph, explicit outer orchestration
 
 - graph stays bounded and debuggable
 - multi-agent or self-loop behavior orchestrated at outer layer
 
-### 10.3 Namespaced state and typed tool contracts
+10.3 Namespaced state and typed tool contracts
 
 - intent outputs namespaced by node role
 - tool I/O validated by schema
 - route logic remains explicit and inspectable
 
-### 10.4 Human-debuggable traces first
+10.4 Human-debuggable traces first
 
 - node-level trace events
 - node history, previous/next node, phase labels
@@ -369,58 +445,58 @@ Agent: This request is outside collections scope. I can only help with loan dues
 
 ---
 
-## 11) How to Extend the Agent
+11) How to Extend the Agent
 
-### 11.1 Add a new tool
+11.1 Add a new tool
 
-1. Create tool class file under `agents/collection_agent/tools/`
+1. Create tool class file under agents/collection_agent/tools/
 2. Define typed input/output schemas
-3. Register tool in `CollectionAgent._build_tool_registry`
-4. Add tool metadata to `prompts/tool_catalog.yml`
+3. Register tool in CollectionAgent._build_tool_registry
+4. Add tool metadata to prompts/tool_catalog.yml
 5. Update tool table in docs
 6. Add test fixtures and sample conversation coverage
 
-### 11.2 Add a new node
+11.2 Add a new node
 
-1. Implement node class under `agents/collection_agent/nodes/`
-2. Add node in `CollectionAgent._build_graph`
+1. Implement node class under agents/collection_agent/nodes/
+2. Add node in CollectionAgent._build_graph
 3. Wire conditional/static edges
-4. Update `_ROUTE_NEXT_NODE_MAP` / `_STATIC_NEXT_NODE_MAP`
-5. Add phase mapping in `_phase_for_node`
+4. Update _ROUTE_NEXT_NODE_MAP / _STATIC_NEXT_NODE_MAP
+5. Add phase mapping in _phase_for_node
 6. Document state keys produced by node
 
-### 11.3 Change verification policy
+11.3 Change verification policy
 
-- customer challenge fields live in `agents/collection_agent/data/customers.json`
-- verification output contract in `customer_verify_tool.py`
-- plan completion gating in `plan_proposal_node.py`
-- customer-facing guard in `collection_response_node.py`
+- customer challenge fields live in agents/collection_agent/data/customers.json
+- verification output contracts live in verify_dob_tool.py and verify_mobile_tool.py
+- plan completion gating in plan_proposal_graph_node.py and plan_proposal_directive_node.py
+- customer-facing guard in collection_response_node.py
 
-### 11.4 Add specialist agent handoff
+11.4 Add specialist agent handoff
 
 1. Keep handoff out of internal graph topology
-2. Emit target in `response_target` or `additional_targets`
-3. Implement hop in outer orchestrator (`main.py` / UI runtime)
+2. Emit target in response_target or additional_targets
+3. Implement hop in outer orchestrator (main.py / UI runtime)
 4. Ensure bounded hop cap and timeout guards
 
 ---
 
-## 12) Future Modification Playbook
+12) Future Modification Playbook
 
-### High-priority improvements
+High-priority improvements
 
 - explicit conversation act model (intent + slot status + confidence)
-- robust validation of `challenge_answers` extraction for voice transcripts
+- robust validation of challenge_answers extraction for voice transcripts
 - stronger anti-hallucination guardrails in response packaging
 - policy simulation mode vs strict production policy mode
 
-### Medium-priority improvements
+Medium-priority improvements
 
 - replayable deterministic test harness for node/edge traversal
 - branch quality scoring for plan-tree alternatives
 - multilingual response style packs
 
-### Long-term roadmap
+Long-term roadmap
 
 - agent-to-agent protocol standardization
 - unified memory service with retrieval quality metrics
@@ -428,361 +504,95 @@ Agent: This request is outside collections scope. I can only help with loan dues
 
 ---
 
-## 13) Operational Runbook
+13) Operational Runbook
 
-### Start UI
+Start UI
 
-```bash
+bash
 cd /Users/saketm10/Projects/openclaw_agents
 ./ui-render.sh
-```
 
-### API health
+API health
 
-```bash
+bash
 curl http://127.0.0.1:8060/health
-```
 
-### Voice runtime (Pipecat test client)
+Voice runtime (Pipecat test client)
 
-- Web client URL typically hosted at `http://127.0.0.1:8788/client/`
+- Web client URL typically hosted at http://127.0.0.1:8788/client/
 - Keep collection UI and voice runtime logs separate
 
-### Reset runtime data (optional)
+Reset runtime data (optional)
 
 - clear runtime traces and session files only when starting a fresh demo set
-- keep fixtures in `data/` unchanged
+- keep fixtures in data/ unchanged
 
 ---
 
-## 14) Testing and Debugging Playbook
+14) Testing and Debugging Playbook
 
-### 14.1 Identity progression test
+14.1 Identity progression test
 
 - start user A
-- send: `My name is Aditi Sharma`
+- send: My name is Aditi Sharma
 - expected: asks for missing verification fields
-- expected plan node: `verify_identity`
-- expected marker state for verify step: `pending`
+- expected plan node: verify_identity
+- expected marker state for verify step: pending
 
-### 14.2 Verify completion test
+14.2 Verify completion test
 
 - send full verification details
-- run `customer_verify`
-- expected marker for `verify_identity`: `done`
-- expected next node: `explain_dues`
+- run verify_dob and verify_mobile
+- expected marker for verify_identity: done
+- expected next node: explain_dues
 
-### 14.3 Guardrail tests
+14.3 Guardrail tests
 
-- out-of-scope input should route to `irrelevant_response`
+- out-of-scope input should route to irrelevant_response
 - tool failures should not auto-complete customer-owned steps
 - self-target loops should honor hop limits
 
+14.4 Discount and partial-payment lifecycle tests
+
+- hardship + customer_payment_posture=cannot_pay should route to discount_planning_agent after verification
+- direct settlement / waiver / discount ask should set discount_stage=requested
+- partial payment such as I can pay 2000 today should populate customer_payment_capacity=2000 and route to discount planning
+- counter-offer after an offer context should set discount_stage=counter_offer and counter_offer_present=true
+- specialist recommendation return should be reflected into classification-owned discount_stage
+
+14.5 Conversation annotation guidance
+
+For future golden datasets, annotate:
+
+- customer_payment_posture
+- customer_payment_capacity
+- customer_payment_capacity_pct
+- discount_stage
+- customer_payment_willingness
+- expected_response_target
+- expected_handoff_payload
+- expected_node_history
+
+Use node history rather than natural-language summaries so orchestration regressions can be evaluated directly.
+
 ---
 
-## 15) Appendix: Key Files
+15) Appendix: Key Files
 
-- `agents/collection_agent/agent.py`
-- `agents/collection_agent/state.py`
-- `agents/collection_agent/nodes/collection_intent_node.py`
-- `agents/collection_agent/nodes/plan_proposal_node.py`
-- `agents/collection_agent/nodes/collection_response_node.py`
-- `agents/collection_agent/prompts/agent_prompts.yml`
-- `agents/collection_agent/prompts/tool_catalog.yml`
-- `agents/collection_agent/tools/customer_verify_tool.py`
-- `agents/collection_agent/ui/server.py`
-- `agents/collection_agent/ui/app.js`
+- agents/collection_agent/agent.py
+- agents/collection_agent/state.py
+- agents/collection_agent/nodes/collection_intent_node.py
+- agents/collection_agent/nodes/plan_proposal_state_node.py
+- agents/collection_agent/nodes/plan_proposal_graph_node.py
+- agents/collection_agent/nodes/plan_proposal_directive_node.py
+- agents/collection_agent/nodes/collection_response_node.py
+- agents/collection_agent/prompts/agent_prompts.yml
+- agents/collection_agent/prompts/tool_catalog.yml
+- agents/collection_agent/tools/verify_dob_tool.py
+- agents/collection_agent/tools/verify_mobile_tool.py
+- agents/collection_agent/ui/server.py
+- agents/collection_agent/ui/app.js
 
 ---
 
 End of document.
-
----
-NODE REFERENCE
-
-# Node Reference
-
-## Graph Order
-
-`START -> relevance_intent -> (irrelevant_response | pre_plan_intent -> execution_path_intent/memory path -> react/tool loop -> plan_proposal -> reflect -> relevant_response) -> END`
-
-## Node Contracts
-
-### 1) `relevance_intent`
-
-- Type: `CollectionIntentNode`
-- Input: `user_input`, conversation context from memory
-- Output keys: `relevance_intent`, `intent`, optional `response`
-- Route map:
-  - `relevant` -> `pre_plan_intent`
-  - `irrelevant|empty` -> `irrelevant_response`
-- Guardrails:
-  - context-aware override for identity responses during active collections sessions
-
-### 2) `irrelevant_response`
-
-- Type: `CollectionResponseNode` (static path)
-- Input: static `response_map` output from relevance gate
-- Output: final out-of-scope `response`
-- Route: terminal
-
-### 3) `pre_plan_intent`
-
-- Type: `CollectionIntentNode`
-- Input: `user_input`
-- Output: `pre_plan_intent`
-- Route map:
-  - `plan` -> `plan_proposal`
-  - `decide` -> `execution_path_intent`
-
-### 4) `execution_path_intent`
-
-- Type: `CollectionIntentNode`
-- Output: `execution_path_intent`
-- Route map:
-  - `need_memory` -> `memory_retrieve`
-  - `need_tool` -> `react`
-
-### 5) `memory_retrieve`
-
-- Type: `MemoryRetrieveNode`
-- Output: memory context/retrieval metadata
-- Route: `post_memory_plan_intent`
-
-### 6) `post_memory_plan_intent`
-
-- Type: `CollectionIntentNode`
-- Output: `post_memory_plan_intent`
-- Route map:
-  - `plan` -> `plan_proposal`
-  - `react` -> `react`
-
-### 7) `react`
-
-- Type: `ReactNode`
-- Output: `decision`, `steps`, potential tool call
-- Route map:
-  - `act` -> `tool_execution`
-  - `respond|end` -> `plan_proposal`
-
-### 8) `tool_execution`
-
-- Type: `ToolExecutionNode`
-- Output: `observation.tool_phase`
-- Route: back to `react`
-
-### 9) `plan_proposal`
-
-- Type: `PlanProposalNode`
-- Output:
-  - `plan_proposal`
-  - `conversation_plan`
-  - `response_target`
-  - `route`
-- Route map:
-  - `propose` -> `tool_execution`
-  - `continue` -> `reflect`
-- Critical logic:
-  - plan tree update, marker reconciliation, node progression
-  - strict verification marker gate (`verify_identity` requires `customer_verify.status=verified`)
-
-### 10) `reflect`
-
-- Type: `CollectionReflectNode`
-- Output: `reflection_feedback`, completion route
-- Route map:
-  - `retry_react` -> `react`
-  - `retry_plan_proposal` -> `plan_proposal`
-  - `complete` -> `relevant_response`
-
-### 11) `relevant_response`
-
-- Type: `CollectionResponseNode`
-- Output: final `response`, normalized `response_target`
-- Guardrails:
-  - no internal reasoning/tool jargon to customer
-  - verification step cannot jump to dues if identity is incomplete
-
-## Wrapper-Added Runtime Keys
-
-All node executions are wrapped and annotated with:
-
-- `node_history`
-- `previous_node`
-- `next_node`
-- `conversation_phase`
-
-This wrapper-level instrumentation powers UI-level debug visibility.
-
----
-TOOL REFERENCE
-
-# Tool Reference
-
-This reference explains how each tool should be called and how output should be interpreted inside the graph.
-
-## Tool Rules
-
-- Inputs should match schema exactly (typed fields, required IDs).
-- Tool failures must not silently progress customer-owned plan steps.
-- Tool output should be added to `observation.tool_phase.output` and consumed by `plan_proposal` + `relevant_response`.
-
-## Tools
-
-### `case_fetch`
-
-- Purpose: fetch delinquent case snapshot for one borrower/case/portfolio.
-- Inputs: `case_id?`, `customer_id?`, `portfolio_id?`
-- Outputs: `total`, `cases[]`
-- Use when: call initialization, case validation, context re-sync.
-
-### `case_prioritize`
-
-- Purpose: rank high-risk/high-recovery cases.
-- Inputs: `case_ids?`, `portfolio_id?`
-- Outputs: `total`, `queue[]`
-
-### `contact_attempt`
-
-- Purpose: log outreach attempts with channel/reach result.
-- Inputs: `case_id`, `channel?`, `reached?`
-- Outputs: `attempt_id`, `status`
-
-### `customer_verify`
-
-- Purpose: verify borrower identity against challenge answers.
-- Inputs: `case_id?`, `customer_id?`, `challenge_answers?`
-- Outputs: `status` (`verified|failed|locked`), `failed_attempts`, `required_fields`
-- Important:
-  - `verify_identity` plan step completes only when `status=verified`.
-  - partial natural-language identity utterances are tracked in memory but do not complete the step.
-
-### `loan_policy_lookup`
-
-- Purpose: load policy constraints for waiver/restructure promises.
-- Inputs: `case_id?`, `loan_id?`
-- Outputs: policy object
-
-### `dues_explain_build`
-
-- Purpose: build borrower-safe dues explanation text.
-- Inputs: `case_id`
-- Outputs: `total_due`, `explanation`
-
-### `offer_eligibility`
-
-- Purpose: evaluate concession eligibility.
-- Inputs: `case_id`, `hardship_flag?`, `requested_waiver_pct?`
-- Outputs: `allowed`, `offer_type`, `approved_waiver_pct`
-
-### `plan_propose`
-
-- Purpose: propose/revise EMI plan under hardship context.
-- Inputs: `case_id`, `hardship_reason?`, `revision_index?`, `max_installment_amount?`
-- Outputs: `plan_id`, `monthly_amount`, `first_due_date`, `status`
-
-### `payment_link_create`
-
-- Purpose: issue pay-now link.
-- Inputs: `case_id`, `amount`, `channel?`
-- Outputs: `payment_reference_id`, `payment_url`, `expires_at`
-
-### `pay_by_phone_collect`
-
-- Purpose: simulate assisted phone payment.
-- Inputs: `case_id`, `amount`, `consent_confirmed?`
-- Outputs: `payment_id`, `status`, `receipt_reference`
-
-### `payment_status_check`
-
-- Purpose: reconcile payment state.
-- Inputs: `payment_reference_id`
-- Outputs: `status`, `needs_additional_action`
-
-### `promise_capture`
-
-- Purpose: record promise-to-pay details.
-- Inputs: `case_id`, `promised_date`, `promised_amount`
-- Outputs: `promise_id`, `status`
-
-### `followup_schedule`
-
-- Purpose: schedule next callback/reminder.
-- Inputs: `case_id`, `scheduled_for`, `preferred_channel?`
-- Outputs: `schedule_id`
-
-### `disposition_update`
-
-- Purpose: persist final disposition + audit note.
-- Inputs: `case_id`, `disposition_code`, `notes`
-- Outputs: `audit_id`, `updated_at`
-
-### `channel_switch`
-
-- Purpose: move conversation to another channel while preserving context.
-- Inputs: `case_id`, `from_channel?`, `to_channel?`
-- Outputs: `switch_id`, `carried_context_summary`
-
-### `human_escalation`
-
-- Purpose: escalate dispute/fraud/sensitive requests to humans.
-- Inputs: `case_id`, `reason`
-- Outputs: `escalation_id`, `queue`, `priority`
-
----
-SAMPLE CONVERSATIONS
-
-# Sample Conversations
-
-## Conversation A: Verification incomplete, dues disclosure blocked
-
-1. Agent: "This is Alex from the bank collections team regarding your overdue amount of INR 12500. Are you available to discuss payment today?"
-2. Customer: "Sorry for the delay, how can you help me?"
-3. Agent: "Before I share details, please confirm your identity with your full name, DOB, PAN last 4, and ZIP."
-4. Customer: "My name is Aditi Sharma"
-5. Agent: "Thank you, Aditi Sharma. To complete verification, please also share your date of birth (YYYY-MM-DD), the last 4 characters of your PAN, and your registered ZIP/pincode."
-
-Expected graph behavior:
-
-- current node remains `verify_identity`
-- marker for `verify_identity` remains `pending`
-- no dues explanation until successful `customer_verify`
-
-## Conversation B: Verification complete and payment intent
-
-1. Customer: "DOB 1991-08-19, PAN last 4 AF4K, ZIP 560102"
-2. Agent: "Thank you, verification is complete. Your total due is INR 13350. Would you like to pay now?"
-3. Customer: "Yes, send payment link on SMS"
-4. Agent: "Done. I can generate the link now."
-
-Expected tool path:
-
-- `customer_verify` -> `verified`
-- `dues_explain_build`
-- `payment_link_create`
-
-## Conversation C: Hardship branch
-
-1. Customer: "I cannot pay full amount this week, can you reduce EMI?"
-2. Agent: routes to assistance path
-3. Agent: evaluates eligibility and proposes plan
-4. Customer: accepts plan and asks for follow-up date
-5. Agent: captures promise and schedules follow-up
-
-Expected tool path:
-
-- `offer_eligibility`
-- `plan_propose`
-- `promise_capture`
-- `followup_schedule`
-
-## Conversation D: Out-of-scope
-
-1. Customer: "What is today’s weather?"
-2. Agent: "This request is outside collections scope..."
-
-Expected graph behavior:
-
-- `relevance_intent` -> `irrelevant`
-- `irrelevant_response`
-- terminal

@@ -1,0 +1,43 @@
+[
+  {
+    "customer_id": "CUST-2001",
+    "payments": [
+      {"date": "2026-02-01", "amount": 12500},
+      {"date": "2026-01-01", "amount": 12500},
+      {"date": "2025-12-01", "amount": 12500}
+    ]
+  },
+  {
+    "customer_id": "CUST-2002",
+    "payments": [
+      {"date": "2026-01-15", "amount": 18900},
+      {"date": "2025-12-15", "amount": 9000}
+    ]
+  },
+  {
+    "customer_id": "CUST-2003",
+    "payments": [
+      {"date": "2026-04-05", "amount": 25000},
+      {"date": "2026-03-05", "amount": 25000}
+    ]
+  },
+  {
+    "customer_id": "CUST-2004",
+    "payments": [
+      {"date": "2025-12-20", "amount": 21000}
+    ]
+  },
+  {
+    "customer_id": "CUST-2005",
+    "payments": [
+      {"date": "2026-03-10", "amount": 28700},
+      {"date": "2026-02-10", "amount": 28700}
+    ]
+  },
+  {
+    "customer_id": "CUST-2006",
+    "payments": [
+      {"date": "2026-04-01", "amount": 31000}
+    ]
+  }
+]

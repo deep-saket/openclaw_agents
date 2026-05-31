@@ -64,7 +64,9 @@ def main() -> None:
     inputs = [
         "Yes this is Aditi.",
         "My phone number is : 9900001001and date of birth is  1991-08-19",
-        "what do you want me to verify"
+        "Actually, I recently lost my job, so I’m facing some financial problems.",
+        "I can give 6000 dollars.",
+        "I can not give more than 6000"
     ]
 
     i = 0
@@ -82,6 +84,7 @@ def main() -> None:
         if user_text.lower() in {"exit", "quit"}:
             break
 
+        print(f"you> {user_text}")
         result = runtime.run_turn(
             RunTurnRequest(
                 message=user_text,

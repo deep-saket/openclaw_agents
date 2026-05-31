@@ -19,11 +19,13 @@ class CollectionGraphState(AgentState, total=False):
     case_id: str
     channel: str
     message_source: str
+    greeted: bool
     conversation_history: list[dict[str, Any]]
 
     # Namespaced intent outputs to avoid key overwrite between stages
     relevance_intent: dict[str, Any]
     pre_plan_intent: dict[str, Any]
+    negotiation_classification: dict[str, Any]
     execution_path_intent: dict[str, Any]
     post_memory_plan_intent: dict[str, Any]
     post_verification_intent: dict[str, Any]
@@ -41,11 +43,35 @@ class CollectionGraphState(AgentState, total=False):
     extracted_entities: dict[str, Any]
     extracted_entity_descriptions: dict[str, Any]
     verification_entities: dict[str, Any]
+    customer_profile: dict[str, Any]
+    customer_profile_summary: dict[str, Any]
+    payment_history: dict[str, Any]
+    payment_history_summary: dict[str, Any]
+    offer_history: dict[str, Any]
+    offer_history_summary: dict[str, Any]
+    assistance_programs: list[dict[str, Any]]
+    active_collection_context: dict[str, Any]
     verification_missing_fields: list[str]
     verification_verified_fields: list[str]
     verified_dob: bool
     verified_mobile: bool
     identity_verified: bool
+    conversation_mode: str
+    negotiation_stage: str
+    customer_payment_posture: str
+    customer_payment_posture_history: list[str]
+    customer_payment_capacity: float | None
+    customer_payment_capacity_pct: float | None
+    discount_stage: str
+    customer_payment_willingness: float
+    hardship_context: dict[str, Any]
+    discount_requested: bool
+    discount_offered: bool
+    discount_accepted: bool
+    discount_rejected: bool
+    counter_offer_present: bool
+    response_mode: str
+    active_dialogue_owner: str
     reflection_retry_count: int
     reflection_plan_retry_count: int
     reflection_feedback: dict[str, Any]

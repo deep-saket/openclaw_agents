@@ -1,0 +1,26 @@
+[
+  {
+    "program_id": "HARDSHIP_001",
+    "eligible_products": ["personal_loan"],
+    "hardship_reasons": ["job_loss", "medical_emergency", "reduced_income"],
+    "max_discount_pct": 10,
+    "max_installments": 6,
+    "requires_manager_approval": true
+  },
+  {
+    "program_id": "RESTRUCTURE_002",
+    "eligible_products": ["business_loan", "home_loan"],
+    "hardship_reasons": ["business_loss", "cashflow_issue", "family_emergency"],
+    "max_discount_pct": 5,
+    "max_installments": 12,
+    "requires_manager_approval": false
+  },
+  {
+    "program_id": "SETTLEMENT_003",
+    "eligible_products": ["personal_loan", "business_loan", "home_loan"],
+    "hardship_reasons": ["job_loss", "salary_delay", "cashflow_issue", "reduced_income"],
+    "max_discount_pct": 15,
+    "max_installments": 4,
+    "requires_manager_approval": true
+  }
+]

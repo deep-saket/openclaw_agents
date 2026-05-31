@@ -1,0 +1,33 @@
+[
+  {
+    "case_id": "COLL-1001",
+    "offers": [
+      {"offer_pct": 5, "status": "rejected"},
+      {"offer_pct": 0, "status": "counter_offer"}
+    ]
+  },
+  {
+    "case_id": "COLL-1002",
+    "offers": [
+      {"offer_pct": 0, "status": "rejected"}
+    ]
+  },
+  {
+    "case_id": "COLL-1003",
+    "offers": []
+  },
+  {
+    "case_id": "COLL-1004",
+    "offers": [
+      {"offer_pct": 3, "status": "accepted"}
+    ]
+  },
+  {
+    "case_id": "COLL-1005",
+    "offers": []
+  },
+  {
+    "case_id": "COLL-1006",
+    "offers": []
+  }
+]
