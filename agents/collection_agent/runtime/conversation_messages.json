@@ -1454,85 +1454,302 @@
       "created_at": "2026-05-19T06:57:55.898695Z"
     }
   ],
+  "e2e-verification-1": [
+    {
+      "id": "f8731675-7a8a-4c4f-a08a-61db3003fa17",
+      "session_id": "e2e-verification-1",
+      "role": "customer",
+      "content": "My date of birth is 1991-08-19 and my registered phone number is 9900001001",
+      "created_at": "2026-05-30T04:09:38.733408Z"
+    },
+    {
+      "id": "c5cb4b5e-e0b3-4397-a8e3-051a40415d06",
+      "session_id": "e2e-verification-1",
+      "role": "agent",
+      "content": "Thank you, Aditi. Your loan account dues are 12500.00. We will now explain the dues and policy options. Would you like to pay the entire amount or discuss a payment plan?",
+      "created_at": "2026-05-30T04:11:55.948800Z"
+    }
+  ],
+  "e2e-hardship-2": [
+    {
+      "id": "e9b35b31-6834-4b4b-a273-ecd718f6bdd3",
+      "session_id": "e2e-hardship-2",
+      "role": "customer",
+      "content": "My date of birth is 1991-08-19 and my registered phone number is 9900001001",
+      "created_at": "2026-05-30T04:12:47.354542Z"
+    },
+    {
+      "id": "96380e40-4db0-4a56-8739-11a4ada4e975",
+      "session_id": "e2e-hardship-2",
+      "role": "agent",
+      "content": "Thank you for verifying your identity, Aditi. We will now explain the dues and policy options. Your loan account has an outstanding balance of 12500.00. Would you like to discuss a payment plan to settle this amount?",
+      "created_at": "2026-05-30T04:14:50.329368Z"
+    },
+    {
+      "id": "b658a891-0416-4603-b2e0-74f38b8f1169",
+      "session_id": "e2e-hardship-2",
+      "role": "customer",
+      "content": "I lost my job and I cannot pay right now. Can you help with some settlement or waiver?",
+      "created_at": "2026-05-30T04:14:50.336069Z"
+    },
+    {
+      "id": "81e77df0-d7d3-49ad-8908-c47166cf44b0",
+      "session_id": "e2e-hardship-2",
+      "role": "agent",
+      "content": "Hi Aditi, I'm glad we could discuss practical repayment options. Based on our review, we recommend a discount on your outstanding balance of 12500.00. Would you like to proceed with this arrangement and discuss the details further?",
+      "created_at": "2026-05-30T04:17:30.771764Z"
+    }
+  ],
+  "e2e-partial-2": [
+    {
+      "id": "5ae59639-112b-4ca6-83cd-78cc6540095e",
+      "session_id": "e2e-partial-2",
+      "role": "customer",
+      "content": "My date of birth is 1991-08-19 and my registered phone number is 9900001001",
+      "created_at": "2026-05-30T04:17:30.840288Z"
+    },
+    {
+      "id": "1fb6abc2-449f-44dd-881f-0d7f9190a36e",
+      "session_id": "e2e-partial-2",
+      "role": "agent",
+      "content": "Thank you, Aditi. Your dues amount is $12,500. We appreciate your cooperation in settling this amount. Would you like to discuss a payment plan to bring your account up to date?",
+      "created_at": "2026-05-30T04:20:25.301473Z"
+    },
+    {
+      "id": "726f4458-3ce5-46de-96df-8b81ccce5205",
+      "session_id": "e2e-partial-2",
+      "role": "customer",
+      "content": "I can pay 2000 today if you can settle this.",
+      "created_at": "2026-05-30T04:20:25.308668Z"
+    },
+    {
+      "id": "b47982a6-a469-4ffb-8f70-87346f7cc0c3",
+      "session_id": "e2e-partial-2",
+      "role": "agent",
+      "content": "Hi Aditi, I'm glad we could discuss practical repayment options. Based on our review, we recommend a discount on your outstanding balance. To confirm, your total overdue amount is 12,500.00. Would you like to proceed with this arrangement and discuss the details further?",
+      "created_at": "2026-05-30T04:23:39.031020Z"
+    }
+  ],
+  "e2e-align-verification": [
+    {
+      "id": "8fbbac8a-5d7e-46b6-9fe3-399ede890ae0",
+      "session_id": "e2e-align-verification",
+      "role": "customer",
+      "content": "Yes this is Aditi.",
+      "created_at": "2026-05-30T09:13:51.749318Z"
+    },
+    {
+      "id": "f4fdb378-99d3-427d-a524-b897f0f0b63a",
+      "session_id": "e2e-align-verification",
+      "role": "agent",
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-30T09:15:00.608868Z"
+    },
+    {
+      "id": "6a4f424b-8e5d-47e5-aeff-037be6767d9e",
+      "session_id": "e2e-align-verification",
+      "role": "customer",
+      "content": "My phone number is 9900001001 and date of birth is 1991-08-19",
+      "created_at": "2026-05-30T09:15:00.614084Z"
+    },
+    {
+      "id": "8db554db-6e02-4ee4-81d7-647e72cbb148",
+      "session_id": "e2e-align-verification",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth and phone number, Aditi. Your loan account has an overdue amount of 12500.00. We will discuss the dues and policy options to find a suitable payment plan for you. Would you like to pay the overdue amount in full or set up a payment plan?",
+      "created_at": "2026-05-30T09:18:04.030899Z"
+    }
+  ],
+  "e2e-align-hardship": [
+    {
+      "id": "3a25f3ed-dcbf-4ec4-8fe6-0ef06a98a129",
+      "session_id": "e2e-align-hardship",
+      "role": "customer",
+      "content": "Yes this is Aditi.",
+      "created_at": "2026-05-30T09:18:04.107824Z"
+    },
+    {
+      "id": "d5e8e992-636d-49ba-a66e-f2b3e21d2554",
+      "session_id": "e2e-align-hardship",
+      "role": "agent",
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-30T09:21:01.827843Z"
+    },
+    {
+      "id": "18c3acea-afe8-4135-aefc-315d501eb369",
+      "session_id": "e2e-align-hardship",
+      "role": "customer",
+      "content": "My phone number is 9900001001 and date of birth is 1991-08-19",
+      "created_at": "2026-05-30T09:21:01.832902Z"
+    },
+    {
+      "id": "44975c38-e357-4dbd-9ef5-e6f736f1900c",
+      "session_id": "e2e-align-hardship",
+      "role": "agent",
+      "content": "Thank you, Aditi. We've confirmed your date of birth and phone number. Now, let's discuss your loan account. You have an outstanding balance of $12,500. Would you like to discuss payment arrangements?",
+      "created_at": "2026-05-30T09:24:52.838739Z"
+    },
+    {
+      "id": "2745fda4-3b16-4885-871a-dbe689469302",
+      "session_id": "e2e-align-hardship",
+      "role": "customer",
+      "content": "I lost my job and cannot pay the full EMI right now. Can you help with a settlement or discount?",
+      "created_at": "2026-05-30T09:24:52.847105Z"
+    },
+    {
+      "id": "26d6b862-b90e-4fbf-ad7e-47137f510bc1",
+      "session_id": "e2e-align-hardship",
+      "role": "agent",
+      "content": "Hi Aditi, I'm glad we could discuss practical repayment options. Based on our review, we recommend a payment plan that can help you settle your dues of 12500.00 over a manageable period. Would you like to explore this option further and see how it can work for you?",
+      "created_at": "2026-05-30T09:27:40.014578Z"
+    }
+  ],
+  "e2e-debug-start": [
+    {
+      "id": "02d3966e-5eb1-4a2e-83c1-e9ce14e40dbc",
+      "session_id": "e2e-debug-start",
+      "role": "customer",
+      "content": "Yes this is Aditi.",
+      "created_at": "2026-05-30T09:18:44.031791Z"
+    },
+    {
+      "id": "99fa609a-275d-4be2-bcb9-d2091028edd2",
+      "session_id": "e2e-debug-start",
+      "role": "agent",
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-30T09:23:11.361792Z"
+    }
+  ],
+  "e2e-align-partial": [
+    {
+      "id": "8988f2e4-fe91-4e45-af13-fb84cdc43ecc",
+      "session_id": "e2e-align-partial",
+      "role": "customer",
+      "content": "Yes this is Aditi.",
+      "created_at": "2026-05-30T09:27:40.096983Z"
+    },
+    {
+      "id": "a4e3a2ae-be12-444b-8bc0-c3db58c461a5",
+      "session_id": "e2e-align-partial",
+      "role": "agent",
+      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
+      "created_at": "2026-05-30T09:29:46.090231Z"
+    },
+    {
+      "id": "d522e95f-fd4a-4521-abfb-4695edc0f3f5",
+      "session_id": "e2e-align-partial",
+      "role": "customer",
+      "content": "My phone number is 9900001001 and date of birth is 1991-08-19",
+      "created_at": "2026-05-30T09:29:46.095703Z"
+    },
+    {
+      "id": "afb5ce2f-c9cf-47cd-995d-01b959b57124",
+      "session_id": "e2e-align-partial",
+      "role": "agent",
+      "content": "Thank you for confirming your date of birth and phone number. Your overdue amount is 12500.00. To avoid any further charges, please make a payment of 12500.00 as soon as possible. Would you like to make a payment today?",
+      "created_at": "2026-05-30T09:32:52.394155Z"
+    },
+    {
+      "id": "ec0e2eea-98a6-4d8c-8211-8ecde1ad58ab",
+      "session_id": "e2e-align-partial",
+      "role": "customer",
+      "content": "I can pay 2000 today if you can settle this.",
+      "created_at": "2026-05-30T09:32:52.401984Z"
+    },
+    {
+      "id": "6d4afd50-b4a8-49e9-b3ac-c43a01fdc4ad",
+      "session_id": "e2e-align-partial",
+      "role": "agent",
+      "content": "Hi Aditi, I'm glad we could discuss practical repayment options. Based on your situation, we recommend a payment plan that can help you catch up on your dues. Would you like to explore this option further and see how it can work for you?",
+      "created_at": "2026-05-30T09:35:53.351846Z"
+    }
+  ],
   "collection-user_a": [
     {
-      "id": "974df8e4-b549-46ce-8471-ddb885cf2699",
+      "id": "f6bb8826-c3d6-47d9-9287-7c41fb0c8ca1",
       "session_id": "collection-user_a",
       "role": "customer",
       "content": "Hi Alex!! This is Aditi",
-      "created_at": "2026-05-19T11:08:09.520859Z"
+      "created_at": "2026-05-30T09:42:16.941914Z"
     },
     {
-      "id": "9e28277e-6784-45ad-9a5b-f9a7d882a0c4",
+      "id": "9048d776-fb03-4eea-b72b-efb33113ade7",
       "session_id": "collection-user_a",
       "role": "agent",
-      "content": "Thank you for confirming your name, Aditi. Please also confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
-      "created_at": "2026-05-19T11:08:25.742488Z"
+      "content": "Hi Aditi, to proceed, could you please provide your date of birth and phone number?",
+      "created_at": "2026-05-30T09:43:33.173272Z"
     },
     {
-      "id": "9e8ce18c-4823-4077-9bd3-71c30f8609c4",
+      "id": "94a9200e-ceb9-41d7-90c6-8c2856afe3e9",
       "session_id": "collection-user_a",
       "role": "customer",
-      "content": "My phone number is : 9900001001and date of birth is  1991-08-19",
-      "created_at": "2026-05-19T11:09:00.237270Z"
-    },
-    {
-      "id": "87f6cd60-c3ca-40c0-a81d-e7e3ff373ca7",
-      "session_id": "collection-user_a",
-      "role": "agent",
-      "content": "Thank you for confirming your date of birth and phone number. We will verify your identity and proceed with the next steps.",
-      "created_at": "2026-05-19T11:13:03.007867Z"
+      "content": "My DoB ius 1991-08-19",
+      "created_at": "2026-05-30T09:43:45.337675Z"
     }
   ],
   "collection-user_a-cli": [
     {
-      "id": "719313e4-c0ab-403f-879e-ac8c97eced04",
+      "id": "82222e2b-905c-4521-818d-ad220c9ee02d",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "Yes this is Aditi.",
-      "created_at": "2026-05-20T13:16:49.577471Z"
+      "created_at": "2026-05-30T19:17:40.203073Z"
     },
     {
-      "id": "6b92d1e9-fe72-4bfd-a8c4-9358acb13171",
+      "id": "1057ee40-5d5f-4aa2-ae9a-da8bc676ee63",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Before I share details, please confirm your date of birth (YYYY-MM-DD) and your registered phone number.",
-      "created_at": "2026-05-20T13:18:10.409942Z"
+      "content": "Please confirm the required verification details.",
+      "created_at": "2026-05-30T19:19:27.727585Z"
     },
     {
-      "id": "b541d519-082c-409a-b969-0e8c14b150fd",
+      "id": "01602e64-7631-42a6-bf2f-f401ba9ae1e3",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "My phone number is : 9900001001and date of birth is  1991-08-19",
-      "created_at": "2026-05-20T13:18:10.411746Z"
+      "created_at": "2026-05-30T19:19:27.729915Z"
     },
     {
-      "id": "eccd552a-f0a6-4e76-9980-e5d89eda01f1",
+      "id": "3c57c5a3-e193-48b2-b935-1172cb4cdc06",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "Hello Aditi Sharma, this is Alex from the bank's collections team. I am calling regarding your loan account. Your current overdue amount is $12,500. Please let me know if you'd like to discuss a payment plan. Would you like to make a payment today or would you like to discuss a payment plan?",
-      "created_at": "2026-05-20T13:20:51.126601Z"
+      "content": "We have verified your identity, Aditi. Your dues amount is 12500.00. Would you like to review your payment options and make a payment today?",
+      "created_at": "2026-05-30T19:23:11.070647Z"
     },
     {
-      "id": "c59b779c-3465-49d4-949c-558351f66b3a",
+      "id": "1076ecb6-b05a-4863-9590-999b5e78dc60",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "Actually, I recently lost my job, so I\u2019m facing some financial problems.",
-      "created_at": "2026-05-20T13:20:51.129105Z"
+      "created_at": "2026-05-30T19:23:11.073512Z"
     },
     {
-      "id": "2198be61-1448-40ef-af75-922e4ad10614",
+      "id": "453a75e0-48a5-4488-b502-d803c399df0e",
       "session_id": "collection-user_a-cli",
       "role": "agent",
-      "content": "I'm so sorry to hear about your job loss. How are you managing financially right now?",
-      "created_at": "2026-05-20T13:23:18.603670Z"
+      "content": "I understand that losing a job can be challenging, Aditi. Let's explore some practical repayment options that might work for you. Would you like to discuss a temporary payment arrangement or a payment plan that suits your current financial situation?",
+      "created_at": "2026-05-30T19:27:02.797685Z"
     },
     {
-      "id": "2a368aa8-e0fa-4901-a7a6-2539c6e50b72",
+      "id": "e4fe0613-bb31-43b5-b61c-149d513c67f7",
       "session_id": "collection-user_a-cli",
       "role": "customer",
       "content": "I can give 6000 dollars.",
-      "created_at": "2026-05-20T13:23:18.606621Z"
+      "created_at": "2026-05-30T19:27:02.801078Z"
+    },
+    {
+      "id": "5f796445-548e-49e3-9021-c2fe29d26d62",
+      "session_id": "collection-user_a-cli",
+      "role": "agent",
+      "content": "I understand that you're facing financial difficulties, Aditi. Considering your current situation, a payment of $6,000 is a good start. However, we need to discuss how to cover the remaining amount of $19,500.00. Would you like to explore a payment plan that suits your current financial situation?",
+      "created_at": "2026-05-30T19:30:29.910642Z"
+    },
+    {
+      "id": "6f3c6615-2226-4cf2-9083-fb246d4e410e",
+      "session_id": "collection-user_a-cli",
+      "role": "customer",
+      "content": "I can not give more than 6000",
+      "created_at": "2026-05-30T19:30:29.914939Z"
     }
   ]
 }

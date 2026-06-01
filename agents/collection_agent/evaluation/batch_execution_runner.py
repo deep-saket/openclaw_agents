@@ -162,7 +162,7 @@ class BatchExecutionRunner:
                 raise FileNotFoundError(f"Dataset path does not exist: {path}")
             return path
 
-        default_path = self.eval_dataset_dir / "collection_agent_golden_dataset_950.jsonl"
+        default_path = self.eval_dataset_dir / "collection_agent_golden_dataset_v3.jsonl"
         if default_path.exists():
             return default_path
 
@@ -171,7 +171,7 @@ class BatchExecutionRunner:
             return discovered[0]
         raise FileNotFoundError(
             f"No JSONL datasets found under {self.eval_dataset_dir}. "
-            "Expected eval_dataset/collection_agent_golden_dataset_950.jsonl by default."
+            "Expected eval_dataset/collection_agent_golden_dataset_v3.jsonl by default."
         )
 
     def _execute_script(
@@ -191,10 +191,17 @@ class BatchExecutionRunner:
             )
         )
 
-        customer_turns = [
-            item for item in script.get("conversation", [])
-            if isinstance(item, dict) and str(item.get("role", "")).strip().lower() == "customer"
-        ]
+        customer_turns: list[dict[str, Any]] = []
+        for item in script.get("conversation", []):
+            if not isinstance(item, dict):
+                continue
+            role = str(item.get("role", "")).strip().lower()
+            if role == "customer":
+                customer_turns.append({"text": str(item.get("text", "")).strip()})
+                continue
+            customer_text = str(item.get("customer", "")).strip()
+            if customer_text:
+                customer_turns.append({"text": customer_text})
 
         final_turn: dict[str, Any] = start_result.get("turn", {}) if isinstance(start_result.get("turn"), dict) else {}
         try:

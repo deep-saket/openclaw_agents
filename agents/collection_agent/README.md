@@ -338,13 +338,17 @@ Graph assets:
 
 Default dataset:
 
-- `agents/collection_agent/eval_dataset/collection_agent_golden_dataset_950.jsonl`
+- `agents/collection_agent/eval_dataset/collection_agent_golden_dataset_v3.jsonl`
+- supporting files:
+  - `agents/collection_agent/eval_dataset/collection_agent_manifest.csv`
+  - `agents/collection_agent/eval_dataset/collection_agent_eda.csv`
 
 Behavior:
 
 - auto-discover all `*.jsonl` files under `eval_dataset/`
 - allow explicit `dataset_path` override
 - load one script per JSONL record
+- treat each JSONL record as a full conversation trajectory with per-turn state transitions, node outputs, and tool calls
 - preserve all fields from the source dataset in execution artifacts
 - include `script_id` and `run_id` in every trace artifact
 
@@ -354,7 +358,7 @@ Example:
 from agents.collection_agent.evaluation import BatchExecutionRunner
 
 runner = BatchExecutionRunner(
-    dataset_path="agents/collection_agent/eval_dataset/collection_agent_golden_dataset_950.jsonl"
+    dataset_path="agents/collection_agent/eval_dataset/collection_agent_golden_dataset_v3.jsonl"
 )
 result = runner.run()
 ```

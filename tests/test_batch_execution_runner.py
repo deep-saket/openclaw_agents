@@ -41,15 +41,28 @@ def _write_dataset(path: Path) -> None:
         {
             "script_id": "SCRIPT_001",
             "conversation": [
-                {"role": "customer", "text": "I can pay now."},
-                {"role": "agent", "text": "annotated"},
+                {
+                    "turn_id": 1,
+                    "customer": "I can pay now.",
+                    "agent": "annotated",
+                    "nodes_traversed": [{"node": "relevant_response", "expected_output": {"response_target": "customer"}}],
+                    "tool_calls": [],
+                    "state_transitions": {"customer_payment_posture": {"old": "negotiating", "new": "pay_now"}},
+                },
             ],
             "expected_response_target": "customer",
         },
         {
             "script_id": "SCRIPT_002",
             "conversation": [
-                {"role": "customer", "text": "Can I get a settlement?"},
+                {
+                    "turn_id": 1,
+                    "customer": "Can I get a settlement?",
+                    "agent": "annotated",
+                    "nodes_traversed": [{"node": "discount_planning_agent", "expected_output": {"recommended_offer": {}}}],
+                    "tool_calls": [],
+                    "state_transitions": {"discount_stage": {"old": "none", "new": "requested"}},
+                },
             ],
             "expected_response_target": "discount_planning_agent",
         },
@@ -64,7 +77,7 @@ def test_batch_execution_runner_defaults_to_eval_dataset_and_discovers_jsonl(tmp
     base_dir = tmp_path / "collection_agent"
     eval_dir = base_dir / "eval_dataset"
     eval_dir.mkdir(parents=True)
-    dataset_path = eval_dir / "collection_agent_golden_dataset_950.jsonl"
+    dataset_path = eval_dir / "collection_agent_golden_dataset_v3.jsonl"
     _write_dataset(dataset_path)
     extra = eval_dir / "another_dataset.jsonl"
     extra.write_text('{"script_id":"X","conversation":[]}\n', encoding="utf-8")
@@ -81,7 +94,7 @@ def test_batch_execution_runner_preserves_script_ids_in_outputs(tmp_path: Path) 
     base_dir = tmp_path / "collection_agent"
     eval_dir = base_dir / "eval_dataset"
     eval_dir.mkdir(parents=True)
-    dataset_path = eval_dir / "collection_agent_golden_dataset_950.jsonl"
+    dataset_path = eval_dir / "collection_agent_golden_dataset_v3.jsonl"
     _write_dataset(dataset_path)
 
     runner = BatchExecutionRunner(
