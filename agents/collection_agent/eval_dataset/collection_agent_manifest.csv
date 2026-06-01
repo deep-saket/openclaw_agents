@@ -1,0 +1,1001 @@
+script_id,category,difficulty,turn_count,expected_response_target,expected_outcome
+COLL_TRAJ_0001,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0002,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0003,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0004,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0005,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0006,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0007,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0008,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0009,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0010,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0011,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0012,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0013,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0014,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0015,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0016,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0017,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0018,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0019,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0020,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0021,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0022,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0023,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0024,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0025,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0026,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0027,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0028,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0029,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0030,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0031,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0032,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0033,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0034,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0035,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0036,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0037,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0038,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0039,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0040,Pay Now,adversarial,8,customer,payment_link_sent
+COLL_TRAJ_0041,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0042,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0043,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0044,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0045,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0046,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0047,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0048,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0049,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0050,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0051,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0052,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0053,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0054,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0055,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0056,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0057,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0058,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0059,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0060,Pay Now,medium,9,customer,payment_link_sent
+COLL_TRAJ_0061,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0062,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0063,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0064,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0065,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0066,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0067,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0068,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0069,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0070,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0071,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0072,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0073,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0074,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0075,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0076,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0077,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0078,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0079,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0080,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0081,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0082,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0083,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0084,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0085,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0086,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0087,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0088,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0089,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0090,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0091,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0092,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0093,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0094,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0095,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0096,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0097,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0098,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0099,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0100,Pay Now After Reluctance,hard,8,customer,payment_link_sent
+COLL_TRAJ_0101,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0102,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0103,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0104,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0105,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0106,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0107,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0108,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0109,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0110,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0111,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0112,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0113,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0114,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0115,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0116,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0117,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0118,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0119,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0120,Pay Now After Reluctance,easy,9,customer,payment_link_sent
+COLL_TRAJ_0121,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0122,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0123,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0124,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0125,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0126,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0127,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0128,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0129,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0130,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0131,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0132,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0133,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0134,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0135,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0136,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0137,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0138,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0139,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0140,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0141,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0142,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0143,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0144,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0145,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0146,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0147,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0148,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0149,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0150,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0151,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0152,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0153,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0154,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0155,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0156,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0157,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0158,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0159,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0160,Promise To Pay,medium,8,customer,promise_captured
+COLL_TRAJ_0161,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0162,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0163,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0164,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0165,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0166,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0167,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0168,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0169,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0170,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0171,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0172,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0173,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0174,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0175,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0176,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0177,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0178,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0179,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0180,Promise To Pay,adversarial,9,customer,promise_captured
+COLL_TRAJ_0181,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0182,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0183,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0184,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0185,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0186,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0187,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0188,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0189,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0190,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0191,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0192,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0193,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0194,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0195,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0196,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0197,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0198,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0199,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0200,Promise To Pay With Followup,hard,9,customer,promise_captured_followup
+COLL_TRAJ_0201,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0202,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0203,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0204,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0205,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0206,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0207,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0208,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0209,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0210,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0211,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0212,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0213,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0214,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0215,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0216,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0217,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0218,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0219,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0220,Promise To Pay With Followup,easy,8,customer,promise_captured_followup
+COLL_TRAJ_0221,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0222,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0223,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0224,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0225,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0226,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0227,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0228,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0229,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0230,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0231,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0232,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0233,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0234,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0235,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0236,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0237,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0238,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0239,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0240,Partial Payment,easy,8,customer,partial_payment_arrangement
+COLL_TRAJ_0241,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0242,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0243,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0244,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0245,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0246,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0247,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0248,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0249,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0250,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0251,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0252,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0253,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0254,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0255,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0256,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0257,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0258,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0259,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0260,Partial Payment,hard,9,customer,partial_payment_arrangement
+COLL_TRAJ_0261,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0262,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0263,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0264,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0265,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0266,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0267,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0268,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0269,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0270,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0271,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0272,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0273,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0274,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0275,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0276,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0277,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0278,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0279,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0280,Partial Payment,easy,9,customer,partial_payment_arrangement
+COLL_TRAJ_0281,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0282,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0283,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0284,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0285,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0286,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0287,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0288,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0289,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0290,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0291,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0292,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0293,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0294,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0295,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0296,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0297,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0298,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0299,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0300,Partial Payment,hard,8,customer,partial_payment_arrangement
+COLL_TRAJ_0301,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0302,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0303,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0304,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0305,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0306,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0307,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0308,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0309,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0310,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0311,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0312,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0313,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0314,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0315,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0316,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0317,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0318,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0319,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0320,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0321,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0322,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0323,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0324,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0325,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0326,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0327,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0328,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0329,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0330,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0331,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0332,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0333,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0334,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0335,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0336,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0337,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0338,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0339,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0340,Partial Payment To Full Payment,hard,8,customer,partial_to_full_payment
+COLL_TRAJ_0341,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0342,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0343,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0344,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0345,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0346,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0347,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0348,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0349,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0350,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0351,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0352,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0353,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0354,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0355,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0356,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0357,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0358,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0359,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0360,Partial Payment To Full Payment,easy,9,customer,partial_to_full_payment
+COLL_TRAJ_0361,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0362,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0363,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0364,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0365,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0366,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0367,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0368,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0369,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0370,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0371,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0372,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0373,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0374,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0375,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0376,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0377,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0378,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0379,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0380,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0381,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0382,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0383,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0384,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0385,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0386,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0387,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0388,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0389,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0390,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0391,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0392,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0393,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0394,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0395,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0396,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0397,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0398,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0399,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0400,Hardship Job Loss,medium,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0401,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0402,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0403,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0404,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0405,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0406,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0407,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0408,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0409,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0410,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0411,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0412,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0413,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0414,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0415,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0416,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0417,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0418,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0419,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0420,Hardship Job Loss,adversarial,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0421,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0422,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0423,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0424,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0425,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0426,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0427,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0428,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0429,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0430,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0431,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0432,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0433,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0434,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0435,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0436,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0437,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0438,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0439,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0440,Hardship Medical Emergency,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0441,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0442,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0443,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0444,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0445,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0446,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0447,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0448,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0449,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0450,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0451,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0452,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0453,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0454,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0455,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0456,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0457,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0458,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0459,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0460,Hardship Medical Emergency,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0461,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0462,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0463,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0464,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0465,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0466,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0467,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0468,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0469,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0470,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0471,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0472,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0473,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0474,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0475,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0476,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0477,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0478,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0479,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0480,Hardship Family Crisis,easy,8,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0481,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0482,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0483,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0484,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0485,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0486,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0487,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0488,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0489,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0490,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0491,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0492,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0493,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0494,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0495,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0496,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0497,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0498,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0499,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0500,Hardship Family Crisis,hard,9,customer,hardship_arrangement_in_progress
+COLL_TRAJ_0501,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0502,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0503,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0504,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0505,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0506,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0507,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0508,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0509,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0510,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0511,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0512,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0513,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0514,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0515,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0516,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0517,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0518,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0519,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0520,Hardship Discount Accepted,hard,9,customer,hardship_discount_accepted
+COLL_TRAJ_0521,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0522,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0523,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0524,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0525,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0526,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0527,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0528,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0529,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0530,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0531,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0532,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0533,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0534,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0535,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0536,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0537,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0538,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0539,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0540,Hardship Discount Accepted,easy,9,customer,hardship_discount_accepted
+COLL_TRAJ_0541,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0542,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0543,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0544,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0545,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0546,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0547,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0548,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0549,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0550,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0551,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0552,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0553,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0554,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0555,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0556,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0557,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0558,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0559,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0560,Hardship Discount Accepted,hard,8,customer,hardship_discount_accepted
+COLL_TRAJ_0561,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0562,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0563,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0564,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0565,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0566,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0567,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0568,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0569,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0570,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0571,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0572,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0573,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0574,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0575,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0576,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0577,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0578,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0579,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0580,Hardship Discount Rejected,medium,9,customer,hardship_discount_rejected
+COLL_TRAJ_0581,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0582,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0583,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0584,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0585,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0586,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0587,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0588,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0589,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0590,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0591,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0592,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0593,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0594,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0595,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0596,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0597,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0598,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0599,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0600,Hardship Discount Rejected,adversarial,9,customer,hardship_discount_rejected
+COLL_TRAJ_0601,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0602,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0603,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0604,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0605,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0606,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0607,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0608,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0609,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0610,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0611,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0612,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0613,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0614,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0615,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0616,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0617,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0618,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0619,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0620,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0621,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0622,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0623,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0624,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0625,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0626,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0627,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0628,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0629,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0630,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0631,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0632,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0633,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0634,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0635,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0636,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0637,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0638,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0639,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0640,Settlement Request,medium,8,customer,settlement_accepted
+COLL_TRAJ_0641,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0642,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0643,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0644,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0645,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0646,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0647,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0648,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0649,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0650,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0651,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0652,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0653,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0654,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0655,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0656,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0657,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0658,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0659,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0660,Settlement Request,adversarial,9,customer,settlement_accepted
+COLL_TRAJ_0661,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0662,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0663,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0664,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0665,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0666,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0667,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0668,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0669,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0670,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0671,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0672,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0673,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0674,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0675,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0676,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0677,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0678,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0679,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0680,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0681,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0682,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0683,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0684,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0685,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0686,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0687,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0688,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0689,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0690,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0691,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0692,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0693,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0694,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0695,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0696,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0697,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0698,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0699,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0700,Settlement Request With Counter Offer,easy,10,customer,settlement_accepted
+COLL_TRAJ_0701,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0702,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0703,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0704,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0705,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0706,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0707,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0708,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0709,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0710,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0711,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0712,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0713,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0714,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0715,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0716,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0717,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0718,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0719,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0720,Settlement Request With Counter Offer,hard,11,customer,settlement_accepted
+COLL_TRAJ_0721,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0722,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0723,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0724,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0725,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0726,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0727,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0728,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0729,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0730,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0731,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0732,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0733,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0734,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0735,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0736,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0737,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0738,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0739,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0740,Customer Changes Mind,medium,10,customer,posture_transition_to_full_payment
+COLL_TRAJ_0741,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0742,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0743,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0744,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0745,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0746,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0747,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0748,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0749,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0750,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0751,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0752,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0753,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0754,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0755,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0756,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0757,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0758,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0759,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0760,Customer Changes Mind,adversarial,8,customer,posture_transition_to_partial
+COLL_TRAJ_0761,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0762,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0763,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0764,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0765,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0766,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0767,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0768,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0769,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0770,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0771,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0772,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0773,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0774,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0775,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0776,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0777,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0778,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0779,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0780,Verification Success,adversarial,8,customer,verification_success_promise
+COLL_TRAJ_0781,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0782,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0783,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0784,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0785,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0786,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0787,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0788,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0789,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0790,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0791,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0792,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0793,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0794,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0795,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0796,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0797,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0798,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0799,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0800,Verification Success,medium,9,customer,verification_success_promise
+COLL_TRAJ_0801,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0802,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0803,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0804,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0805,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0806,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0807,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0808,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0809,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0810,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0811,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0812,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0813,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0814,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0815,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0816,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0817,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0818,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0819,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0820,Verification Failure,medium,8,customer,verification_failed
+COLL_TRAJ_0821,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0822,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0823,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0824,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0825,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0826,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0827,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0828,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0829,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0830,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0831,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0832,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0833,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0834,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0835,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0836,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0837,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0838,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0839,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0840,Verification Failure,adversarial,8,customer,verification_failed
+COLL_TRAJ_0841,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0842,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0843,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0844,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0845,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0846,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0847,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0848,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0849,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0850,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0851,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0852,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0853,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0854,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0855,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0856,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0857,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0858,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0859,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0860,Wrong Contact,adversarial,8,customer,wrong_contact_marked
+COLL_TRAJ_0861,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0862,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0863,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0864,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0865,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0866,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0867,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0868,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0869,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0870,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0871,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0872,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0873,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0874,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0875,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0876,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0877,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0878,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0879,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0880,Suspicious Customer,easy,8,customer,supervisor_callback_requested
+COLL_TRAJ_0881,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0882,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0883,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0884,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0885,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0886,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0887,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0888,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0889,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0890,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0891,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0892,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0893,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0894,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0895,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0896,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0897,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0898,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0899,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0900,Bad Actor,medium,8,customer,hostile_customer_escalated
+COLL_TRAJ_0901,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0902,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0903,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0904,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0905,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0906,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0907,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0908,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0909,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0910,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0911,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0912,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0913,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0914,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0915,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0916,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0917,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0918,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0919,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0920,Debt Dispute,hard,8,customer,debt_dispute_escalated
+COLL_TRAJ_0921,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0922,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0923,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0924,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0925,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0926,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0927,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0928,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0929,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0930,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0931,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0932,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0933,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0934,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0935,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0936,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0937,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0938,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0939,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0940,Debt Dispute,easy,8,customer,debt_dispute_escalated
+COLL_TRAJ_0941,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0942,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0943,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0944,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0945,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0946,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0947,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0948,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0949,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0950,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0951,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0952,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0953,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0954,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0955,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0956,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0957,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0958,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0959,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0960,Human Escalation,easy,10,customer,human_escalation_requested
+COLL_TRAJ_0961,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0962,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0963,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0964,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0965,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0966,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0967,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0968,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0969,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0970,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0971,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0972,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0973,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0974,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0975,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0976,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0977,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0978,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0979,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0980,Human Escalation,hard,10,customer,human_escalation_requested
+COLL_TRAJ_0981,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0982,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0983,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0984,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0985,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0986,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0987,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0988,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0989,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0990,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0991,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0992,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0993,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0994,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0995,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0996,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0997,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0998,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_0999,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement
+COLL_TRAJ_1000,Multi Turn Negotiation,hard,11,customer,multi_turn_negotiation_arrangement

@@ -1,0 +1,35 @@
+metric,dimension,value
+category_count,Bad Actor,20
+category_count,Customer Changes Mind,40
+category_count,Debt Dispute,40
+category_count,Hardship Discount Accepted,60
+category_count,Hardship Discount Rejected,40
+category_count,Hardship Family Crisis,40
+category_count,Hardship Job Loss,60
+category_count,Hardship Medical Emergency,40
+category_count,Human Escalation,40
+category_count,Multi Turn Negotiation,20
+category_count,Partial Payment,80
+category_count,Partial Payment To Full Payment,60
+category_count,Pay Now,60
+category_count,Pay Now After Reluctance,60
+category_count,Promise To Pay,60
+category_count,Promise To Pay With Followup,40
+category_count,Settlement Request,60
+category_count,Settlement Request With Counter Offer,60
+category_count,Suspicious Customer,20
+category_count,Verification Failure,40
+category_count,Verification Success,40
+category_count,Wrong Contact,20
+difficulty_count,adversarial,240
+difficulty_count,easy,280
+difficulty_count,hard,280
+difficulty_count,medium,200
+average_turns,overall,8.78
+tool_frequency,human_escalation,220
+tool_frequency,payment_link_create,200
+tool_frequency,promise_capture,420
+tool_frequency,verify_dob,1160
+tool_frequency,verify_mobile,900
+response_target_frequency,customer,1000
+discount_planner_frequency,turns_with_discount_planner,640
